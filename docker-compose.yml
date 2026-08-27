@@ -1,0 +1,24 @@
+# Un seul service à cette étape : la base. L'application tourne en local via uv
+# (`make check`), elle n'est pas conteneurisée.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-raiyon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-raiyon}
+      POSTGRES_DB: ${POSTGRES_DB:-raiyon}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - raiyon_pgdata:/var/lib/postgresql/data
+    # La porte de sortie de l'étape 2 dépend de ce healthcheck : `make up`
+    # boucle dessus et refuse de rendre la main sur une base pas prête.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-raiyon} -d ${POSTGRES_DB:-raiyon}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  raiyon_pgdata:

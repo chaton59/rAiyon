@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    # Postgres est déclaré dès maintenant bien qu'aucun test ne s'en serve
+    # encore : l'étape 4 (schéma SQL et migrations) n'aura pas à retoucher la CI.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: raiyon
+          POSTGRES_PASSWORD: raiyon
+          POSTGRES_DB: raiyon
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U raiyon -d raiyon"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      RAIYON_DATABASE_URL: postgresql+psycopg://raiyon:raiyon@localhost:5432/raiyon
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      # --locked échoue si uv.lock est désynchronisé de pyproject.toml.
+      - name: Installer les dépendances
+        run: uv sync --locked
+
+      - name: Lint
+        run: make lint
+
+      - name: Types
+        run: make typecheck
+
+      # Aucun secret n'est requis : le job doit passer sur un fork. Les tests qui
+      # auront besoin d'une clé porteront le marqueur `llm`, désélectionné par défaut.
+      - name: Tests
+        run: make test

@@ -1,0 +1,87 @@
+[project]
+name = "raiyon"
+version = "0.1.0"
+description = "Assistant conseil produit en temps réel — le LLM parle des faits, il ne les invente pas."
+requires-python = ">=3.12"
+
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy>=2",
+    "alembic",
+    "psycopg[binary]",
+    "pydantic>=2",
+    "pydantic-settings",
+    "anthropic",
+    "structlog",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "httpx",
+    "ruff",
+    "mypy",
+    "pre-commit",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/raiyon"]
+
+# --------------------------------------------------------------------------- #
+# Ruff
+# --------------------------------------------------------------------------- #
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+# Ruff formate aussi les blocs de code Python contenus dans le Markdown.
+# PROJET.md est un document de cadrage : son contenu ne se reformate pas.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "ANN"]
+
+[tool.ruff.lint.per-file-ignores]
+# Les tests n'ont pas besoin d'annotations complètes : la lisibilité prime.
+"tests/**" = ["ANN"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# --------------------------------------------------------------------------- #
+# Mypy
+# --------------------------------------------------------------------------- #
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+strict = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+# Les tests sont vérifiés en mode souple : ils manipulent volontairement
+# des valeurs invalides pour vérifier que la validation les rejette.
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_incomplete_defs = false
+
+# --------------------------------------------------------------------------- #
+# Pytest
+# --------------------------------------------------------------------------- #
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers -m 'not integration and not llm'"
+markers = [
+    "integration: nécessite une base Postgres accessible (désélectionné par défaut)",
+    "llm: nécessite une clé API Anthropic et consomme des tokens (désélectionné par défaut)",
+]
