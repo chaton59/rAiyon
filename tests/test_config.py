@@ -6,7 +6,7 @@ Aucun de ces tests ne touche le réseau ni Postgres.
 import pytest
 from pydantic import ValidationError
 
-from raiyon.config import Settings, get_settings
+from raiyon.config import ConfigurationError, Settings, get_settings
 
 CLE_FACTICE = "sk-ant-test-0123456789"
 
@@ -75,6 +75,56 @@ def test_le_cache_est_vidable(monkeypatch):
 
     assert second is not premier
     assert second.app_env == "test"
+
+
+def test_variable_mal_orthographiee_est_refusee(monkeypatch):
+    """Une faute de frappe sur un nom de variable ne doit pas passer en silence."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", CLE_FACTICE)
+    monkeypatch.setenv("RAIYON_BUDGET_TOLERANC", "0.4")  # E manquant
+
+    with pytest.raises(ConfigurationError) as erreur:
+        get_settings()
+
+    message = str(erreur.value)
+    assert "RAIYON_BUDGET_TOLERANC" in message
+    assert "RAIYON_BUDGET_TOLERANCE" in message  # la suggestion est proposée
+
+
+def test_variable_inconnue_dans_le_fichier_env_est_refusee(monkeypatch, tmp_path):
+    """Le contrôle porte aussi sur `.env`, où la faute de frappe est la plus probable."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", CLE_FACTICE)
+    (tmp_path / ".env").write_text("# commentaire\nRAIYON_MAX_ITERATIONS=12\n", encoding="utf-8")
+
+    with pytest.raises(ConfigurationError) as erreur:
+        get_settings()
+
+    assert "RAIYON_MAX_ITERATIONS" in str(erreur.value)
+
+
+def test_la_cle_api_prefixee_est_refusee(monkeypatch):
+    """`RAIYON_ANTHROPIC_API_KEY` n'existe pas : le validation_alias annule le préfixe.
+
+    C'est la faute de frappe la plus plausible du projet — le préfixe est la règle
+    partout ailleurs. Sans ce contrôle, la clé n'était tout simplement pas lue.
+    """
+    monkeypatch.setenv("RAIYON_ANTHROPIC_API_KEY", CLE_FACTICE)
+
+    with pytest.raises(ConfigurationError) as erreur:
+        get_settings()
+
+    message = str(erreur.value)
+    assert "RAIYON_ANTHROPIC_API_KEY" in message
+    assert "RAIYON_ANTHROPIC_API_KEY" not in message.split("Noms acceptés :")[1]
+
+
+def test_les_variables_hors_prefixe_sont_ignorees(monkeypatch, tmp_path):
+    """`POSTGRES_PORT` et consorts sont lus par docker-compose, pas par Settings."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", CLE_FACTICE)
+    monkeypatch.setenv("POSTGRES_PORT", "5433")
+    monkeypatch.setenv("EDITOR", "vim")
+    (tmp_path / ".env").write_text("POSTGRES_PORT=5433\n", encoding="utf-8")
+
+    assert get_settings().app_env == "dev"
 
 
 def test_la_configuration_est_immuable(monkeypatch):

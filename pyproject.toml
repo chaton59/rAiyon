@@ -65,6 +65,15 @@ python_version = "3.12"
 files = ["src"]
 strict = true
 warn_unused_ignores = true
+# Sans ce plugin, mypy ne connaît pas les `__init__` synthétisés par Pydantic et
+# ne vérifie donc pas la construction des modèles. Activé dès maintenant : à
+# l'étape 4 le projet se remplit de modèles SQLAlchemy et Pydantic, et l'ajouter
+# après coup ferait apparaître des dizaines d'erreurs d'un seul coup.
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_typed = true
+warn_required_dynamic_aliases = true
 
 [[tool.mypy.overrides]]
 # Les tests sont vérifiés en mode souple : ils manipulent volontairement

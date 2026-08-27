@@ -54,4 +54,6 @@ check: lint typecheck test ## Porte de sortie : lint + types + tests
 
 clean: ## Supprime les caches d'outillage
 	rm -rf .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov
-	find . -type d -name __pycache__ -not -path './.venv/*' -exec rm -rf {} +
+	# -prune : sans lui, find redescend dans les dossiers qu'il vient de
+	# supprimer et sort en code 1, ce qui fait échouer la cible.
+	find . -name __pycache__ -type d -not -path './.venv/*' -prune -exec rm -rf {} +

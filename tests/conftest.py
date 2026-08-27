@@ -11,9 +11,9 @@ selon le poste. Les deux sources sont donc neutralisées :
 
 import pytest
 
-from raiyon.config import Settings, get_settings
+from raiyon.config import cles_reconnues, get_settings
 
-ENV_VARS = ("ANTHROPIC_API_KEY", *(f"RAIYON_{f.upper()}" for f in Settings.model_fields))
+ENV_VARS = sorted(cles_reconnues())
 
 
 @pytest.fixture(autouse=True)

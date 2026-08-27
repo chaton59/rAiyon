@@ -27,6 +27,10 @@ jobs:
 
     env:
       RAIYON_DATABASE_URL: postgresql+psycopg://raiyon:raiyon@localhost:5432/raiyon
+      # `uv sync --locked` valide le lock, mais les `uv run` qui suivent
+      # pourraient re-résoudre en silence et faire tourner la CI sur des versions
+      # que personne n'a commitées. UV_FROZEN ferme cette porte.
+      UV_FROZEN: "1"
 
     steps:
       - uses: actions/checkout@v4

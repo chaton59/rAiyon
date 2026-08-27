@@ -4,7 +4,7 @@ Document de cadrage. Il consigne les décisions d'architecture, **les alternativ
 écartées et pourquoi**. Il fait foi : toute décision qui le contredit doit être
 discutée et amender ce fichier.
 
-Statut : cadrage validé. Étape suivante — exploration du dataset.
+Statut : étapes 1 et 2 franchies. Étape suivante — 3, exploration du dataset.
 Dernière révision : 2026-08-27.
 
 ---
@@ -370,16 +370,38 @@ Ce document.
 
 ---
 
-### Étape 2 — Socle du dépôt
+### Étape 2 — Socle du dépôt ✅
 
 Structure de projet, `pyproject.toml`, `.env.example`, `docker-compose.yml` avec
 Postgres, `ruff` et `pytest` configurés, un test bidon qui passe.
 
 **Porte de sortie :** `docker-compose up` démarre Postgres, `pytest` tourne vert
-sur un dépôt vide.
+sur un dépôt vide. **Franchie.**
 
 Cette étape paraît accessoire. Elle évite de bricoler la configuration au milieu
 d'un travail de fond, ce qui est là qu'on introduit des clés en dur.
+
+**Décisions prises pendant l'exécution**, qui n'étaient pas dans le cadrage :
+
+- **uv** comme gestionnaire de dépendances et de version Python, `uv.lock`
+  commité. Alternative écartée — Poetry (plus répandu, mais plus lent et sans
+  gestion du runtime Python) ; pip + requirements (aucun prérequis, mais pas de
+  résolution reproductible, ce qui contredit l'argument de rigueur du projet).
+- **Layout `src/`** : le paquet n'est importable qu'installé, donc un import qui
+  marche depuis la racine mais casse ailleurs est impossible.
+- **Contrôle explicite des noms de variables d'environnement**
+  (`verifier_cles_inconnues`). `RAIYON_BUDGET_TOLERANC=0.4` — un `E` manquant —
+  laissait sinon la tolérance à 0.15 sans le moindre signal. Le réflexe
+  `extra="forbid"` de Pydantic a été essayé et **ne fonctionne pas** ici :
+  combiné à `env_file` et à un `validation_alias`, il fait échouer la validation
+  de tous les champs. D'où le contrôle écrit à la main, avec suggestion du nom
+  le plus proche.
+- **Marqueurs pytest `integration` et `llm` désélectionnés par défaut.** La suite
+  par défaut ne touche donc ni Postgres ni l'API, ce qui est le critère
+  d'acceptation nº5 posé dès l'étape 2 plutôt qu'à l'étape 6.
+- **Plugin mypy de Pydantic activé tout de suite**, alors qu'il ne sert encore à
+  rien : l'ajouter après l'étape 4 ferait apparaître des dizaines d'erreurs d'un
+  coup sur les modèles.
 
 ---
 

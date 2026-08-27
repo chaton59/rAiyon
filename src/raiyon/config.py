@@ -5,11 +5,27 @@ Point unique de lecture de l'environnement : aucune autre partie du code ne lit
 se déclare ici, avec son type et sa validation.
 """
 
+import difflib
+import os
+from collections.abc import Mapping
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, SecretStr
+from pydantic import AliasChoices, Field, PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PREFIXE_ENV = "RAIYON_"
+FICHIER_ENV = ".env"
+
+
+class ConfigurationError(Exception):
+    """Configuration invalide détectée avant la validation Pydantic.
+
+    Sert au cas que Pydantic ne peut pas voir : une variable d'environnement
+    dont le nom ne correspond à aucun champ. Pydantic l'ignore silencieusement
+    (`extra="ignore"`), ce qui rend une faute de frappe indétectable.
+    """
 
 
 class Settings(BaseSettings):
@@ -21,9 +37,13 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_prefix="RAIYON_",
+        env_file=FICHIER_ENV,
+        env_prefix=PREFIXE_ENV,
         frozen=True,
+        # `extra="forbid"` serait le réflexe, mais il est inutilisable ici :
+        # combiné à `env_file` et à un `validation_alias`, il fait échouer la
+        # validation de tous les champs lus depuis le fichier. Le contrôle des
+        # noms est donc fait explicitement par `verifier_cles_inconnues()`.
         extra="ignore",
         validate_default=True,
         # Les champs `model_agent` / `model_extraction` / `model_eval_client`
@@ -58,6 +78,79 @@ class Settings(BaseSettings):
     app_env: Literal["dev", "test", "prod"] = "dev"
 
 
+def cles_reconnues() -> frozenset[str]:
+    """Noms de variables d'environnement que `Settings` sait réellement consommer.
+
+    Dérivé des champs, jamais écrit à la main : la liste ne peut pas diverger du
+    modèle. Un champ portant un `validation_alias` est lu sous ce seul nom — le
+    préfixe ne s'y applique pas. C'est pourquoi `ANTHROPIC_API_KEY` est accepté
+    et `RAIYON_ANTHROPIC_API_KEY` ne l'est pas.
+    """
+    cles: set[str] = set()
+    for nom, champ in Settings.model_fields.items():
+        alias = champ.validation_alias
+        if isinstance(alias, str):
+            cles.add(alias)
+        elif isinstance(alias, AliasChoices):
+            cles.update(choix for choix in alias.choices if isinstance(choix, str))
+        else:
+            cles.add(f"{PREFIXE_ENV}{nom.upper()}")
+    return frozenset(cles)
+
+
+def _cles_du_fichier(chemin: Path) -> set[str]:
+    """Noms de variables déclarés dans un fichier `.env`, valeurs non interprétées."""
+    if not chemin.is_file():
+        return set()
+    cles: set[str] = set()
+    for ligne in chemin.read_text(encoding="utf-8").splitlines():
+        nue = ligne.strip().removeprefix("export ").strip()
+        if not nue or nue.startswith("#") or "=" not in nue:
+            continue
+        cles.add(nue.split("=", 1)[0].strip())
+    return cles
+
+
+def verifier_cles_inconnues(
+    env: Mapping[str, str] | None = None,
+    chemin_env: Path | None = None,
+) -> None:
+    """Refuse toute variable `RAIYON_*` qui ne correspond à aucun champ.
+
+    Sans ce contrôle, `RAIYON_BUDGET_TOLERANC=0.4` (un `E` manquant) laisse la
+    tolérance à sa valeur par défaut sans le moindre signal. Sur une valeur qui
+    porte un invariant produit (cf. PROJET.md §3.10), l'échec silencieux est le
+    pire des comportements.
+
+    Seul le préfixe du projet est inspecté : les variables tierces de la machine,
+    y compris les `POSTGRES_*` que lit `docker-compose.yml`, ne sont pas
+    concernées.
+    """
+    reconnues = cles_reconnues()
+    presentes = set(os.environ if env is None else env)
+    presentes |= _cles_du_fichier(Path(FICHIER_ENV) if chemin_env is None else chemin_env)
+
+    inconnues = sorted(
+        cle for cle in presentes if cle.startswith(PREFIXE_ENV) and cle not in reconnues
+    )
+    if not inconnues:
+        return
+
+    lignes = []
+    for cle in inconnues:
+        proche = difflib.get_close_matches(cle, sorted(reconnues), n=1, cutoff=0.6)
+        suggestion = f"  — vouliez-vous dire {proche[0]} ?" if proche else ""
+        lignes.append(f"  - {cle}{suggestion}")
+
+    raise ConfigurationError(
+        "Variable(s) d'environnement non reconnue(s) :\n"
+        + "\n".join(lignes)
+        + "\n\nElles auraient été ignorées en silence. Corrigez le nom, ou "
+        "retirez-les de l'environnement et de "
+        f"{FICHIER_ENV}.\nNoms acceptés : " + ", ".join(sorted(reconnues))
+    )
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Rend la configuration du processus, construite une seule fois.
@@ -65,8 +158,10 @@ def get_settings() -> Settings:
     Le cache est vidable par `get_settings.cache_clear()` — c'est ce dont les
     tests se servent pour isoler chaque cas.
     """
-    # mypy synthétise un __init__ à partir des champs et réclame donc
-    # `anthropic_api_key`. C'est faux ici : BaseSettings lit la valeur dans
-    # l'environnement. L'absence de clé reste détectée — à l'exécution, par une
-    # ValidationError (cf. tests/test_config.py).
-    return Settings()  # type: ignore[call-arg]
+    verifier_cles_inconnues()
+    # Aucun argument : `BaseSettings` lit tout dans l'environnement. Le plugin
+    # mypy de Pydantic sait que cet appel est légitime — sans lui, mypy réclame
+    # `anthropic_api_key` et il faut un `# type: ignore[call-arg]`.
+    # L'absence de clé reste détectée à l'exécution, par une ValidationError
+    # (cf. tests/test_config.py).
+    return Settings()
