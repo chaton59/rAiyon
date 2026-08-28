@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install up down logs psql fmt lint typecheck test check clean
+.PHONY: help install up down logs psql migrate revision fmt lint typecheck test test-int check clean
 
 help: ## Liste les cibles disponibles
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -35,6 +35,15 @@ logs: ## Suit les logs de la base
 psql: ## Ouvre un shell psql dans le conteneur
 	docker compose exec db psql -U raiyon -d raiyon
 
+migrate: ## Applique les migrations jusqu'à head
+	uv run alembic upgrade head
+
+revision: ## Génère une migration par autogénération — make revision m="ce qu'elle fait"
+	@test -n '$(m)' || { echo 'ERREUR : make revision m="description de la migration"'; exit 1; }
+	uv run alembic revision --autogenerate -m '$(m)'
+	@echo "→ relire la révision générée : l'autogénération ne devine ni les"
+	@echo "  justifications d'index, ni un downgrade réellement réversible."
+
 fmt: ## Formate le code et applique les corrections automatiques de ruff
 	uv run ruff format .
 	uv run ruff check --fix .
@@ -48,6 +57,9 @@ typecheck: ## Vérifie les types (mypy strict sur src/)
 
 test: ## Lance la suite de tests
 	uv run pytest
+
+test-int: ## Tests d'intégration — nécessite une base joignable (make up)
+	uv run pytest -m integration
 
 check: lint typecheck test ## Porte de sortie : lint + types + tests
 	@echo "✓ check vert"

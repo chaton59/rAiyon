@@ -1,0 +1,202 @@
+[
+  {
+    "name": "MSI GT 710 1GD3H LP",
+    "price": 45.99,
+    "chipset": "GeForce GT 710",
+    "memory": 1,
+    "core_clock": 954,
+    "boost_clock": null,
+    "color": "Black",
+    "length": 146
+  },
+  {
+    "name": "EVGA 02G-P4-6338-KR",
+    "price": 129.99,
+    "chipset": "GeForce GT 1030",
+    "memory": 2,
+    "core_clock": 1290,
+    "boost_clock": 1544,
+    "color": "Gray",
+    "length": 168
+  },
+  {
+    "name": "ATI FirePro V7900 SDI",
+    "price": 202,
+    "chipset": "FirePro V7900 SDI",
+    "memory": 2,
+    "core_clock": 725,
+    "boost_clock": null,
+    "color": "Black / Red",
+    "length": 279
+  },
+  {
+    "name": "ASRock Challenger OC",
+    "price": 269.98,
+    "chipset": "Arc B580",
+    "memory": 12,
+    "core_clock": 2670,
+    "boost_clock": 2740,
+    "color": "Black",
+    "length": 249
+  },
+  {
+    "name": "MSI VENTUS 2X OC",
+    "price": 319.99,
+    "chipset": "GeForce RTX 5060",
+    "memory": 8,
+    "core_clock": 2280,
+    "boost_clock": 2535,
+    "color": "Silver / Black",
+    "length": 197
+  },
+  {
+    "name": "PNY VCG50608DFXPB1",
+    "price": 368.99,
+    "chipset": "GeForce RTX 5060",
+    "memory": 8,
+    "core_clock": 2280,
+    "boost_clock": 2497,
+    "color": "Black",
+    "length": 200
+  },
+  {
+    "name": "PNY VCGGTX10708XPB-OC-BB",
+    "price": 399,
+    "chipset": "GeForce GTX 1070",
+    "memory": 8,
+    "core_clock": 1518,
+    "boost_clock": 1708,
+    "color": null,
+    "length": 267
+  },
+  {
+    "name": "Sapphire NITRO+",
+    "price": 451.97,
+    "chipset": "Radeon RX 6600 XT",
+    "memory": 8,
+    "core_clock": 1968,
+    "boost_clock": 2607,
+    "color": "Black / Silver",
+    "length": 240
+  },
+  {
+    "name": "Gigabyte EAGLE OC",
+    "price": 499,
+    "chipset": "GeForce RTX 4060",
+    "memory": 8,
+    "core_clock": 1830,
+    "boost_clock": null,
+    "color": "Black",
+    "length": 272
+  },
+  {
+    "name": "Gigabyte GAMING OC PRO",
+    "price": 560,
+    "chipset": "Radeon RX 6600 XT",
+    "memory": 8,
+    "core_clock": 1968,
+    "boost_clock": 2607,
+    "color": "Black / Silver",
+    "length": 282
+  },
+  {
+    "name": "EVGA FTW3 ULTRA GAMING iCX3",
+    "price": 624,
+    "chipset": "GeForce RTX 3070 LHR",
+    "memory": 8,
+    "core_clock": 1500,
+    "boost_clock": 1815,
+    "color": "Black",
+    "length": 300
+  },
+  {
+    "name": "MSI GAMING X",
+    "price": 699,
+    "chipset": "GeForce GTX 1080 Ti",
+    "memory": 11,
+    "core_clock": 1569,
+    "boost_clock": 1683,
+    "color": "Black / Red",
+    "length": 290
+  },
+  {
+    "name": "XFX Speedster SWFT 210 Core 2",
+    "price": 778.98,
+    "chipset": "Radeon RX 7800 XT",
+    "memory": 16,
+    "core_clock": 1295,
+    "boost_clock": 2430,
+    "color": "Black",
+    "length": 283
+  },
+  {
+    "name": "MSI GAMING TRIO OC PLUS",
+    "price": 849.99,
+    "chipset": "GeForce RTX 5070 Ti",
+    "memory": 16,
+    "core_clock": 2300,
+    "boost_clock": 2580,
+    "color": "Black",
+    "length": 338
+  },
+  {
+    "name": "Gigabyte WINDFORCE SFF",
+    "price": 970,
+    "chipset": "GeForce RTX 5070 Ti",
+    "memory": 16,
+    "core_clock": 2452,
+    "boost_clock": null,
+    "color": "Black",
+    "length": 304
+  },
+  {
+    "name": "MSI VENTUS 2X OC",
+    "price": 1089,
+    "chipset": "GeForce RTX 4070 SUPER",
+    "memory": 12,
+    "core_clock": 1980,
+    "boost_clock": 2520,
+    "color": "White",
+    "length": 242
+  },
+  {
+    "name": "Asus TUF GAMING OC",
+    "price": 1295,
+    "chipset": "GeForce RTX 4070 Ti",
+    "memory": 12,
+    "core_clock": 2310,
+    "boost_clock": 2760,
+    "color": "White",
+    "length": 305
+  },
+  {
+    "name": "Asus ROG STRIX GAMING OC",
+    "price": 1599.99,
+    "chipset": "GeForce RTX 4080",
+    "memory": 16,
+    "core_clock": 2205,
+    "boost_clock": 2655,
+    "color": "White",
+    "length": 358
+  },
+  {
+    "name": "EVGA FTW3 GAMING",
+    "price": 1995,
+    "chipset": "GeForce RTX 3090 Ti",
+    "memory": 24,
+    "core_clock": 1560,
+    "boost_clock": 1890,
+    "color": "Black",
+    "length": 300
+  },
+  {
+    "name": "Lenovo 4X61D97085",
+    "price": 7516.34,
+    "chipset": "RTX A5000",
+    "memory": 24,
+    "core_clock": 1170,
+    "boost_clock": 1695,
+    "color": "Black",
+    "length": 267
+  }
+]

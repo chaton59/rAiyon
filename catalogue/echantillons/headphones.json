@@ -1,0 +1,253 @@
+[
+  {
+    "name": "Philips SHE7000WT/28",
+    "price": 5.99,
+    "type": "In Ear",
+    "frequency_response": [
+      8,
+      23.5
+    ],
+    "microphone": false,
+    "wireless": false,
+    "enclosure_type": "Closed",
+    "color": "Pink / White"
+  },
+  {
+    "name": "Altec Lansing MZX106W",
+    "price": 14.95,
+    "type": "In Ear",
+    "frequency_response": [
+      20,
+      20
+    ],
+    "microphone": false,
+    "wireless": false,
+    "enclosure_type": "Closed",
+    "color": "White / Black"
+  },
+  {
+    "name": "Audio-Technica ATH-CKP200RD",
+    "price": 19.98,
+    "type": "Earbud",
+    "frequency_response": [
+      20,
+      23
+    ],
+    "microphone": false,
+    "wireless": false,
+    "enclosure_type": "Closed",
+    "color": "Black / Red"
+  },
+  {
+    "name": "JVC HA-RX500",
+    "price": 26.56,
+    "type": "Circumaural",
+    "frequency_response": [
+      10,
+      22
+    ],
+    "microphone": false,
+    "wireless": false,
+    "enclosure_type": "Closed",
+    "color": "Black / White"
+  },
+  {
+    "name": "Final E1000C",
+    "price": 34.99,
+    "type": "Earbud",
+    "frequency_response": null,
+    "microphone": false,
+    "wireless": false,
+    "enclosure_type": "Closed",
+    "color": "Blue / Black"
+  },
+  {
+    "name": "YEYIAN YDG-33406",
+    "price": 39.99,
+    "type": "Circumaural",
+    "frequency_response": [
+      20,
+      20
+    ],
+    "microphone": true,
+    "wireless": false,
+    "enclosure_type": "Closed",
+    "color": "White / Gray"
+  },
+  {
+    "name": "Logitech G435",
+    "price": 49.88,
+    "type": "Circumaural",
+    "frequency_response": [
+      20,
+      20
+    ],
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "Black / Yellow"
+  },
+  {
+    "name": "Razer Kraken V4 X",
+    "price": 59.98,
+    "type": "Circumaural",
+    "frequency_response": [
+      20,
+      20
+    ],
+    "microphone": true,
+    "wireless": false,
+    "enclosure_type": "Open",
+    "color": "Black"
+  },
+  {
+    "name": "Creative Labs Zen Hybrid",
+    "price": 69.99,
+    "type": "Circumaural",
+    "frequency_response": [
+      20,
+      20
+    ],
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "Black"
+  },
+  {
+    "name": "Razer Kraken BT - Kitty Edition",
+    "price": 79.98,
+    "type": "Circumaural",
+    "frequency_response": [
+      20,
+      20
+    ],
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "Pink / White"
+  },
+  {
+    "name": "Sennheiser HD 219s",
+    "price": 99,
+    "type": "Supra-aural",
+    "frequency_response": [
+      19,
+      21
+    ],
+    "microphone": true,
+    "wireless": false,
+    "enclosure_type": "Closed",
+    "color": "Black"
+  },
+  {
+    "name": "Samsung Buds2 Pro",
+    "price": 112.04,
+    "type": "In Ear",
+    "frequency_response": null,
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "White"
+  },
+  {
+    "name": "SteelSeries Arctis Nova 5x",
+    "price": 129.99,
+    "type": "Circumaural",
+    "frequency_response": [
+      20,
+      22
+    ],
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "Black / Green"
+  },
+  {
+    "name": "Turtle Beach Atlas Air",
+    "price": 159,
+    "type": "Circumaural",
+    "frequency_response": [
+      20,
+      40
+    ],
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "Black"
+  },
+  {
+    "name": "FiiO FT3",
+    "price": 179.99,
+    "type": "Circumaural",
+    "frequency_response": [
+      7,
+      4
+    ],
+    "microphone": false,
+    "wireless": false,
+    "enclosure_type": "Open",
+    "color": "Black"
+  },
+  {
+    "name": "Fractal Design Scape",
+    "price": 199.99,
+    "type": "Circumaural",
+    "frequency_response": [
+      20,
+      20
+    ],
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "Black"
+  },
+  {
+    "name": "Audio-Technica ATH-G1WL",
+    "price": 249,
+    "type": "Circumaural",
+    "frequency_response": [
+      5,
+      40
+    ],
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "Black"
+  },
+  {
+    "name": "Corsair VIRTUOSO MAX",
+    "price": 303.58,
+    "type": "Circumaural",
+    "frequency_response": [
+      20,
+      40
+    ],
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "Silver"
+  },
+  {
+    "name": "Apple AirPods Max (2024)",
+    "price": 449.99,
+    "type": "Circumaural",
+    "frequency_response": null,
+    "microphone": true,
+    "wireless": true,
+    "enclosure_type": "Closed",
+    "color": "Black"
+  },
+  {
+    "name": "HiFiMAN Susvara",
+    "price": 5999,
+    "type": "Circumaural",
+    "frequency_response": [
+      6,
+      75
+    ],
+    "microphone": false,
+    "wireless": false,
+    "enclosure_type": "Open",
+    "color": "Silver / Brown"
+  }
+]

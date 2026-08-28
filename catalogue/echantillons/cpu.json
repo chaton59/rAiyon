@@ -1,0 +1,202 @@
+[
+  {
+    "name": "Intel Pentium E2220",
+    "price": 12.99,
+    "core_count": 2,
+    "core_clock": 2.4,
+    "boost_clock": null,
+    "microarchitecture": "Core",
+    "tdp": 65,
+    "graphics": null
+  },
+  {
+    "name": "Intel Xeon E5-2630",
+    "price": 47.66,
+    "core_count": 6,
+    "core_clock": 2.3,
+    "boost_clock": null,
+    "microarchitecture": "Sandy Bridge",
+    "tdp": 95,
+    "graphics": null
+  },
+  {
+    "name": "Intel Core i3-7320",
+    "price": 59,
+    "core_count": 2,
+    "core_clock": 4.1,
+    "boost_clock": null,
+    "microarchitecture": "Kaby Lake",
+    "tdp": 51,
+    "graphics": "Intel HD Graphics 630"
+  },
+  {
+    "name": "AMD Ryzen 3 3200G",
+    "price": 73.45,
+    "core_count": 4,
+    "core_clock": 3.6,
+    "boost_clock": 4,
+    "microarchitecture": "Zen+",
+    "tdp": 65,
+    "graphics": "Radeon Vega 8"
+  },
+  {
+    "name": "Intel Pentium E5300",
+    "price": 86.24,
+    "core_count": 2,
+    "core_clock": 2.6,
+    "boost_clock": null,
+    "microarchitecture": "Wolfdale",
+    "tdp": 65,
+    "graphics": null
+  },
+  {
+    "name": "Intel Core i7-4930K",
+    "price": 98,
+    "core_count": 6,
+    "core_clock": 3.4,
+    "boost_clock": 3.9,
+    "microarchitecture": "Ivy Bridge",
+    "tdp": 130,
+    "graphics": null
+  },
+  {
+    "name": "Intel Core i5-4670K",
+    "price": 105.86,
+    "core_count": 4,
+    "core_clock": 3.4,
+    "boost_clock": null,
+    "microarchitecture": "Haswell",
+    "tdp": 84,
+    "graphics": "Intel HD Graphics 4600"
+  },
+  {
+    "name": "Intel Core i3-13100",
+    "price": 125.25,
+    "core_count": 4,
+    "core_clock": 3.4,
+    "boost_clock": 4.5,
+    "microarchitecture": "Raptor Lake",
+    "tdp": 60,
+    "graphics": "Intel UHD Graphics 730"
+  },
+  {
+    "name": "AMD A12-9800E",
+    "price": 142.82,
+    "core_count": 4,
+    "core_clock": 3.1,
+    "boost_clock": 3.8,
+    "microarchitecture": "Excavator",
+    "tdp": 35,
+    "graphics": "Radeon R7 (on-die)"
+  },
+  {
+    "name": "AMD Ryzen 7 5700X",
+    "price": 154.99,
+    "core_count": 8,
+    "core_clock": 3.4,
+    "boost_clock": 4.6,
+    "microarchitecture": "Zen 3",
+    "tdp": 65,
+    "graphics": null
+  },
+  {
+    "name": "Intel Core i7-3970X Extreme Edition",
+    "price": 175,
+    "core_count": 6,
+    "core_clock": 3.5,
+    "boost_clock": null,
+    "microarchitecture": "Sandy Bridge",
+    "tdp": 150,
+    "graphics": null
+  },
+  {
+    "name": "AMD Ryzen 5 7600",
+    "price": 196.97,
+    "core_count": 6,
+    "core_clock": 3.8,
+    "boost_clock": 5.1,
+    "microarchitecture": "Zen 4",
+    "tdp": 65,
+    "graphics": "Radeon"
+  },
+  {
+    "name": "Intel Xeon E5-1620 V4",
+    "price": 232.12,
+    "core_count": 4,
+    "core_clock": 3.5,
+    "boost_clock": 3.8,
+    "microarchitecture": "Broadwell",
+    "tdp": 140,
+    "graphics": null
+  },
+  {
+    "name": "AMD Opteron 6320",
+    "price": 269,
+    "core_count": 8,
+    "core_clock": 2.8,
+    "boost_clock": 3.3,
+    "microarchitecture": "Piledriver",
+    "tdp": 115,
+    "graphics": null
+  },
+  {
+    "name": "Intel Xeon E5-2667 V3",
+    "price": 298.95,
+    "core_count": 8,
+    "core_clock": 3.2,
+    "boost_clock": 3.6,
+    "microarchitecture": "Haswell",
+    "tdp": 135,
+    "graphics": null
+  },
+  {
+    "name": "Intel Xeon E3-1220 V5",
+    "price": 349.95,
+    "core_count": 4,
+    "core_clock": 3,
+    "boost_clock": 3.5,
+    "microarchitecture": "Skylake",
+    "tdp": 80,
+    "graphics": null
+  },
+  {
+    "name": "Intel Xeon E3-1240 V2",
+    "price": 400,
+    "core_count": 4,
+    "core_clock": 3.4,
+    "boost_clock": null,
+    "microarchitecture": "Ivy Bridge",
+    "tdp": 69,
+    "graphics": null
+  },
+  {
+    "name": "Intel Celeron G3920",
+    "price": 489.95,
+    "core_count": 2,
+    "core_clock": 2.6,
+    "boost_clock": null,
+    "microarchitecture": "Skylake",
+    "tdp": 35,
+    "graphics": "Intel HD Graphics 510"
+  },
+  {
+    "name": "AMD Ryzen 7 5800X3D",
+    "price": 704.86,
+    "core_count": 8,
+    "core_clock": 3.4,
+    "boost_clock": 4.5,
+    "microarchitecture": "Zen 3",
+    "tdp": 105,
+    "graphics": null
+  },
+  {
+    "name": "AMD Threadripper 3990X",
+    "price": 2699.99,
+    "core_count": 64,
+    "core_clock": 2.9,
+    "boost_clock": 4.3,
+    "microarchitecture": "Zen 2",
+    "tdp": 280,
+    "graphics": null
+  }
+]

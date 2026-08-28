@@ -1,0 +1,262 @@
+[
+  {
+    "name": "Planar PLL2210MW",
+    "price": 55,
+    "screen_size": 22,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "refresh_rate": null,
+    "response_time": 5,
+    "panel_type": null,
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "MSI PRO MP242A E2",
+    "price": 109.99,
+    "screen_size": 23.8,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "refresh_rate": 120,
+    "response_time": 4,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "Samsung S33GC",
+    "price": 139.81,
+    "screen_size": 24,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "refresh_rate": 100,
+    "response_time": null,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "Asus VP228HE",
+    "price": 159,
+    "screen_size": 21.5,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "refresh_rate": 60,
+    "response_time": 1,
+    "panel_type": "TN",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "LG 24MB35P-B",
+    "price": 176.89,
+    "screen_size": 23.8,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "refresh_rate": 60,
+    "response_time": 5,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "LG 27BK430H-B",
+    "price": 193.36,
+    "screen_size": 27,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "refresh_rate": 75,
+    "response_time": 5,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "Dell P2419H",
+    "price": 209,
+    "screen_size": 23.8,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "refresh_rate": 60,
+    "response_time": 5,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "Acer VG272U W2",
+    "price": 229.99,
+    "screen_size": 27,
+    "resolution": [
+      2560,
+      1440
+    ],
+    "refresh_rate": 240,
+    "response_time": 1,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "LG 27QN600-B",
+    "price": 249.99,
+    "screen_size": 27,
+    "resolution": [
+      2560,
+      1440
+    ],
+    "refresh_rate": 75,
+    "response_time": 5,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "Dell S2725QS",
+    "price": 279,
+    "screen_size": 27,
+    "resolution": [
+      3840,
+      2160
+    ],
+    "refresh_rate": 120,
+    "response_time": 4,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "BenQ BL2480T",
+    "price": 299.99,
+    "screen_size": 23.8,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "refresh_rate": 60,
+    "response_time": 5,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "Asus TUF Gaming VG27AQL1A",
+    "price": 335.5,
+    "screen_size": 27,
+    "resolution": [
+      2560,
+      1440
+    ],
+    "refresh_rate": 170,
+    "response_time": null,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "AOC G2 CQ32G2S",
+    "price": 375,
+    "screen_size": 31.5,
+    "resolution": [
+      2560,
+      1440
+    ],
+    "refresh_rate": 165,
+    "response_time": null,
+    "panel_type": "VA",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "Pixio PX27U Wave",
+    "price": 399.99,
+    "screen_size": 27,
+    "resolution": [
+      3840,
+      2160
+    ],
+    "refresh_rate": 160,
+    "response_time": 1,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "Asus ProArt PA279CRV",
+    "price": 492.26,
+    "screen_size": 27,
+    "resolution": [
+      3840,
+      2160
+    ],
+    "refresh_rate": 60,
+    "response_time": 5,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "Dell UP3216Q",
+    "price": 599.99,
+    "screen_size": 31.5,
+    "resolution": [
+      3840,
+      2160
+    ],
+    "refresh_rate": 60,
+    "response_time": 6,
+    "panel_type": "IPS",
+    "aspect_ratio": "16:9"
+  },
+  {
+    "name": "LG 34WN750-B",
+    "price": 704.11,
+    "screen_size": 34,
+    "resolution": [
+      3440,
+      1440
+    ],
+    "refresh_rate": 75,
+    "response_time": 5,
+    "panel_type": "IPS",
+    "aspect_ratio": "21:9"
+  },
+  {
+    "name": "LG UltraGear",
+    "price": 879.99,
+    "screen_size": 49,
+    "resolution": [
+      5120,
+      1440
+    ],
+    "refresh_rate": 240,
+    "response_time": 1,
+    "panel_type": "VA",
+    "aspect_ratio": "32:9"
+  },
+  {
+    "name": "ViewSonic VP3881A",
+    "price": 1199.99,
+    "screen_size": 38,
+    "resolution": [
+      3840,
+      1600
+    ],
+    "refresh_rate": null,
+    "response_time": 5,
+    "panel_type": "IPS",
+    "aspect_ratio": "12:5"
+  },
+  {
+    "name": "LG 65EP5G-B",
+    "price": 9333,
+    "screen_size": 65,
+    "resolution": [
+      3840,
+      2160
+    ],
+    "refresh_rate": 120,
+    "response_time": 0.1,
+    "panel_type": "OLED",
+    "aspect_ratio": "16:9"
+  }
+]

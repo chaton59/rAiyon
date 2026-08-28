@@ -1,0 +1,202 @@
+[
+  {
+    "name": "Verbatim 99201",
+    "price": 10.77,
+    "style": "Standard",
+    "switches": null,
+    "backlit": null,
+    "tenkeyless": false,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Gigabyte GK-KM5200",
+    "price": 20.01,
+    "style": "Standard",
+    "switches": null,
+    "backlit": null,
+    "tenkeyless": false,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Logitech K270",
+    "price": 28.84,
+    "style": "Gaming",
+    "switches": null,
+    "backlit": null,
+    "tenkeyless": false,
+    "connection_type": "Wireless",
+    "color": "Black"
+  },
+  {
+    "name": "Thermaltake Commander Combo V2",
+    "price": 34.98,
+    "style": "Gaming",
+    "switches": null,
+    "backlit": "Multicolor",
+    "tenkeyless": false,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Tecware Phantom 104",
+    "price": 39.99,
+    "style": "Gaming",
+    "switches": "Outemu Blue",
+    "backlit": "RGB",
+    "tenkeyless": false,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "ADATA XPG Sorcerer Mini",
+    "price": 49.99,
+    "style": "Mini",
+    "switches": "XPG Red",
+    "backlit": "RGB",
+    "tenkeyless": true,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "NZXT Function 2",
+    "price": 54.94,
+    "style": "Gaming",
+    "switches": "NZXT Swift Optical 40g",
+    "backlit": "RGB",
+    "tenkeyless": true,
+    "connection_type": "Wired, Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Logitech K845",
+    "price": 65.98,
+    "style": "Standard",
+    "switches": "TTC Brown",
+    "backlit": "White",
+    "tenkeyless": false,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Montech MKey",
+    "price": 77.34,
+    "style": "Gaming",
+    "switches": "Gateron G Pro 2.0 Red",
+    "backlit": "RGB",
+    "tenkeyless": true,
+    "connection_type": "Wired",
+    "color": "Teal / White"
+  },
+  {
+    "name": "Logitech POP Keys Heartbreaker",
+    "price": 87.9,
+    "style": "Mini",
+    "switches": "TTC Brown",
+    "backlit": null,
+    "tenkeyless": true,
+    "connection_type": "Wireless, Bluetooth Wireless",
+    "color": "Pink / Red"
+  },
+  {
+    "name": "Montech MKey",
+    "price": 95.6,
+    "style": "Gaming",
+    "switches": "Gateron G Pro 2.0 Red",
+    "backlit": "RGB",
+    "tenkeyless": false,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Razer Huntsman Mini",
+    "price": 99.99,
+    "style": "Mini",
+    "switches": "Razer Red Optical Linear",
+    "backlit": "RGB",
+    "tenkeyless": true,
+    "connection_type": "Wired",
+    "color": "White"
+  },
+  {
+    "name": "Logitech G PRO",
+    "price": 117.9,
+    "style": "Gaming",
+    "switches": "GX Blue",
+    "backlit": "RGB",
+    "tenkeyless": true,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Logitech MX KEYS S",
+    "price": 129.99,
+    "style": "Standard",
+    "switches": null,
+    "backlit": null,
+    "tenkeyless": false,
+    "connection_type": "Wired, Wireless, Bluetooth Wireless",
+    "color": "Black"
+  },
+  {
+    "name": "SteelSeries Apex Pro TKL (2023)",
+    "price": 148.99,
+    "style": "Gaming",
+    "switches": "SteelSeries OmniPoint 2.0",
+    "backlit": "RGB",
+    "tenkeyless": true,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Kinesis Gaming Freestyle Pro Quiet",
+    "price": 169,
+    "style": "Ergonomic Split",
+    "switches": "Cherry MX Silent Red",
+    "backlit": null,
+    "tenkeyless": true,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Thermaltake ARGENT K6",
+    "price": 191.99,
+    "style": "Gaming",
+    "switches": "Cherry MX Low Profile Red",
+    "backlit": "RGB",
+    "tenkeyless": false,
+    "connection_type": "Wired",
+    "color": null
+  },
+  {
+    "name": "Das Keyboard 5QS",
+    "price": 219,
+    "style": "Gaming",
+    "switches": "Gamma Zulu Tactile",
+    "backlit": "RGB",
+    "tenkeyless": false,
+    "connection_type": "Wired",
+    "color": "Black"
+  },
+  {
+    "name": "Razer DeathStalker V2 Pro",
+    "price": 249.99,
+    "style": "Gaming",
+    "switches": "Razer Purple Low-Profile Optical Clicky",
+    "backlit": "RGB",
+    "tenkeyless": false,
+    "connection_type": "Wired, Wireless, Bluetooth Wireless",
+    "color": "White"
+  },
+  {
+    "name": "Microsoft WTA-00001",
+    "price": 909.36,
+    "style": "Ergonomic",
+    "switches": null,
+    "backlit": null,
+    "tenkeyless": false,
+    "connection_type": "Wireless",
+    "color": "Black / Silver"
+  }
+]

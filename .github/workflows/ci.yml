@@ -8,8 +8,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
-    # Postgres est déclaré dès maintenant bien qu'aucun test ne s'en serve
-    # encore : l'étape 4 (schéma SQL et migrations) n'aura pas à retoucher la CI.
+    # Postgres sert les tests d'intégration de l'étape 4 (migrations, contraintes,
+    # index) : `make test-int` crée sa propre base jetable `raiyon_test` sur cette
+    # instance et la supprime à la fin.
     services:
       postgres:
         image: postgres:16-alpine
@@ -55,3 +56,9 @@ jobs:
       # auront besoin d'une clé porteront le marqueur `llm`, désélectionné par défaut.
       - name: Tests
         run: make test
+
+      # Séparé de `make test` à dessein : si l'étape échoue, on sait immédiatement
+      # que c'est la base et non la logique pure. Aucun secret requis non plus - la
+      # clé API est remplacée par une valeur factice, ces tests n'appellent aucun LLM.
+      - name: Tests d'intégration
+        run: make test-int

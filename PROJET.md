@@ -4,8 +4,10 @@ Document de cadrage. Il consigne les décisions d'architecture, **les alternativ
 écartées et pourquoi**. Il fait foi : toute décision qui le contredit doit être
 discutée et amender ce fichier.
 
-Statut : étapes 1 et 2 franchies. Étape suivante — 3, exploration du dataset.
-Dernière révision : 2026-08-27.
+Statut : étapes 1 à 4 franchies. Source, domaine et 6 catégories arrêtés
+(3.4, 3.4bis), schéma d'attributs écrit et validé, schéma SQL migré et testé.
+Étape suivante — 5, pipeline de normalisation des données.
+Dernière révision : 2026-08-28.
 
 ---
 
@@ -48,23 +50,39 @@ En pratique :
 
 ## 3. Décisions d'architecture
 
-### 3.1 — Catalogue : 5 à 6 catégories, ~30 produits chacune
+### 3.1 — Catalogue : 6 catégories, ~150-200 produits chacune
 
-**Retenu.** Un périmètre de 150 à 200 produits sur 5-6 catégories.
+**Retenu.** Un périmètre d'environ **1 000 produits sur 6 catégories**.
 
 **Condition attachée à ce choix :** chaque catégorie doit disposer d'au moins
-**6 attributs discriminants** (au-delà du prix et de la marque). Sans cela, le
-moteur n'a rien pour départager et toute recommandation devient triviale. Cette
-condition est vérifiée à l'étape d'exploration du dataset, avant écriture du
-pipeline.
+**5 attributs discriminants** renseignés à **≥ 80 %** (au-delà du prix). Sans
+cela, le moteur n'a rien pour départager et toute recommandation devient
+triviale. Condition vérifiée à l'étape 3, avant écriture du pipeline. Le décompte
+obéit à la règle 3.4quater.
+
+**Volume révisé à la hausse après l'étape 3.** Le cadrage initial prévoyait ~30
+produits par catégorie. À ce volume, un filtre dur réaliste — « SSD M.2 de 2 To
+sous 150 $ » — renvoie zéro résultat la plupart du temps : le cas d'échec
+deviendrait le cas courant au lieu d'être un cas limite, et le classement n'aurait
+presque jamais de quoi s'exercer.
+
+**Objection à cette révision, et sa réponse.** Un catalogue de 30 produits par
+catégorie se relit intégralement à l'œil, ce qui rassure sur le critère nº1.
+Mais la vérification anti-hallucination ne repose pas sur une relecture humaine :
+elle repose sur le **validateur programmatique** du §3.11, qui compare les IDs et
+les valeurs citées au contexte réellement fourni. Ce mécanisme est indifférent à
+la taille du catalogue. La relisibilité n'était donc pas une garantie, seulement
+un confort.
 
 **Alternative écartée — 1 à 2 catégories profondes.** Matching plus riche et
 schéma plus simple, mais ne démontre pas que l'architecture absorbe
 l'hétérogénéité des attributs, qui est le vrai problème de modélisation ici.
 
-**Alternative écartée — catalogue large (10+ catégories, 500+ produits).**
-L'effort part dans la production de données au lieu du raisonnement, qui est le
-sujet du projet.
+**Alternative écartée — charger les 9 687 produits à prix.** Aucun biais
+d'échantillonnage à justifier, mais un seed committé nettement plus lourd, et
+surtout les cas limites nécessaires aux tests (produit juste au-dessus d'un
+budget rond, deux produits quasi identiques) ne seraient plus **placés** : il
+faudrait les trouver.
 
 ### 3.2 — PostgreSQL, via docker-compose
 
@@ -96,33 +114,205 @@ remplit de NULL.
 **Alternative écartée — EAV (table clé/valeur).** Flexibilité maximale, mais les
 requêtes deviennent des cascades de JOIN et on perd tout typage.
 
-### 3.4 — Données : dataset public réel + passe de normalisation LLM
+### 3.3bis — Indexation des `specs` : un GIN, et un balayage séquentiel assumé
 
-**Retenu.** Un dataset public sert de colonne vertébrale (noms, marques, prix,
-descriptions authentiques). Un script one-shot appelle un LLM pour extraire et
-normaliser les caractéristiques techniques vers le schéma retenu. Le résultat est
-**figé dans un seed versionné** : le pipeline n'est pas rejoué à chaque
-installation.
+**Retenu.** Un seul index, GIN `jsonb_path_ops`, sur la colonne `specs`. Aucun
+index d'expression.
 
-Candidats à évaluer :
-- [Datafiniti — Electronic Products & Pricing](https://www.kaggle.com/datasets/datafiniti/electronic-products-prices)
-  (15 000 produits, mais aucune spec technique)
-- [McAuley-Lab/Amazon-Reviews-2023](https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023)
-  (métadonnées riches, champ `details` semi-structuré, très bruité)
-- [iarbel/amazon-product-data-filter](https://huggingface.co/datasets/iarbel/amazon-product-data-filter)
-  (données techniques en tuples clé/valeur)
+**Ce que cet index fait :** il sert l'égalité et la containment (`specs @> '…'`).
+**Ce qu'il ne fait pas, et il faut le dire :** il ne sert **pas** les comparaisons
+de plage, qui sont pourtant la forme la plus fréquente des filtres durs du domaine
+— « au moins 2 To », « 144 Hz minimum », « 12 Go de VRAM ». `(specs->>'capacity')::int
+>= 2000` provoque un **balayage séquentiel** de la table.
 
-Le script de normalisation est lui-même une démonstration de sortie structurée
-LLM, et fait partie des livrables.
+**Pourquoi c'est acceptable ici :** à ~1 000 produits (3.1), un balayage séquentiel
+coûte quelques millisecondes, soit trois ordres de grandeur sous la latence du
+moindre appel LLM. Le coût est réel mais invisible.
+
+**Ce que ce choix ne démontre pas.** La justification de Postgres en 3.2 invoquait
+l'indexation du JSONB. Sur les filtres de plage, ce schéma ne la démontre pas : il
+tient par la petite taille du catalogue, pas par l'index. C'est une limite du
+livrable, pas un détail d'implémentation, et elle est écrite en commentaire dans la
+migration pour qu'on ne la redécouvre pas au mauvais moment.
+
+**Alternative écartée — index d'expression B-tree sur chaque champ numérique
+filtré** (`((specs->>'capacity')::int)`). C'est l'échappatoire connue si le volume
+changeait d'ordre de grandeur. Écartée maintenant parce qu'elle demande un index par
+champ **et** par catégorie — une vingtaine d'index pour une table de 1 000 lignes,
+qu'il faudrait maintenir en cohérence avec `schema_attributs.md` à chaque évolution.
+Optimiser avant d'avoir mesuré un problème coûterait plus qu'il ne rapporterait.
+
+**Alternative écartée — promouvoir les champs de plage en colonnes typées.** Elle
+supprimerait le problème, mais ramènerait la table de colonnes fixes que 3.3 a
+écartée, avec ses NULL et sa migration par catégorie.
+
+### 3.4 — Données : `docyx/pc-part-dataset`, déjà structuré
+
+**Retenu.** [`docyx/pc-part-dataset`](https://github.com/docyx/pc-part-dataset) —
+66 778 produits, licence MIT, JSON/JSONL/CSV versionnés dans le dépôt, snapshot
+de juillet 2025, scrapé de PCPartPicker. Chaque produit porte un `price` en USD.
+
+Ce qui décide : **les attributs sont déjà typés, nommés et unitaires**
+(`refresh_rate` en Hz, `response_time` en ms, `capacity` en GB,
+`frequency_response` en `[min, max]` kHz, `tdp` en W). Le
+[schéma complet](https://github.com/docyx/pc-part-dataset/blob/main/API.md) est
+publié et lisible avant tout téléchargement. Il n'y a pas d'extraction
+d'attributs à faire : il y a une normalisation déterministe à écrire.
+
+**Alternatives écartées — les trois candidats Amazon**
+([Datafiniti](https://www.kaggle.com/datasets/datafiniti/electronic-products-prices),
+[Amazon-Reviews-2023](https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023),
+[iarbel/amazon-product-data-filter](https://huggingface.co/datasets/iarbel/amazon-product-data-filter)).
+Toutes trois échouent pour la même raison, celle qui était déjà identifiée en
+3.4bis : les « specs » y sont du texte marketing en champ libre. Le pipeline LLM
+n'y aurait pas *normalisé* une structure, il l'aurait **créée** — donc inventée.
+Incompatible avec l'invariant central du projet.
+
+**Alternative écartée — [Open Icecat](https://icecat.com/structured-data-content-users/).**
+18 M de fiches, specs validées par les marques, 70+ langues dont le français :
+la meilleure qualité de données en absolu, et elle réglait le problème de
+traduction. Écartée sur un point unique et rédhibitoire — **Icecat ne porte pas
+de prix** (c'est de la syndication de contenu, les prix viennent des revendeurs).
+Un moteur à contrainte budgétaire sans prix n'existe pas.
+
+**Alternatives écartées, plus brièvement.**
+[Best Buy open-data-set](https://github.com/BestBuyAPIs/open-data-set) (~50 k
+produits avec prix, mais quasi aucun attribut technique) ;
+[Amazon Berkeley Objects](https://registry.opendata.aws/amazon-berkeley-objects/)
+(18 attributs, mais génériques — couleur, matériau, dimensions — donc non
+discriminants) ; les scrapes GSMArena (attributs excellents, mais mono-catégorie).
 
 **Alternative écartée — catalogue entièrement généré.** Beaucoup plus rapide, et
 permet de placer volontairement les cas limites nécessaires aux tests. Mais des
 prix inventés affaiblissent un projet dont l'argument central est précisément de
 ne rien inventer.
 
-**Conséquence assumée :** une étape de data engineering qui n'est pas le cœur du
-sujet, et des surprises garanties au nettoyage. Ce qui reste dérivé plutôt que
-réel sera **explicitement documenté** dans le README.
+**Conséquences assumées, à documenter dans le README :**
+
+1. Le dépôt est MIT, mais les données sous-jacentes sont **scrapées de
+   PCPartPicker**. Acceptable pour un projet de portfolio, à condition de le dire.
+2. Les prix sont en **USD et figés à juillet 2025**. Le catalogue est un snapshot,
+   pas un flux.
+3. Il n'y a **ni description produit, ni disponibilité**. La disponibilité sort du
+   modèle : aucune source ne la porte, on ne l'invente pas. L'absence de
+   description est en réalité favorable — la justification devra se construire sur
+   les attributs, jamais sur de la copie marketing.
+4. Certains champs sont des unions hétérogènes (`number | [number, number]`,
+   booléens, chaînes). La normalisation est réelle, mais **déterministe et
+   testable** : aucun LLM n'y intervient.
+
+### 3.4bis — Domaine retenu : composants et périphériques PC
+
+Le choix du dataset entraîne le domaine. On passe d'« électronique grand public »
+à **composants PC** : le scénario de conseil devient « aide-moi à choisir un
+écran / un SSD / une carte graphique ». C'est un domaine que le porteur du projet
+maîtrise, ce qui rend la relecture des recommandations possible — critère décisif
+sur un projet dont la qualité perçue dépend de la pertinence du conseil.
+
+**Six catégories retenues**, arrêtées après mesure du remplissage réel à
+l'étape 3 (et non plus d'après la documentation de la source) :
+
+| Catégorie | Produits à prix | Attributs discriminants ≥ 80 % |
+| --- | --- | --- |
+| `memory` | 2 907 | 6 |
+| `internal-hard-drive` | 2 103 | 6 |
+| `monitor` | 1 367 | 6 |
+| `video-card` | 1 275 | 6 |
+| `keyboard` | 824 | 4 → **retirée** |
+| `headphones` | 664 | 6 |
+| `cpu` | 547 | 5 |
+
+**Le seuil avait déjà été abaissé de 6 à 5 avant mesure**, pour récupérer casque
+et clavier : les périphériques ont réellement moins d'axes de choix, et maintenir
+6 revenait à appliquer un critère numérique contre la réalité du domaine.
+
+**`keyboard` est retirée.** Elle plafonne à 4 attributs : `switches` (54,0 %) et
+`backlit` (56,3 %) sont trop lacunaires. Les absences ne sont pourtant pas
+aléatoires — elles se concentrent sur les styles `Standard`, `Slim` et
+`Ergonomic`, c'est-à-dire des claviers à membrane non rétroéclairés. Lire ces
+`null` comme « membrane » et « aucun » repêcherait la catégorie, et l'hypothèse
+est crédible. **Elle est refusée quand même** : la source ne le dit pas, et un
+projet dont l'argument central est de ne rien inventer ne peut pas commencer par
+combler ses propres trous. Voir 3.4quater.
+
+**`cpu` est repêchée** par la marque, attribut dérivé de façon déterministe. Elle
+n'échouait que d'un attribut, et pour une raison de documentation : `smt` est
+promis par `API.md` et **n'existe dans aucun des 1 413 CPU**. Le décompte initial
+de cette section reposait sur la doc de la source, pas sur ses données.
+
+**Alternative écartée — outillage électroportatif.** Attributs nettement plus
+discriminants et chiffrés (tension, couple, autonomie), donc un meilleur terrain
+de jeu pour le moteur de matching. Écartée sur le volume de données disponible.
+
+**Conséquence assumée :** seuls **24 % des produits de la source portent un
+prix**. Le catalogue exploitable tombe à 9 687 produits, ce qui reste très
+au-dessus des ~1 000 visés en 3.1, mais la sélection n'est pas neutre — les
+produits sans prix sont vraisemblablement les moins distribués. À documenter.
+
+### 3.4quater — Règle de comptage des attributs
+
+Une grandeur **dérivée de façon déterministe** de champs présents compte comme un
+attribut à part entière. Un **comblement d'absence** ne compte pas, et n'est pas
+autorisé.
+
+| Cas | Nature | Compte ? |
+| --- | --- | --- |
+| `price_per_gb` = `price / capacity` | fonction de deux champs renseignés | ✅ |
+| `marque` = premier mot de `name` | parsing déterministe, couverture 100 % | ✅ |
+| `switches = null` → « membrane » | hypothèse comblant un trou | ❌ |
+
+**Pourquoi cette règle existe.** Le verdict brut de l'étape 3 était incohérent :
+`internal-hard-drive` n'ouvrait que grâce à `price_per_gb`, une grandeur dérivée,
+pendant qu'on envisageait de refuser à `cpu` un repêchage par la marque, dérivée
+elle aussi. On ne peut pas compter l'une et refuser l'autre. La ligne de partage
+qui tient n'est pas « champ source contre champ dérivé », mais **calcul contre
+supposition** : le premier ne crée aucune information, le second en invente.
+
+**Conséquence directe :** la marque n'existe dans **aucune** catégorie de la
+source — elle n'est présente que dans le premier mot de `name`. Son extraction
+est donc une transformation à écrire et à tester (étape 5), appliquée
+uniformément aux 6 catégories. C'est aussi un filtre dur que les utilisateurs
+expriment réellement (« je veux du Intel »), pas un artifice de décompte.
+
+**Fragilité à assumer, et elle est réelle :** cette règle est écrite **après**
+avoir vu les résultats de la mesure. Trois éléments la distinguent d'un
+déplacement de poteaux de but, et le README doit les porter : elle s'énonce
+comme un principe général et non comme une exception ; elle s'applique aux 6
+catégories, pas à celle qu'elle sauve ; et elle **continue d'en fermer une**.
+
+### 3.4ter — Langue du catalogue : passe LLM réduite
+
+Les données sources sont en anglais, le dialogue est en français. La source ne
+portant **pas de description**, la passe LLM de l'étape 5 est ramenée à deux
+sorties, et deux seulement :
+
+1. la traduction du **nom court** vers le français ;
+2. un **résumé d'usage** en français, court, du type « bureautique et
+   multi-écrans » ou « gaming compétitif ». Champ d'**affichage seul** : il
+   n'entre jamais dans le filtrage ni dans le score du moteur.
+
+Restent intacts, non traduits, non reformulés : la **marque**, la **référence
+constructeur**, le **prix**, et toute valeur d'attribut numérique ou unitaire.
+
+**Alternative écartée — garder l'anglais.** Traçabilité parfaite vers la source et
+aucune transformation, mais un assistant qui répond en français en citant des
+produits anglais est incohérent en démonstration.
+
+**Alternative écartée — passer tout le projet en anglais.** Le plus cohérent dans
+l'absolu, mais le cadrage, le code et l'historique sont déjà en français.
+
+**Conséquence assumée, et elle est sérieuse :** la traduction est une génération
+LLM, donc une surface d'invention supplémentaire — précisément ce que le projet
+cherche à éliminer. Trois garde-fous :
+
+1. la traduction est **figée dans le seed**, produite une fois, relue par
+   échantillon, jamais rejouée au runtime ;
+2. les champs porteurs de faits (prix, marque, référence, attributs) ne passent
+   **pas** par elle ;
+3. le champ traduit et le champ source d'origine sont **tous deux conservés en
+   base**, ce qui rend l'écart auditable à tout moment ;
+4. le résumé d'usage est **exclu du moteur** : il ne peut donc pas influencer un
+   classement, seulement l'affichage.
 
 ### 3.5 — Recherche vectorielle : hors périmètre du produit livrable
 
@@ -405,46 +595,148 @@ d'un travail de fond, ce qui est là qu'on introduit des clés en dur.
 
 ---
 
-### Étape 3 — Exploration du dataset et schéma d'attributs
+### Étape 3 — Exploration du dataset et schéma d'attributs ✅
 
-**C'est l'étape la plus risquée du projet.** Tout ce qui suit en dépend.
+**C'était l'étape la plus risquée du projet.** Tout ce qui suit en dépendait.
 
-1. Télécharger et inspecter les trois datasets candidats.
-2. Mesurer, pour chaque catégorie candidate : nombre de produits exploitables,
-   taux de remplissage des attributs, cohérence des clés.
-3. Retenir 5-6 catégories et écrire pour chacune son **schéma d'attributs** :
-   nom du champ, type, unité, plage de valeurs, rôle dans le matching
-   (filtre dur / critère de score / affichage seul).
-4. Faire valider ce schéma avant d'écrire la moindre ligne de pipeline.
+Le choix de la source étant tranché (3.4), l'étape n'a pas été une exploration à
+l'aveugle mais **une vérification** : le schéma promettait des attributs, la
+mesure a établi lesquels sont réellement renseignés.
 
-**Porte de sortie :** un fichier `catalogue/schema_attributs.md` où chaque
-catégorie retenue expose **au moins 6 attributs discriminants** documentés, et
-un échantillon de 20 produits réels montrant que ces attributs sont réellement
-remplissables.
+**Porte de sortie :** `catalogue/schema_attributs.md`, où chaque catégorie
+retenue expose au moins 5 attributs discriminants à **≥ 80 % de remplissage**,
+plus 20 produits réels par catégorie. Accompagnée de
+`catalogue/rapport_exploration.md`, la mesure brute. **Franchie**, avec 6
+catégories sur 7 (voir 3.4bis).
 
-**Si la porte ne s'ouvre pas :** réduire à 3 catégories, ou basculer sur des
-specs complétées par génération — documenté honnêtement dans le README.
+**Ce que l'étape a appris, et qui n'était pas prévu :**
+
+- **Seuls 24 % des produits portent un prix.** Le volume exploitable n'est pas
+  66 778 mais 9 687. Sans effet sur le projet, mais ce chiffre invalidait toute
+  mesure faite sur le dataset entier.
+- **`smt` n'existe dans aucun CPU** alors que `API.md` le documente. La leçon
+  vaut au-delà de ce champ : le décompte d'attributs de 3.4bis avait été fait sur
+  la documentation de la source, ce qui est précisément l'erreur que cette étape
+  devait attraper.
+- **`frequency_response` mélange deux unités dans un même champ** (Hz puis kHz).
+  Les 32 « inversions » apparentes min > max viennent de là. Un correctif
+  min/max détruirait la donnée : la désambiguïsation se fait par ordre de
+  grandeur (étape 5).
+- **`name` n'est pas une clé** — 5 390 noms pour 9 687 produits — et les doublons
+  n'ont pas la même nature selon la catégorie : sur `memory`, 346 noms dupliqués
+  et **zéro** aux attributs identiques (ce sont des variantes réelles) ; sur
+  `cpu`, 51 dupliqués **tous** identiques (ce sont des redondances).
+- **Aucune catégorie ne porte de champ marque.** D'où 3.4quater.
+
+**Décisions d'arbitrage prises à la sortie de l'étape :** règle de comptage des
+attributs (3.4quater), retrait de `keyboard` et repêchage de `cpu` (3.4bis),
+volume du catalogue relevé à ~1 000 produits (3.1).
 
 ---
 
-### Étape 4 — Schéma SQL et migrations
+### Étape 4 — Schéma SQL et migrations ✅
 
-Modèles SQLAlchemy (`products`, `sessions`, `conversation_turns`), migration
-Alembic initiale, index sur `catégorie`, `prix`, et index GIN sur `specs`.
+Modèles SQLAlchemy (`produits`, `sessions`, `tours_conversation`), modèles Pydantic
+miroirs, migration Alembic initiale `0001_schema_initial`, index sur
+`(categorie, prix_usd)`, sur `marque` et index GIN sur `specs`.
 
-Modèles Pydantic miroirs pour la validation à l'insertion : rien n'entre en base
-sans avoir été typé et validé.
+Aucun produit du dataset n'est entré en base : c'est le travail de l'étape 5. Seules
+les fixtures de test insèrent des lignes.
 
-**Porte de sortie :** la migration s'applique sur une base vide, un test insère
-et relit un produit, et un produit malformé est rejeté par Pydantic.
+**Porte de sortie :** `make check` vert (37 tests unitaires) **et** `make test-int`
+vert (11 tests d'intégration) sur une base créée depuis zéro. **Franchie.**
+
+**Ce que l'étape a tranché**, avec l'alternative écartée à chaque fois :
+
+- **A — Indexation : GIN seul, balayage séquentiel assumé sur les plages.** Décision
+  écrite en 3.3bis, avec sa limite et son échappatoire. Alternative écartée : une
+  vingtaine d'index d'expression pour une table de 1 000 lignes.
+- **B — Base de test : base dédiée `raiyon_test` sur le Postgres de `docker-compose`.**
+  Créée, migrée et supprimée par la suite ; la base de travail n'est jamais touchée.
+  Alternative écartée — `testcontainers` : la même garantie, contre une dépendance de
+  plus et une dizaine de secondes par exécution, alors que le conteneur est déjà là.
+- **C — Moteur SQLAlchemy synchrone.** Le moteur de matching et le pipeline restent
+  des fonctions pures, testables sans boucle asyncio — ce qui est la condition du
+  critère d'acceptation nº5. Alternative écartée — un engine asyncio : il aurait
+  imposé `async def` jusque dans les tests du moteur, pour un gain nul à ce volume.
+  L'API enveloppera ses appels base dans `asyncio.to_thread` à l'étape 10.
+- **D — Validation par union discriminée sur `categorie`, `extra="forbid"`.** Un
+  produit `cpu` porteur d'un `screen_size` est rejeté avant SQL ; c'est ce qui donne
+  un sens à « rien n'entre en base sans avoir été typé ». La catégorie n'est **pas**
+  dupliquée dans le JSONB : elle y est injectée juste avant la discrimination et
+  retirée juste avant l'écriture, pour la même raison qu'en 3.10 — deux copies
+  peuvent diverger. Alternative écartée — un modèle unique à champs optionnels : il
+  aurait accepté n'importe quel attribut sur n'importe quelle catégorie.
+- **E — Prix en USD, sans conversion.** La colonne s'appelle `prix_usd` : l'unité est
+  dans le nom pour qu'aucune couche supérieure ne puisse l'oublier. Alternative
+  écartée — stocker un prix en euros : fabriquer un taux de change serait inventer un
+  fait, ce que §2 interdit.
+- **F — Pas de stock chiffré.** `disponible boolean not null default true`. La source
+  ne porte aucune quantité ; un entier dirait ce qu'on ne sait pas.
+- **Règle de nullabilité, sans exception : obligatoire si et seulement si le taux de
+  remplissage mesuré à l'étape 3 vaut 100 %.** `internal-hard-drive.type` est à
+  99,6 %, il est donc optionnel au niveau du modèle, bien qu'il soit le premier
+  arbitrage du domaine. Écarter les 0,4 % restants est une décision de pipeline
+  (étape 5) ; la prendre dans le schéma reviendrait à combler une absence (3.4quater).
+- **Bornes numériques physiquement plausibles, pas mesurées.** Un produit qui bat un
+  record ne doit pas être rejeté par le schéma. La plage observée est en commentaire
+  à côté de chaque borne, avec son unité.
+
+**Ce que l'étape a appris, et qui n'était pas prévu :**
+
+- **La cible `numeric(4,2)` de `schema_attributs.md` aurait rejeté trois produits
+  réels.** `cpu.core_clock` porte `3.333` GHz sur deux processeurs, `video-card.memory`
+  porte `0.875` Go sur une carte. Ces valeurs vivant dans le JSONB, aucune colonne
+  `numeric` ne les arrondit : la contrainte Pydantic était le seul garde-fou, et
+  recopier le type cible sans vérifier aurait fait échouer le pipeline sur des données
+  valides. Les précisions ont été relevées à trois décimales après mesure. **Même
+  mécanisme que le `smt` de l'étape 3** — une valeur documentée, jamais vérifiée.
+- **Les `Decimal` transitent en chaînes dans le JSONB.** `model_dump(mode="json")` les
+  sérialise ainsi, et c'est le bon comportement : un flottant JSON ne rend pas `0.087`
+  à l'identique. Les filtres de plage n'y perdent rien (`specs->>'…'` rend du texte
+  dans les deux cas), mais une containment `@>` sur une valeur numérique doit comparer
+  une **chaîne** — piège à connaître pour l'étape 6.
+- **La fixture `isolated_env` de l'étape 2 rendait la base introuvable.** Elle est
+  `autouse`, retire les variables `RAIYON_*` et déplace le répertoire courant, donc
+  `.env` n'existe plus pour les tests d'intégration. L'URL est désormais lue à
+  l'import du `conftest.py` d'intégration, avant qu'aucune fixture n'ait pu s'exécuter
+  — plutôt que réinjectée après coup, ce qui aurait fait dépendre ces tests de l'ordre
+  des fixtures.
 
 ---
 
 ### Étape 5 — Pipeline de normalisation des données
 
-Script one-shot : lecture du dataset brut → filtrage sur les catégories retenues
-→ appel LLM (Haiku, sortie structurée) pour extraire les attributs vers le schéma
-→ validation Pydantic → écriture d'un **seed versionné** (JSON ou SQL).
+**Deux passes strictement séparées**, et c'est la séparation qui compte :
+
+1. **Normalisation déterministe, sans LLM.** Lecture du dataset brut → filtrage
+   sur les 6 catégories et sur les produits à prix → aplatissement des unions
+   hétérogènes → conversion d'unités → déduplication → validation Pydantic.
+   Tous les **faits** — prix, marque, référence, attributs — sortent de cette
+   passe et d'elle seule.
+2. **Passe LLM réduite** (Haiku, sortie structurée) : traduction du nom court et
+   génération du résumé d'usage, comme cadré en 3.4ter. Elle ne touche aucun
+   champ factuel et ne peut pas en créer.
+
+**Cinq transformations identifiées à l'étape 3, chacune à tester :**
+
+- **`marque`** : premier mot de `name`, sur les 6 catégories (3.4quater).
+- **`internal-hard-drive.type`** : `"SSD"` ou un entier de tours/minute → deux
+  colonnes, `type` ∈ {`SSD`, `HDD`} et `rpm` nullable.
+- **`form_factor`** : `2.5`/`3.5` en nombre ou `"M.2-2280"` en chaîne → une seule
+  énumération textuelle.
+- **`memory.speed` et `memory.modules`** : tuples → `ddr_generation` /
+  `frequence_mhz` et `nb_modules` / `taille_module_gb`, plus
+  `capacite_totale_gb` dérivée.
+- **`headphones.frequency_response`** : unités mélangées Hz/kHz, désambiguïsées
+  **par ordre de grandeur**. Les 32 cas d'inversion apparente min > max servent de
+  cas de test. Un correctif par `min`/`max` est interdit : il détruirait la donnée.
+
+**Déduplication — une règle unique.** Dédupliquer sur `(name + tous les attributs
+hors prix)`, garder le prix le plus bas. Elle absorbe les 51 redondances `cpu` et
+préserve les 346 variantes `memory` sans traitement par catégorie : la règle est
+uniforme, seul son effet diffère. Clé primaire : identifiant synthétique, jamais
+`name`.
 
 Le seed est committé. Le pipeline n'est pas rejoué à l'installation.
 
@@ -452,7 +744,7 @@ Prévoir dès maintenant, dans le seed, les **cas limites** dont les tests auron
 besoin : un produit juste au-dessus d'un budget rond, une combinaison de critères
 sans aucun résultat, deux produits quasi identiques à départager.
 
-**Porte de sortie :** `make seed` remplit la base avec 150-200 produits validés ;
+**Porte de sortie :** `make seed` remplit la base avec ~1 000 produits validés ;
 un rapport imprime le taux de remplissage par attribut et par catégorie ; aucun
 produit en base n'a un attribut hors de sa plage déclarée.
 
@@ -632,7 +924,10 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 
 | Risque | Gravité | Atténuation |
 |---|---|---|
-| **Le dataset n'a pas d'attributs exploitables sur 5-6 catégories** | Élevée — tout le projet en dépend | Porte de sortie explicite à l'étape 3, avant tout code de pipeline. Repli : 3 catégories, ou specs complétées et documentées |
+| ~~Les attributs sont déclarés au schéma mais peu renseignés~~ | **Éteint** à l'étape 3 | Mesuré : 6 catégories sur 7 ouvrent la porte, `keyboard` retirée |
+| **`monitor` et `video-card` ouvrent au dernier attribut** | Faible depuis l'ajout de la marque (3.4quater), qui leur donne une marge d'un attribut | `response_time` est à 78,3 % et `boost_clock` à 80,3 % : ces deux-là restent à surveiller si la source est régénérée |
+| **La règle de comptage 3.4quater a été écrite après la mesure** | Moyenne — c'est une critique légitime en relecture de portfolio | Énoncée en principe général, appliquée aux 6 catégories, et elle en ferme toujours une. À exposer telle quelle dans le README plutôt qu'à taire |
+| **Prix figés à juillet 2025, en USD** | Certaine — c'est un snapshot | Assumé et documenté au README. Sans effet sur la démonstration, qui porte sur le raisonnement et non sur l'exactitude commerciale |
 | **L'agent dérive vers l'interrogatoire ou la recommandation prématurée** | Moyenne — c'est la qualité perçue | Règle « donner avant de demander » dans le prompt, métrique suivie, itération outillée à l'étape 13 |
 | **Les cassettes deviennent obsolètes silencieusement** | Moyenne — les tests passent à côté de la réalité | Hash du prompt stocké dans la cassette ; le test échoue si le prompt a changé |
 | **Le nettoyage du dataset déborde** | Moyenne — dérive du projet | Geler le périmètre à ce qui est propre plutôt que poursuivre l'exhaustivité |

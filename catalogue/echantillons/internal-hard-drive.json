@@ -1,0 +1,202 @@
+[
+  {
+    "name": "Orico Y-20",
+    "price": 10.99,
+    "capacity": 128,
+    "price_per_gb": 0.086,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": 2.5,
+    "interface": "SATA 6.0 Gb/s"
+  },
+  {
+    "name": "Integral V Series 2",
+    "price": 30.44,
+    "capacity": 250,
+    "price_per_gb": 0.122,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": 2.5,
+    "interface": "SATA 6.0 Gb/s"
+  },
+  {
+    "name": "Western Digital WD Green",
+    "price": 42.98,
+    "capacity": 480,
+    "price_per_gb": 0.09,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": "M.2-2280",
+    "interface": "M.2 SATA"
+  },
+  {
+    "name": "Patriot P310",
+    "price": 51.99,
+    "capacity": 960,
+    "price_per_gb": 0.054,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": "M.2-2280",
+    "interface": "M.2 PCIe 3.0 X4"
+  },
+  {
+    "name": "Western Digital Blue",
+    "price": 59.99,
+    "capacity": 3000,
+    "price_per_gb": 0.02,
+    "type": 5400,
+    "cache": 256,
+    "form_factor": 3.5,
+    "interface": "SATA 6.0 Gb/s"
+  },
+  {
+    "name": "Hitachi 0Y30055",
+    "price": 70.09,
+    "capacity": 500,
+    "price_per_gb": 0.14,
+    "type": 5400,
+    "cache": 8,
+    "form_factor": 2.5,
+    "interface": "SATA 3.0 Gb/s"
+  },
+  {
+    "name": "Seagate FireCuda 530R",
+    "price": 79.99,
+    "capacity": 1000,
+    "price_per_gb": 0.08,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": "M.2-2280",
+    "interface": "M.2 PCIe 4.0 X4"
+  },
+  {
+    "name": "Seagate Momentus XT",
+    "price": 93,
+    "capacity": 750,
+    "price_per_gb": 0.124,
+    "type": 7200,
+    "cache": 32,
+    "form_factor": 2.5,
+    "interface": "SATA 6.0 Gb/s"
+  },
+  {
+    "name": "Western Digital Red Plus",
+    "price": 104.99,
+    "capacity": 6000,
+    "price_per_gb": 0.017,
+    "type": 5400,
+    "cache": 256,
+    "form_factor": 3.5,
+    "interface": "SATA 6.0 Gb/s"
+  },
+  {
+    "name": "Sabrent Rocket nano 2242",
+    "price": 119.99,
+    "capacity": 1000,
+    "price_per_gb": 0.12,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": "M.2-2242",
+    "interface": "M.2 PCIe 4.0 X4"
+  },
+  {
+    "name": "Western Digital Red Plus",
+    "price": 134.99,
+    "capacity": 3000,
+    "price_per_gb": 0.045,
+    "type": 5400,
+    "cache": 128,
+    "form_factor": 3.5,
+    "interface": "SATA 6.0 Gb/s"
+  },
+  {
+    "name": "Samsung 990 Pro",
+    "price": 149.99,
+    "capacity": 2000,
+    "price_per_gb": 0.075,
+    "type": "SSD",
+    "cache": 2048,
+    "form_factor": "M.2-2280",
+    "interface": "M.2 PCIe 4.0 X4"
+  },
+  {
+    "name": "SanDisk Z410",
+    "price": 170.9,
+    "capacity": 480,
+    "price_per_gb": 0.356,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": 2.5,
+    "interface": "SATA 6.0 Gb/s"
+  },
+  {
+    "name": "Klevv CRAS C910",
+    "price": 199.99,
+    "capacity": 4000,
+    "price_per_gb": 0.05,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": "M.2-2280",
+    "interface": "M.2 PCIe 4.0 X4"
+  },
+  {
+    "name": "Samsung 9100 PRO",
+    "price": 229.99,
+    "capacity": 2000,
+    "price_per_gb": 0.115,
+    "type": "SSD",
+    "cache": 2048,
+    "form_factor": "M.2-2280",
+    "interface": "M.2 PCIe 5.0 X4"
+  },
+  {
+    "name": "Hitachi 7K1000.C",
+    "price": 262.36,
+    "capacity": 250,
+    "price_per_gb": 1.049,
+    "type": 7200,
+    "cache": 8,
+    "form_factor": 3.5,
+    "interface": "SATA 3.0 Gb/s"
+  },
+  {
+    "name": "Samsung 860 Pro",
+    "price": 299.99,
+    "capacity": 1000,
+    "price_per_gb": 0.3,
+    "type": "SSD",
+    "cache": 1024,
+    "form_factor": 2.5,
+    "interface": "SATA 6.0 Gb/s"
+  },
+  {
+    "name": "Corsair MP600 PRO XT",
+    "price": 369.99,
+    "capacity": 4000,
+    "price_per_gb": 0.092,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": "M.2-2280",
+    "interface": "M.2 PCIe 4.0 X4"
+  },
+  {
+    "name": "Seagate IronWolf Pro",
+    "price": 479.99,
+    "capacity": 24000,
+    "price_per_gb": 0.02,
+    "type": 7200,
+    "cache": 512,
+    "form_factor": 3.5,
+    "interface": "SATA 6.0 Gb/s"
+  },
+  {
+    "name": "Seagate Pulsar.2",
+    "price": 4777.83,
+    "capacity": 800,
+    "price_per_gb": null,
+    "type": "SSD",
+    "cache": null,
+    "form_factor": 2.5,
+    "interface": "SAS 6.0 Gb/s"
+  }
+]

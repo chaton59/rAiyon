@@ -1,0 +1,322 @@
+[
+  {
+    "name": "Kingston KCP424SS6/4 4 GB",
+    "price": 5,
+    "speed": [
+      4,
+      2400
+    ],
+    "modules": [
+      1,
+      4
+    ],
+    "price_per_gb": 1.25,
+    "color": "Green / Black",
+    "first_word_latency": 14.167,
+    "cas_latency": 17
+  },
+  {
+    "name": "Patriot Signature Line 4 GB",
+    "price": 21.49,
+    "speed": [
+      4,
+      2400
+    ],
+    "modules": [
+      1,
+      4
+    ],
+    "price_per_gb": 5.372,
+    "color": "Black / Green",
+    "first_word_latency": 13.333,
+    "cas_latency": 16
+  },
+  {
+    "name": "Samsung M378A2K43CB1-CTD 16 GB",
+    "price": 29,
+    "speed": [
+      4,
+      2666
+    ],
+    "modules": [
+      1,
+      16
+    ],
+    "price_per_gb": 1.812,
+    "color": "Green / Black",
+    "first_word_latency": 14.254,
+    "cas_latency": 19
+  },
+  {
+    "name": "G.Skill Ripjaws X 16 GB",
+    "price": 36.99,
+    "speed": [
+      3,
+      1600
+    ],
+    "modules": [
+      2,
+      8
+    ],
+    "price_per_gb": 2.312,
+    "color": "Black / Red",
+    "first_word_latency": 12.5,
+    "cas_latency": 10
+  },
+  {
+    "name": "PNY XLR8 Gaming EPIC-X RGB 16 GB",
+    "price": 43.99,
+    "speed": [
+      4,
+      3200
+    ],
+    "modules": [
+      2,
+      8
+    ],
+    "price_per_gb": 2.749,
+    "color": "Black",
+    "first_word_latency": 10,
+    "cas_latency": 16
+  },
+  {
+    "name": "Crucial CT2KIT51264BF160BJ 8 GB",
+    "price": 53.99,
+    "speed": [
+      3,
+      1600
+    ],
+    "modules": [
+      2,
+      4
+    ],
+    "price_per_gb": 6.749,
+    "color": "Black / Green",
+    "first_word_latency": 13.75,
+    "cas_latency": 11
+  },
+  {
+    "name": "Kingston KVR16N11K2/16 16 GB",
+    "price": 64.98,
+    "speed": [
+      3,
+      1600
+    ],
+    "modules": [
+      2,
+      8
+    ],
+    "price_per_gb": 4.061,
+    "color": "Green",
+    "first_word_latency": 13.75,
+    "cas_latency": 11
+  },
+  {
+    "name": "Lexar Ares RGB 16 GB",
+    "price": 75.97,
+    "speed": [
+      4,
+      4000
+    ],
+    "modules": [
+      2,
+      8
+    ],
+    "price_per_gb": 4.748,
+    "color": "White",
+    "first_word_latency": 9,
+    "cas_latency": 18
+  },
+  {
+    "name": "Corsair Vengeance RGB Pro 16 GB",
+    "price": 85.99,
+    "speed": [
+      4,
+      3000
+    ],
+    "modules": [
+      2,
+      8
+    ],
+    "price_per_gb": 5.374,
+    "color": "Black",
+    "first_word_latency": 10.667,
+    "cas_latency": 16
+  },
+  {
+    "name": "Corsair Vengeance RGB 32 GB",
+    "price": 96.99,
+    "speed": [
+      5,
+      5200
+    ],
+    "modules": [
+      2,
+      16
+    ],
+    "price_per_gb": 3.031,
+    "color": "White",
+    "first_word_latency": 15.385,
+    "cas_latency": 40
+  },
+  {
+    "name": "PNY XLR8 Gaming EPIC-X RGB 16 GB",
+    "price": 108.09,
+    "speed": [
+      4,
+      3200
+    ],
+    "modules": [
+      2,
+      8
+    ],
+    "price_per_gb": 6.756,
+    "color": "White",
+    "first_word_latency": 10,
+    "cas_latency": 16
+  },
+  {
+    "name": "TEAMGROUP Xtreem 32 GB",
+    "price": 121.99,
+    "speed": [
+      5,
+      7200
+    ],
+    "modules": [
+      2,
+      16
+    ],
+    "price_per_gb": 3.812,
+    "color": "Black",
+    "first_word_latency": 9.444,
+    "cas_latency": 34
+  },
+  {
+    "name": "Kingston FURY 32 GB",
+    "price": 138.99,
+    "speed": [
+      5,
+      5600
+    ],
+    "modules": [
+      1,
+      32
+    ],
+    "price_per_gb": 4.343,
+    "color": "White",
+    "first_word_latency": 14.286,
+    "cas_latency": 40
+  },
+  {
+    "name": "Corsair Vengeance RGB 48 GB",
+    "price": 156.99,
+    "speed": [
+      5,
+      6000
+    ],
+    "modules": [
+      2,
+      24
+    ],
+    "price_per_gb": 3.271,
+    "color": "Black / Silver",
+    "first_word_latency": 12,
+    "cas_latency": 36
+  },
+  {
+    "name": "Corsair Dominator Platinum RGB 32 GB",
+    "price": 176.06,
+    "speed": [
+      4,
+      3200
+    ],
+    "modules": [
+      4,
+      8
+    ],
+    "price_per_gb": 5.502,
+    "color": "White",
+    "first_word_latency": 10,
+    "cas_latency": 16
+  },
+  {
+    "name": "G.Skill Trident Z5 64 GB",
+    "price": 199.99,
+    "speed": [
+      5,
+      6000
+    ],
+    "modules": [
+      2,
+      32
+    ],
+    "price_per_gb": 3.125,
+    "color": "Silver / Black",
+    "first_word_latency": 10.667,
+    "cas_latency": 32
+  },
+  {
+    "name": "Corsair Dominator Titanium First Edition 32 GB",
+    "price": 233.99,
+    "speed": [
+      5,
+      7200
+    ],
+    "modules": [
+      2,
+      16
+    ],
+    "price_per_gb": 7.312,
+    "color": "Black",
+    "first_word_latency": 9.444,
+    "cas_latency": 34
+  },
+  {
+    "name": "TEAMGROUP T-Create Expert 96 GB",
+    "price": 291.99,
+    "speed": [
+      5,
+      6400
+    ],
+    "modules": [
+      2,
+      48
+    ],
+    "price_per_gb": 3.042,
+    "color": "White",
+    "first_word_latency": 10,
+    "cas_latency": 32
+  },
+  {
+    "name": "TEAMGROUP T-Create Master 64 GB",
+    "price": 450.99,
+    "speed": [
+      5,
+      6400
+    ],
+    "modules": [
+      4,
+      16
+    ],
+    "price_per_gb": 7.047,
+    "color": "Black",
+    "first_word_latency": 10,
+    "cas_latency": 32
+  },
+  {
+    "name": "V-Color TRA564G60D436O 512 GB",
+    "price": 3737.49,
+    "speed": [
+      5,
+      6000
+    ],
+    "modules": [
+      8,
+      64
+    ],
+    "price_per_gb": 7.3,
+    "color": "Black",
+    "first_word_latency": 12,
+    "cas_latency": 36
+  }
+]

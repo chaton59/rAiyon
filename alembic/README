@@ -1,0 +1,10 @@
+Migrations Alembic, base unique (Postgres).
+
+L'URL de connexion n'est écrite nulle part ici : `env.py` la lit via
+`raiyon.config`, seul point de lecture de l'environnement du projet.
+
+  make migrate            applique les migrations jusqu'à head
+  make revision m="…"     génère une révision par autogénération
+
+Toute révision générée doit être relue : l'autogénération ne devine ni les
+justifications d'index, ni un downgrade réellement réversible.

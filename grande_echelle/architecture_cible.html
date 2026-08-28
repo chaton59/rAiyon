@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architecture cible — grande échelle</title>
+<style>
+:root{--bg:#fff;--fg:#1c1e21;--mut:#5c6370;--bd:#d8dce2;--acc:#2a5db0;--code:#f4f5f7}
+@media(prefers-color-scheme:dark){:root{--bg:#15171a;--fg:#e4e6eb;--mut:#9aa1ac;--bd:#2f333a;--acc:#7aa7f0;--code:#1e2126}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);margin:0;padding:2.5rem 1.25rem 5rem;
+font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:52rem;margin:0 auto}
+h1{font-size:1.9rem;line-height:1.25;margin:0 0 1.5rem;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.75rem 0 .9rem;padding-bottom:.4rem;border-bottom:1px solid var(--bd);letter-spacing:-.01em}
+h3{font-size:1.08rem;margin:2rem 0 .6rem}
+a{color:var(--acc)}
+blockquote{margin:1.5rem 0;padding:.9rem 1.1rem;border-left:3px solid var(--acc);
+background:var(--code);border-radius:0 6px 6px 0}
+blockquote p{margin:.4rem 0}
+code{background:var(--code);padding:.12em .38em;border-radius:4px;font-size:.88em;
+font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+pre:not(.mermaid){background:var(--code);padding:1rem;border-radius:8px;overflow-x:auto;border:1px solid var(--bd)}
+pre:not(.mermaid) code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;margin:1.25rem 0;font-size:.93rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--bd);padding:.55rem .75rem;text-align:left;vertical-align:top}
+th{background:var(--code);font-weight:600}
+hr{border:0;border-top:1px solid var(--bd);margin:2.5rem 0}
+pre.mermaid{background:none;border:1px solid var(--bd);border-radius:10px;
+padding:1.5rem .75rem;margin:1.75rem 0;text-align:center;overflow-x:auto}
+pre.mermaid svg{max-width:100%;height:auto}
+.warn{font-size:.85rem;color:var(--mut);border:1px dashed var(--bd);padding:.7rem .9rem;
+border-radius:6px;margin-bottom:2rem}
+</style></head><body><main>
+<p class="warn">Rendu local du fichier <code>grande_echelle/architecture_cible.md</code>. Les diagrammes nécessitent une connexion internet au premier chargement.</p>
+<h1>Architecture cible — passage à l&#39;échelle généraliste</h1>
+<blockquote>
+<p><strong>Statut : exploratoire.</strong> Ce dossier ne fait pas partie du MVP et n&#39;engage
+aucune ligne de code. Il répond à une seule question : <em>qu&#39;est-ce qui change,
+et qu&#39;est-ce qui ne change pas, si ce projet devait couvrir tous les produits
+plutôt que six catégories ?</em></p>
+<p>La réponse courte est en bas de page : <strong>la couche de raisonnement ne change
+pas, seule la couche données grossit.</strong></p>
+</blockquote>
+<hr>
+<h2>1. Ce qui motive cette architecture</h2>
+<p>Trois observations qui déterminent tout le reste.</p>
+<p><strong>Les specs et les prix ont des cycles de vie opposés.</strong> Un SSD ne change jamais
+de capacité ; son prix change plusieurs fois par jour. Stocker les deux dans la
+même table revient à réécrire une ligne de quarante attributs pour modifier un
+nombre. Ce sont deux référentiels distincts, avec deux technologies distinctes.</p>
+<p><strong>Le problème dur n&#39;est pas le stockage, c&#39;est l&#39;identité.</strong> Faire correspondre
+« SAMSUNG 990 PRO 2To M.2 NVMe » chez un marchand à « Samsung SSD 990 Pro 2TB
+PCIe4 » chez un autre, et aux specs constructeur, est l&#39;essentiel du travail
+d&#39;ingénierie d&#39;un comparateur. Une base de données ne résout pas ça.</p>
+<p><strong>Le coût ne se trouve pas là où on le cherche.</strong> À 100 000 utilisateurs actifs,
+la base est un problème résolu. C&#39;est l&#39;inférence LLM qui domine, et elle croît
+linéairement avec les conversations pendant que l&#39;infrastructure reste forfaitaire.</p>
+<hr>
+<h2>2. Chaîne de données — de la source au catalogue interrogeable</h2>
+<p><pre class="mermaid">flowchart TD
+    subgraph SRC["Sources"]
+        S1["Icecat / GS1 GDSN&lt;br/&gt;specs validées par les marques"]
+        S2["Flux constructeurs / PIM"]
+        S3["Flux d'affiliation&lt;br/&gt;Awin, CJ, Rakuten, Amazon PA-API"]
+        S4["Pages produit&lt;br/&gt;extraction LLM, en dernier recours"]
+    end
+
+    subgraph ING["Ingestion — batch, jamais streaming"]
+        I1["Stockage objet&lt;br/&gt;flux bruts horodatés"]
+        I2["Normalisation par source&lt;br/&gt;unités, encodage, devises"]
+    end
+
+    subgraph RES["Résolution d'identité — le cœur du problème"]
+        R1["Blocage&lt;br/&gt;par marque normalisée + catégorie"]
+        R2["Appariement&lt;br/&gt;GTIN, réf. constructeur, similarité attributs"]
+        R3["Classifieur de paires&lt;br/&gt;score de confiance"]
+        R4["File de revue humaine&lt;br/&gt;zone grise, jamais de fusion auto"]
+    end
+
+    subgraph CAN["Référentiel canonique"]
+        C1["Produits&lt;br/&gt;Postgres, attributs JSONB par catégorie"]
+        C2["Provenance PAR ATTRIBUT&lt;br/&gt;source, confiance, date"]
+        C3["Taxonomie&lt;br/&gt;GS1 GPC, gabarit d'attributs par feuille"]
+    end
+
+    subgraph IDX["Index de service"]
+        X1["Index à facettes&lt;br/&gt;OpenSearch — filtrage exact"]
+        X2["Index vectoriel&lt;br/&gt;routage d'intention SEULEMENT"]
+    end
+
+    subgraph PRX["Couche prix — séparée, volatile"]
+        P1["Prix courant&lt;br/&gt;Redis, clé produit+marchand"]
+        P2["Historique&lt;br/&gt;ClickHouse, courbes et alertes"]
+    end
+
+    S1 --&gt; I1
+    S2 --&gt; I1
+    S3 --&gt; I1
+    S4 --&gt; I1
+    I1 --&gt; I2 --&gt; R1 --&gt; R2 --&gt; R3
+    R3 --&gt;|"confiance haute"| C1
+    R3 --&gt;|"zone grise"| R4 --&gt; C1
+    C3 --&gt; C1
+    C1 --- C2
+    C1 --&gt; X1
+    C1 --&gt; X2
+    I2 --&gt;|"prix uniquement"| P1
+    P1 --&gt; P2
+</pre></p>
+<h3>Notes de conception</h3>
+<p><strong>Provenance par valeur d&#39;attribut, pas par produit.</strong> <code>capacité = 2000 GB, source = constructeur, confiance = 1.0</code> n&#39;a pas le même statut que
+<code>autonomie = 8h, source = extraction LLM, confiance = 0.7</code>. Cette granularité
+permet d&#39;<strong>interdire au moteur de filtrer dur sur un attribut non vérifié</strong> —
+c&#39;est la version à grande échelle du refus de combler les <code>null</code> de <code>keyboard</code>
+décidé en 3.4quater.</p>
+<p><strong>La taxonomie s&#39;achète, elle ne s&#39;écrit pas.</strong> Produire à la main un schéma
+d&#39;attributs pour 5 000 catégories est hors d&#39;atteinte — l&#39;étape 3 a montré ce
+que ça coûte pour sept. GS1 GPC ou la taxonomie Google fournit l&#39;arbre, Icecat
+les gabarits d&#39;attributs par catégorie feuille. On affine à la main les ~200
+catégories qui portent le trafic, on assume le reste en qualité dégradée.</p>
+<p><strong>Jamais de fusion automatique en zone grise.</strong> Un appariement erroné affiche le
+prix d&#39;un produit sur la fiche d&#39;un autre. C&#39;est une faute commerciale, pas un
+défaut d&#39;affichage.</p>
+<p><strong>Le batch suffit.</strong> Les flux d&#39;affiliation sont rafraîchis quotidiennement ou
+toutes les heures. Le « temps réel » se réduit à du polling API sur le top N des
+produits consultés — quelques milliers de références, pas des millions. Mettre du
+streaming ici serait une complexité gratuite.</p>
+<hr>
+<h2>3. Chemin d&#39;une requête — l&#39;invariant, inchangé</h2>
+<p><pre class="mermaid">flowchart TD
+    U["Utilisateur&lt;br/&gt;« un truc pour bosser dans le train sans prise »"]
+
+    A["Agent LLM&lt;br/&gt;conduite du dialogue"]
+
+    subgraph ROUTE["Routage d'intention — vectoriel"]
+        V["Recherche sémantique&lt;br/&gt;→ catégorie + axes de besoin"]
+    end
+
+    subgraph DET["Sélection — 100 % déterministe, sans LLM"]
+        F["Filtres durs&lt;br/&gt;requête à facettes exacte"]
+        SC["Scoring pondéré&lt;br/&gt;+ trace d'explication"]
+        PR["Jointure prix&lt;br/&gt;budget appliqué ici"]
+    end
+
+    M["Choix du marchand&lt;br/&gt;APRÈS classement"]
+    V2["Validateur anti-hallucination&lt;br/&gt;IDs, prix, valeurs chiffrées"]
+    R["Réponse&lt;br/&gt;1 à 3 produits, cités par ID"]
+
+    COM["Taux de commission"]
+
+    U --&gt; A
+    A --&gt;|"besoin flou"| V
+    V --&gt;|"catégorie + critères"| F
+    A --&gt;|"critères explicites"| F
+    F --&gt; SC --&gt; PR --&gt; M
+    PR --&gt;|"produits réels uniquement"| A
+    A --&gt; V2 --&gt; R
+    COM -.-&gt;|"BARRIÈRE&lt;br/&gt;n'entre jamais&lt;br/&gt;dans le classement"| M
+
+    style DET fill:#1a3a2a,stroke:#4a8
+    style COM fill:#3a1a1a,stroke:#a44
+</pre></p>
+<h3>Le rôle du vectoriel, et ses limites</h3>
+<p><strong>Le RAG ne sert pas à chercher des produits.</strong> « SSD NVMe 2 To, PCIe 4.0, moins
+de 200 € » est une requête structurée : la recherche vectorielle y est lente,
+approximative et non reproductible, là où un index à facettes est exact et
+instantané.</p>
+<p>Le vectoriel sert à une seule chose : traduire une formulation vague en
+<strong>catégorie et axes de besoin</strong>. Une fois ce routage fait, on repasse en
+filtrage déterministe.</p>
+<p>La règle du projet est donc inchangée à toute échelle :</p>
+<blockquote>
+<p>Le LLM et le vectoriel choisissent <strong>où chercher</strong>.
+Ils ne choisissent jamais <strong>quel produit</strong>.</p>
+</blockquote>
+<hr>
+<h2>4. Le conflit d&#39;intérêts, traité comme une contrainte d&#39;architecture</h2>
+<p>Un conseiller rémunéré à l&#39;affiliation a un intérêt financier à ce que
+l&#39;utilisateur achète, et à ce qu&#39;il achète chez le marchand qui paie le mieux.
+L&#39;argument central de ce projet est l&#39;honnêteté du conseil. Les deux entrent en
+collision.</p>
+<p>La barrière doit être structurelle, pas contractuelle :</p>
+<ul>
+<li>le moteur de matching <strong>ne reçoit jamais</strong> le taux de commission en entrée ;</li>
+<li>le classement sort du score de pertinence seul ;</li>
+<li>le choix du marchand intervient <strong>après</strong>, sur un produit déjà classé.</li>
+</ul>
+<p>Une barrière qui n&#39;existe que dans une note de cadrage finit par céder. Celle-ci
+doit être une signature de fonction.</p>
+<p><strong>Contraintes réglementaires</strong> — à faire valider par un juriste, je n&#39;en suis pas
+un. La directive Omnibus (UE 2019/2161) impose de divulguer les placements
+rémunérés dans un classement ainsi que ses principaux paramètres ; l&#39;affichage
+d&#39;un prix comparé suppose d&#39;indiquer sa date de relevé. Conséquence directe sur
+le modèle de données : <strong>horodatage de collecte obligatoire sur chaque prix</strong>,
+non nullable.</p>
+<hr>
+<h2>5. Ce que coûte l&#39;échelle, et où</h2>
+<p>À 100 000 utilisateurs actifs, l&#39;ordre de grandeur :</p>
+<pre><code>100 000 utilisateurs × 3 sessions/mois × 8 tours ≈ 2,4 M appels LLM / mois
+</code></pre>
+<p>La base de données est un coût <strong>forfaitaire</strong>. L&#39;inférence est un coût
+<strong>proportionnel aux conversations</strong>. C&#39;est cette inversion qu&#39;il faut concevoir,
+pas le partitionnement Postgres — un catalogue de dizaines de millions de
+produits en lecture, largement cacheable, tient sur une infrastructure modeste.</p>
+<p>Leviers, par effet décroissant :</p>
+<table>
+<thead>
+<tr>
+<th>Levier</th>
+<th>Effet</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Cache du prompt système</td>
+<td>Le prompt est long et stable — c&#39;est le gain le plus direct</td>
+</tr>
+<tr>
+<td>Petit modèle pour l&#39;extraction, grand modèle pour la synthèse seule</td>
+<td>Déplace le volume vers le tarif bas</td>
+</tr>
+<tr>
+<td>Ne jamais renvoyer le catalogue dans le contexte</td>
+<td>Seuls les produits retenus y entrent, jamais les candidats</td>
+</tr>
+<tr>
+<td>Plafond de tours par session</td>
+<td>Borne le pire cas, qui est ce qui fait exploser une facture</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>6. Ce qui change, et ce qui ne change pas</h2>
+<table>
+<thead>
+<tr>
+<th>Couche</th>
+<th>À l&#39;échelle du MVP</th>
+<th>À l&#39;échelle généraliste</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dialogue et extraction des critères</td>
+<td>Agent LLM avec outils</td>
+<td><strong>Identique</strong></td>
+</tr>
+<tr>
+<td>Sélection des produits</td>
+<td>SQL déterministe + scoring Python</td>
+<td>Index à facettes + scoring — <strong>même principe</strong></td>
+</tr>
+<tr>
+<td>Reformulation</td>
+<td>LLM sur les seuls produits retournés</td>
+<td><strong>Identique</strong></td>
+</tr>
+<tr>
+<td>Validateur anti-hallucination</td>
+<td>Parsing + vérification sur IDs</td>
+<td><strong>Identique</strong>, indifférent au volume</td>
+</tr>
+<tr>
+<td>Catalogue</td>
+<td>1 seed figé, 6 catégories</td>
+<td>Chaîne d&#39;ingestion + résolution d&#39;identité + taxonomie</td>
+</tr>
+<tr>
+<td>Prix</td>
+<td>Colonne dans la table produit</td>
+<td>Référentiel séparé, chaud/froid, horodaté</td>
+</tr>
+<tr>
+<td>Attributs</td>
+<td>Schéma écrit à la main</td>
+<td>Gabarits achetés + extraction, provenance par valeur</td>
+</tr>
+</tbody></table>
+<p><strong>La couche de raisonnement ne bouge pas.</strong> Ce qui grossit — et ce qui devient
+réellement difficile — est entièrement en amont : identité, taxonomie, fraîcheur
+des prix. C&#39;est une bonne nouvelle pour le MVP : il construit la bonne chose en
+petit, et ce qu&#39;il faudra ajouter est adjacent, pas substitutif.</p>
+
+</main>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+mermaid.initialize({startOnLoad:true, theme: dark ? 'dark' : 'default', flowchart:{useMaxWidth:true}});
+</script></body></html>
