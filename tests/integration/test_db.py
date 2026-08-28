@@ -29,11 +29,9 @@ def produit_valide() -> ProduitEnBase:
     return ProduitEnBase(
         id="internal-hard-drive-9f8e7d6c5b",
         nom="Samsung 990 Pro 2 TB",
-        nom_fr="Samsung 990 Pro 2 To",
         marque="Samsung",
         categorie="internal-hard-drive",
         prix_usd=Decimal("169.99"),
-        description="Stockage rapide pour jeu et montage video.",
         specs={
             "capacity": 2000,
             "form_factor": "M.2-2280",
@@ -75,7 +73,7 @@ def test_insertion_et_relecture_dun_produit(session: Session):
 
     ligne = session.get(Produit, attendu.id)
     assert ligne is not None
-    assert ligne.nom_fr == "Samsung 990 Pro 2 To"
+    assert ligne.nom == "Samsung 990 Pro 2 TB"  # nom source, jamais traduit (§3.4ter)
     assert ligne.marque == "Samsung"
     # Le `Numeric` revient en `Decimal` exact : c'est ce qui autorise le code à
     # formater un prix sans jamais le faire transiter par un flottant (§2).
@@ -92,11 +90,9 @@ def test_insertion_et_relecture_dun_produit(session: Session):
     relu = ProduitEnBase(
         id=ligne.id,
         nom=ligne.nom,
-        nom_fr=ligne.nom_fr,
         marque=ligne.marque,
         categorie=ligne.categorie,
         prix_usd=ligne.prix_usd,
-        description=ligne.description,
         disponible=ligne.disponible,
         specs=ligne.specs,
     )

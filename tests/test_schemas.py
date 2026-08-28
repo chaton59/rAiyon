@@ -10,7 +10,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from raiyon.catalogue.schemas import CATEGORIES, ProduitEnBase
+from raiyon.catalogue.schemas import CATEGORIES, LIBELLES_CATEGORIE, ProduitEnBase
 
 # Une charge utile minimale et valide par catégorie : uniquement les champs
 # obligatoires, c'est-à-dire ceux mesurés à 100 % de remplissage à l'étape 3.
@@ -95,6 +95,31 @@ def test_les_six_categories_sont_celles_de_letape_3():
         "video-card",
         "headphones",
     }
+
+
+def test_chaque_categorie_a_son_libelle_francais_sans_trou():
+    """`LIBELLES_CATEGORIE` couvre les 6, exactement — ni manque, ni orpheline.
+
+    C'est le seul français que le catalogue contient, et il est **dérivé de la
+    catégorie**, donc déterministe (§3.4ter). Une catégorie sans libellé obligerait
+    l'étape 8 à en inventer un, ce qui est exactement ce que le retrait de la passe
+    LLM est censé rendre impossible.
+    """
+    assert set(LIBELLES_CATEGORIE) == set(CATEGORIES)
+    assert all(libelle.strip() for libelle in LIBELLES_CATEGORIE.values())
+    assert len(set(LIBELLES_CATEGORIE.values())) == len(CATEGORIES)
+
+
+def test_les_libelles_sont_de_la_donnee_pas_du_rendu():
+    """Minuscules, sans article ni ponctuation : la mise en forme est l'étape 11.
+
+    Sans cette règle, la casse choisie ici finirait par être celle qu'un gabarit
+    d'affichage suppose, et le libellé cesserait d'être réutilisable ailleurs.
+    """
+    for libelle in LIBELLES_CATEGORIE.values():
+        assert libelle == libelle.lower()
+        assert not libelle.startswith(("le ", "la ", "les ", "un ", "une ", "l'"))
+        assert libelle == libelle.strip(" .")
 
 
 @pytest.mark.parametrize("categorie", CATEGORIES)

@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install up down logs psql migrate revision fmt lint typecheck test test-int check clean
+.PHONY: help install up down logs psql migrate revision seed-build seed fmt lint typecheck test test-int check clean
 
 help: ## Liste les cibles disponibles
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -43,6 +43,19 @@ revision: ## Génère une migration par autogénération — make revision m="ce
 	uv run alembic revision --autogenerate -m '$(m)'
 	@echo "→ relire la révision générée : l'autogénération ne devine ni les"
 	@echo "  justifications d'index, ni un downgrade réellement réversible."
+
+seed-build: ## Passe A — reconstruit data/seed/ depuis data/raw/ (aucun appel API)
+	@test -d data/raw && ls data/raw/*.json >/dev/null 2>&1 || { \
+		echo "ERREUR : data/raw/ est vide — voir data/raw/SOURCE.md pour la récupération."; \
+		exit 1; }
+	@# `cd` obligatoire : CHECKSUMS.sha256 porte des noms de fichiers nus, pas des
+	@# chemins, pour rester vérifiable depuis data/raw/ comme le dit SOURCE.md.
+	@cd data/raw && sha256sum -c --status CHECKSUMS.sha256 \
+		|| { echo "ERREUR : data/raw/ ne correspond pas à CHECKSUMS.sha256."; exit 1; }
+	uv run python scripts/seed_build.py
+
+seed: ## Passe C — charge le seed committé en base (aucun appel API)
+	uv run python scripts/seed_charger.py
 
 fmt: ## Formate le code et applique les corrections automatiques de ruff
 	uv run ruff format .

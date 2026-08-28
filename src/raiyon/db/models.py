@@ -50,17 +50,25 @@ def _liste_sql(valeurs: tuple[str, ...]) -> str:
 
 
 class Produit(Base):
-    """Un produit du catalogue. Les faits que le LLM aura le droit de citer."""
+    """Un produit du catalogue. Les faits que le LLM aura le droit de citer.
+
+    **Aucune colonne de cette table ne contient une sortie de modèle de langage.**
+    `nom_fr` et `description` en portaient une ; la mesure de la passe B a montré
+    qu'elles étaient l'une inutile et l'autre redondante avec la réponse de l'étape 8,
+    et la migration `0002` les a retirées (§3.4ter). C'est ce qui rend « le LLM ne
+    produit jamais un fait » lisible dans le schéma, et non seulement dans le README.
+    """
 
     __tablename__ = "produits"
 
     # Identifiant synthétique `{categorie}-{10 hexadécimaux}`, jamais `name` :
     # 5 390 noms distincts pour 9 687 produits à prix, `name` n'est pas une clé.
     id: Mapped[str] = mapped_column(Text, primary_key=True)
+    # Nom source, en anglais, cité **verbatim** par l'agent de l'étape 8 : la base
+    # est en anglais, c'est la phrase de recommandation qui porte le français
+    # (§3.4ter). Un nom jamais réécrit est vérifiable au caractère près par le
+    # validateur de l'étape 9.
     nom: Mapped[str] = mapped_column(Text, nullable=False)
-    # Traduction produite par la passe LLM de l'étape 5. Nul tant qu'elle n'a pas
-    # tourné : le catalogue doit être exploitable sans elle.
-    nom_fr: Mapped[str | None] = mapped_column(Text)
     # Premier mot de `name` (§3.4quater). N'existe comme champ dans aucune
     # catégorie de la source : c'est une transformation, pas une lecture.
     marque: Mapped[str] = mapped_column(Text, nullable=False)
@@ -69,11 +77,6 @@ class Produit(Base):
     # fabriquer un taux de change serait inventer un fait (§2). L'unité est dans le
     # nom de la colonne pour qu'aucune couche supérieure ne puisse l'oublier.
     prix_usd: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    # ⚠️ Champ **généré** (§3.4ter), donc non factuel : affichage seul. Il n'entre
-    # jamais dans un filtre ni dans un score - le moteur de l'étape 6 ne doit pas
-    # le lire. Aucune contrainte SQL ne peut faire respecter cela, seul ce
-    # commentaire et la revue le peuvent.
-    description: Mapped[str | None] = mapped_column(Text)
     # La source ne porte aucune quantité en stock. Un booléen dit ce que l'on sait ;
     # un entier dirait ce que l'on ne sait pas.
     disponible: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
@@ -124,11 +127,9 @@ class Produit(Base):
         return cls(
             id=produit.id,
             nom=produit.nom,
-            nom_fr=produit.nom_fr,
             marque=produit.marque,
             categorie=produit.categorie,
             prix_usd=produit.prix_usd,
-            description=produit.description,
             disponible=produit.disponible,
             specs=produit.specs_pour_base(),
         )

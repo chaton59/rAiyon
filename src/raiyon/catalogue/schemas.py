@@ -41,6 +41,25 @@ CATEGORIES: tuple[Categorie, ...] = get_args(Categorie)
 n'atteint 5 attributs discriminants qu'en lisant `switches = null` comme
 « membrane », ce qui est un comblement d'absence."""
 
+# Le nom générique français que la passe LLM de l'étape 5 devait produire est en
+# réalité **dérivable de la catégorie** : « processeur » ne dépend d'aucun produit
+# en particulier, seulement de la case dans laquelle il tombe. Une table de six
+# entrées écrite à la main le rend donc déterministe, et hors de portée de
+# l'invention — un modèle ne peut pas se tromper sur un mot qu'on ne lui demande
+# pas. Ce qui restait à traduire dans le nom source, lui, ne devait pas l'être :
+# « TUF Gaming » ou « IronWolf Pro » sont des noms de gamme déposés (§3.4ter).
+#
+# C'est de la **donnée**, pas du rendu : aucune majuscule, aucun article, aucun
+# pluriel ici. La mise en forme d'affichage est l'affaire de l'étape 11.
+LIBELLES_CATEGORIE: dict[Categorie, str] = {
+    "cpu": "processeur",
+    "monitor": "écran",
+    "internal-hard-drive": "stockage interne",
+    "memory": "mémoire vive",
+    "video-card": "carte graphique",
+    "headphones": "casque",
+}
+
 MOTIF_ID = r"^[a-z-]+-[0-9a-f]{10}$"
 """Forme de l'identifiant synthétique : `{categorie}-{10 hexadécimaux}`.
 
@@ -229,20 +248,20 @@ class ProduitEnBase(BaseModel):
 
     Le pipeline de l'étape 5 construit ce modèle ; `Produit.depuis_schema()` le
     convertit en ligne SQL. Aucune autre voie n'est prévue.
+
+    **Aucun champ de ce modèle ne vient d'un modèle de langage** (§3.4ter, réécrit à
+    l'étape 5). C'est vérifiable en lisant les huit lignes qui suivent : chacune sort
+    de la passe déterministe. `nom_fr` et `description` ont existé ici, remplis par une
+    passe LLM ; ils ont été retirés par la migration `0002`.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(pattern=MOTIF_ID)
-    nom: str = Field(min_length=1)  # nom source, en anglais
-    nom_fr: str | None = None  # rempli par la passe LLM de l'étape 5
+    nom: str = Field(min_length=1)  # nom source, en anglais — cité verbatim (§3.4ter)
     marque: str = Field(min_length=1)  # premier mot de `name` (§3.4quater)
     categorie: Categorie
     prix_usd: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
-    # ⚠️ Champ **généré** par le LLM (§3.4ter) : il n'est pas factuel. Il ne doit
-    # jamais servir de critère de filtrage ni entrer dans un score — c'est un piège
-    # que le moteur de l'étape 6 peut tendre, parce que le texte y est tentant.
-    description: str | None = None
     disponible: bool = True
     specs: Specs
 
