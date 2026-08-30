@@ -260,6 +260,14 @@ Repêché : non — déjà tiré. Un champ `affichage`
 n'entre ni dans un filtre ni dans un score : le moteur de l'étape 6 devra donc
 les départager sur le prix seul.
 
+⚠️ **« Toutes les specs identiques » porte sur le JSONB `specs`, pas sur la
+ligne entière.** Les colonnes communes peuvent différer, et c'est le cas ici :
+`headphones-06acf63b59` est un **Pyle Audio**, `headphones-393cd46c64` un **Logitech**. Or
+`marque` est un **filtre dur**. Le cas reste valide parce qu'**aucun critère de
+marque n'est posé** — c'est ce qui laisse le départage se jouer sur le prix
+seul. Avec un critère de marque, ce ne serait plus un départage, ce serait un
+filtre. Mesuré à l'étape 6.
+
 ### G3 — zéro résultat
 
 Sur `internal-hard-drive` : `form_factor` = 'M.2-2280' ET `interface` = 'SATA 6.0 Gb/s' → **0 produit**.

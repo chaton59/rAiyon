@@ -25,10 +25,11 @@ make test-int  # tests d'intégration : migrations, contraintes, index, chargeme
 
 `make` seul liste les autres cibles.
 
-Les tests d'intégration créent leur propre base jetable `raiyon_test` sur le
-Postgres de `docker-compose`, la migrent et la suppriment : ils ne touchent pas à
-la base de travail. Sans Postgres joignable, ils sont ignorés avec un message qui
-dit quoi faire, jamais en échec silencieux.
+Les tests d'intégration créent leurs propres bases jetables sur le Postgres de
+`docker-compose` (`raiyon_test` pour le schéma et le chargement, `raiyon_test_matching`
+pour le moteur, seedée une seule fois par session), les migrent et les suppriment : ils
+ne touchent pas à la base de travail. Sans Postgres joignable, ils sont ignorés avec un
+message qui dit quoi faire, jamais en échec silencieux.
 
 ## Le catalogue
 
@@ -66,6 +67,46 @@ rejet, taux de remplissage par attribut, contrôles — est committé lui aussi 
 
 Pour reconstruire le catalogue à partir de zéro, récupérer d'abord `data/raw/`
 selon [`data/raw/SOURCE.md`](data/raw/SOURCE.md), puis `make seed-build`.
+
+## Le moteur de matching
+
+Le moteur traduit un besoin en produits classés, avec le « pourquoi » de chacun. Une
+seule phrase le gouverne :
+
+> **SQL décide qui est candidat, Python décide comment on le présente.**
+
+Côté SQL : les filtres durs, les comptages, les valeurs atteignables. Côté Python pur :
+le scoring, le classement, la trace d'explication et le traitement du zéro résultat.
+
+**Conséquence directe, et c'est le critère d'acceptation nº5 :** `tests/matching/` se
+scinde en deux parts. La **part pure** — 147 tests — tourne dans `make check`, sans
+Postgres, sans conteneur et **sans clé API**, en 0,14 seconde. La part **`integration`**
+— 28 tests — porte le marqueur du même nom, travaille sur le catalogue réel des
+1 026 produits et se lance par `make test-int`. Il n'y a rien à débrancher pour tester
+le moteur hors ligne, parce qu'il n'y a rien de branché.
+
+Les tests d'intégration citent **en dur** les identifiants des cas limites du
+[rapport de seed](data/seed/rapport_seed.md) (budget frôlé, départage, zéro résultat,
+haut de gamme). Si le catalogue change, ils cassent — c'est le comportement voulu.
+
+### Les bornes de score sont calibrées, pas devinées
+
+Un sous-score est une position entre deux bornes **constantes**, jamais un min-max du
+lot courant : sans cela, le score d'un produit dépendrait des produits présents à côté
+de lui, et deux conversations le classeraient différemment.
+
+```bash
+make calibrer   # imprime les bornes mesurées sur data/seed/produits.jsonl
+```
+
+Sa sortie se **recopie** dans [`attributs.py`](src/raiyon/matching/attributs.py) : le
+script est rejouable, son résultat est du code. Un test rejoue le script sur le seed
+committé et compare aux constantes du registre — modifier une borne à la main casse donc
+un test.
+
+Les queues lourdes sont winsorisées au 95ᵉ centile. L'écart n'est pas anecdotique : le
+prix au gigaoctet des mémoires monte à **497,5 USD/Go** sur des modules minuscules, pour
+une borne haute calibrée à **13,375**.
 
 ## Données
 

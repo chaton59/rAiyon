@@ -652,6 +652,14 @@ def construire_rapport(resultat: ResultatPasseA) -> str:
             f"Repêché : {'oui' if g2.repeche else 'non — déjà tiré'}. Un champ `affichage`",
             "n'entre ni dans un filtre ni dans un score : le moteur de l'étape 6 devra donc",
             "les départager sur le prix seul.",
+            "",
+            "⚠️ **« Toutes les specs identiques » porte sur le JSONB `specs`, pas sur la",
+            "ligne entière.** Les colonnes communes peuvent différer, et c'est le cas ici :",
+            f"`{g2.id_a}` est un **{g2.marque_a}**, `{g2.id_b}` un **{g2.marque_b}**. Or",
+            "`marque` est un **filtre dur**. Le cas reste valide parce qu'**aucun critère de",
+            "marque n'est posé** — c'est ce qui laisse le départage se jouer sur le prix",
+            "seul. Avec un critère de marque, ce ne serait plus un départage, ce serait un",
+            "filtre. Mesuré à l'étape 6.",
         ]
 
     lignes += ["", "### G3 — zéro résultat", ""]

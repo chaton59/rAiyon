@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install up down logs psql migrate revision seed-build seed fmt lint typecheck test test-int check clean
+.PHONY: help install up down logs psql migrate revision seed-build seed calibrer fmt lint typecheck test test-int check clean
 
 help: ## Liste les cibles disponibles
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -56,6 +56,11 @@ seed-build: ## Passe A — reconstruit data/seed/ depuis data/raw/ (aucun appel 
 
 seed: ## Passe C — charge le seed committé en base (aucun appel API)
 	uv run python scripts/seed_charger.py
+
+calibrer: ## Recalcule les bornes du moteur sur le seed committé (à recopier dans le registre)
+	@# Sa sortie est du **code**, pas un cache : elle se recopie dans
+	@# src/raiyon/matching/attributs.py, et un test vérifie qu'elle correspond.
+	uv run python scripts/calibrer_bornes.py
 
 fmt: ## Formate le code et applique les corrections automatiques de ruff
 	uv run ruff format .

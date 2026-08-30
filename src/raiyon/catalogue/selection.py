@@ -263,6 +263,12 @@ class CasLimiteG2:
     prix_b: Decimal
     valeur_a: Any
     valeur_b: Any
+    # Les marques sont portées ici depuis l'étape 6 : « toutes les specs identiques »
+    # ne vaut que pour le JSONB, et le couple peut différer par des colonnes communes.
+    # `marque` étant un filtre dur, le rapport doit le dire — sans quoi il laisse croire
+    # à deux produits interchangeables.
+    marque_a: str
+    marque_b: str
     repeche: bool
 
 
@@ -432,6 +438,8 @@ def _construire_cas_g2(
         prix_b=haut.prix_usd,
         valeur_a=bas.specs_pour_base().get(champ),
         valeur_b=haut.specs_pour_base().get(champ),
+        marque_a=bas.marque,
+        marque_b=haut.marque,
         repeche=repeche,
     )
 

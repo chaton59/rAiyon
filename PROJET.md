@@ -4,15 +4,18 @@ Document de cadrage. Il consigne les décisions d'architecture, **les alternativ
 écartées et pourquoi**. Il fait foi : toute décision qui le contredit doit être
 discutée et amender ce fichier.
 
-Statut : étapes 1 à 5 franchies. Source, domaine et 6 catégories arrêtés
+Statut : étapes 1 à 6 franchies. Source, domaine et 6 catégories arrêtés
 (3.4, 3.4bis), schéma d'attributs écrit et validé, schéma SQL migré et testé,
-catalogue de 1 026 produits normalisé, committé et chargé en base.
+catalogue de 1 026 produits normalisé, committé et chargé en base, **moteur de
+matching écrit, calibré et testé**.
 ✅ La passe LLM du catalogue a été **supprimée après mesure** (§3.4ter, réécrite) :
 le catalogue reste en anglais, le français se produit dans la réponse à l'étape 8.
 Aucun octet de la base ne vient d'un modèle, et aucune clé API n'est nécessaire
 avant l'étape 8.
-Étape suivante — 6, moteur de matching.
-Dernière révision : 2026-08-28.
+✅ **Critère d'acceptation nº5 franchi** (§3.16) : hors du dépôt SQL, le moteur est
+pur, et `tests/matching/` tourne hors ligne en moins d'une seconde.
+Étape suivante — 7, couche outils et invariants.
+Dernière révision : 2026-08-30.
 
 ---
 
@@ -431,9 +434,21 @@ sont garantis par construction. C'était le choix prudent.
 
 Motif du rejet : la machine à états répond mal aux virages hors-script, qui sont
 la norme dans une conversation de vente réelle — « compare plutôt la 1 et la 3 »,
-« et pour ma sœur qui est gauchère ? », « il me faut aussi une ponceuse, 300 €
-pour les deux ». Chacun demande un état prévu à l'avance. L'agent les encaisse
-naturellement.
+« et pour ma sœur qui est gauchère ? », « finalement, montre-moi du moins cher ».
+Chacun demande un état prévu à l'avance. L'agent les encaisse naturellement.
+
+> **Amendement de l'étape 6 — cet argument a perdu un de ses exemples, et il faut
+> le dire.** La version initiale citait « il me faut aussi une ponceuse, 300 €
+> pour les deux ». L'arbitrage K de l'étape 6 a mis la **composition
+> multi-catégories hors périmètre** : un appel au moteur rend les produits d'une
+> seule catégorie, et il n'existe ni panier ni budget partagé (§8). Cet exemple
+> ne peut donc plus servir à justifier l'agent, puisque la machine à états ne le
+> servirait pas plus mal — aucune des deux ne le sert. Ce que l'agent encaisse
+> réellement et qu'une machine à états encaisserait mal, ce sont les virages
+> **à l'intérieur** d'une catégorie : reformuler, comparer deux propositions,
+> revenir sur un critère, changer d'avis sur le budget. L'argument tient sur ces
+> cas-là ; il ne tenait pas sur le panier, et le laisser dormir aurait laissé
+> §3.6 s'appuyer sur une capacité que le produit n'a pas.
 
 **Alternative écartée — hybride (états + sondage anticipé du catalogue).**
 Compromis raisonnable, rejeté pour la même raison : la boucle de dialogue restait
@@ -502,6 +517,24 @@ taggés avec l'écart exact.
 Le moteur ne décide pas de les proposer : il les rend disponibles. L'agent peut
 les mentionner, mais jamais mélangés au classement principal, et le validateur
 vérifie que tout produit hors budget cité est bien présenté comme tel.
+
+**Amendement de l'étape 6 — cette zone est aussi la réponse au cas « le budget est
+le critère bloquant ».** Quand la recherche ne rend rien mais que la zone de
+tolérance n'est pas vide, le diagnostic vaut `budget_trop_bas` et la réponse est
+**cet ensemble-là**, avec son écart exact : tout ce que le client a demandé existe,
+un peu au-dessus de ce qu'il a dit. Ce n'est pas « relâchez votre budget », c'est un
+fait chiffré qu'il peut trancher lui-même.
+
+Conséquence directe sur le relâchement (arbitrage J) : `prix_usd` est **exclu** des
+candidats au retrait. Le moteur ne propose jamais d'assouplir le budget, et la
+logique n'est pas dupliquée — elle vit ici, dans un ensemble déjà calculé. Deux
+endroits qui décideraient du budget finiraient par le dire différemment, ce qui est
+exactement le mode d'échec que la colonne `sessions.budget_usd` ferme déjà.
+
+Les deux ensembles sont récupérés par le **même chemin de requête**, à la fourchette
+de prix près : un produit de la zone de tolérance satisfait donc exactement les mêmes
+critères durs que ceux du classement principal. Sans cela, la tolérance deviendrait un
+second catalogue aux règles plus souples.
 
 ### 3.11 — Anti-hallucination : validateur programmatique
 
@@ -589,6 +622,36 @@ vérité, mais rien ne l'exécute automatiquement : les régressions passent.
 
 **Servitude des cassettes :** il faut les régénérer à chaque changement de prompt.
 C'est une discipline à tenir, pas un détail.
+
+### 3.16 — Frontière SQL / Python du moteur
+
+> **SQL décide qui est candidat, Python décide comment on le présente.**
+
+Côté SQL : les filtres durs, les comptages de relâchement, les valeurs atteignables.
+Côté Python pur, sur une liste de `ProduitEnBase` déjà récupérés : le scoring, la
+pondération, le classement, la trace, le diagnostic et la formulation des propositions.
+
+**Ce que cette ligne achète, et c'est le point.** La majorité de la suite de tests du
+moteur est pure : elle tourne dans `make check`, sans base, sans conteneur et sans clé
+API. Seuls les filtres et les comptages portent le marqueur `integration`. Le **critère
+d'acceptation nº5** — « moteur de matching testable sans API » — cesse donc d'être une
+discipline à tenir pour devenir une propriété **de construction** : il n'y a rien à
+débrancher, puisque rien n'est branché.
+
+Mesure à l'étape 6 : **147 tests purs pour 28 tests d'intégration**, et la part pure
+de `tests/matching/` s'exécute en 0,14 seconde — la porte de sortie demandait deux
+secondes.
+
+**Alternative écartée — tout en Python, sur le catalogue chargé en mémoire.** Suite
+instantanée et sans dépendance ; 1 026 produits tiennent en mémoire sans difficulté.
+Écartée parce que §3.2 et §3.3bis perdraient leur objet : Postgres ne servirait plus
+qu'à stocker, dans un projet dont une des accroches est précisément le travail en SQL
+sur des attributs hétérogènes.
+
+**Alternative écartée — tout en SQL, scoring compris.** Une seule requête rendrait le
+classement fini. Écartée pour deux raisons : le classement deviendrait intestable sans
+base — donc le critère nº5 tomberait — et une pondération renormalisée sur les critères
+disponibles, écrite en SQL, serait illisible et impossible à faire évoluer.
 
 ---
 
@@ -996,7 +1059,7 @@ biais non caractérisé au lieu d'un biais choisi.
 
 ---
 
-### Étape 6 — Moteur de matching
+### Étape 6 — Moteur de matching ✅
 
 Le cœur du projet, et la seule partie entièrement déterministe.
 
@@ -1016,6 +1079,340 @@ classement, zone de tolérance budget, zéro résultat et suggestion
 d'assouplissement — et tourne **sans aucune clé API**, en moins de deux secondes.
 
 C'est le critère d'acceptation nº5, franchi ici.
+
+**Franchie.** 147 tests purs en 0,14 s, 28 tests d'intégration sur le catalogue réel,
+`make check` et `make test-int` verts. Les quatre cas limites du rapport de seed (G1 à
+G4) sont couverts par des tests qui **citent les identifiants en dur** : s'ils
+changent, un test casse, et c'est le comportement voulu.
+
+Sept modules, et la frontière de §3.16 se lit dans leurs noms :
+
+```
+src/raiyon/matching/
+    attributs.py      # registre : rôles, genres, bornes, libellés — la traduction
+                      #   exécutable de catalogue/schema_attributs.md
+    criteres.py       # Critere, Importance, Operateur, Optimisation, RequeteMatching
+    depot.py          # protocole DepotProduits + DepotSql — la seule moitié qui parle SQL
+    score.py          # sous-scores, renormalisation, pondération, classement — pur
+    trace.py          # dataclasses de trace — pur
+    relachement.py    # diagnostic et propositions, sur comptages injectés — pur
+    moteur.py         # orchestration, et le résultat typé
+scripts/calibrer_bornes.py
+```
+
+#### Les treize arbitrages
+
+**A — La frontière SQL / Python.** Consignée en décision numérotée : voir §3.16.
+
+**B — Le modèle de critères est générique, pas typé par catégorie.** Une liste de
+`Critere(champ, opérateur, valeur, importance)`, validée dynamiquement contre le
+registre. *Alternative écartée — six modèles Pydantic typés, miroirs de `SpecsCpu`,
+`SpecsMoniteur`…* Ils donnent du typage statique et de meilleurs messages d'erreur,
+mais créent six modèles à maintenir en parallèle de six modèles de specs — divergence
+garantie à la première évolution du schéma — et un schéma JSON d'outil énorme à
+l'étape 7. Le générique paie en typage ce qu'il gagne en surface, et **le registre
+récupère la validation**.
+
+**C — Le registre est un module, et un test garde sa cohérence.**
+`matching/attributs.py`, écrit à la main depuis `schema_attributs.md`. Un test vérifie
+que ses clés couvrent **exactement** les champs de `schemas.py`, catégorie par
+catégorie ; un autre relit `data/seed/rapport_seed.md` et compare les taux de
+remplissage. Les champs `affichage` (`color`, `nom`, `id`) y figurent **avec leur
+rôle**, pas omis : c'est ce qui permet de prouver qu'ils ne filtrent ni ne scorent, au
+lieu de constater qu'on les a oubliés. *Alternative écartée — annoter `schemas.py` via
+`Field(json_schema_extra=…)`.* Une seule source, aucune divergence possible ; écartée
+parce qu'elle charge le miroir du schéma SQL d'une préoccupation de matching, et que
+`schemas.py` cesserait d'être lisible comme ce qu'il est.
+
+**D — Rétrogradation ouverte sur le gradué, fermée sur la compatibilité, promotion
+interdite.** Un `souhait` sur un filtre dur **gradué** devient un score. La
+rétrogradation est fermée sur les attributs de compatibilité, qui sont binaires
+(`ddr_generation`, `interface`, `form_factor`, `type`, `chipset`, `microarchitecture`,
+`aspect_ratio`, plus `prix_usd` et `categorie`) : « plutôt de la DDR5 » n'est pas un
+souhait, c'est un malentendu — de la DDR4 n'entre pas dans le socket. La liste vit dans
+le registre, en drapeau `retrogradable`, jamais dans les arguments d'un appel. **La
+promotion inverse lève** : un `bloquant` sur un attribut de rôle `score` est une erreur
+explicite, parce que promouvoir `boost_clock` (66,1 % de remplissage) en filtre dur
+exclurait un tiers du catalogue sur une absence de donnée — un comblement d'absence par
+la porte de derrière, que §3.4quater interdit. Toute rétrogradation appliquée entre dans
+la trace ; elle ne contourne jamais le critère nº6. *Alternative écartée — rôle absolu.*
+Totalement prévisible et sans risque de desserrage, mais le moteur produirait des
+zéro-résultats sur de simples préférences, et l'agent n'aurait aucun moyen d'exprimer la
+nuance.
+
+**E — NULL sur un filtre dur : exclure **et compter**.** `(specs->>'refresh_rate')::int
+>= 144` écarte les écrans sans valeur ; la sémantique SQL est conservée, mais elle cesse
+d'être silencieuse. Le moteur rend `ecartes_faute_de_donnee: {"refresh_rate": 7}`, champ
+**toujours présent**, vide quand il n'y a rien à dire. Trois conditions : le compteur
+paie sur le zéro résultat (si `rouvre_si_retire == ecartes_faute_de_donnee`, le
+diagnostic est `donnee_absente` et non `critere_trop_strict`) ; la liste des attributs
+incomplets n'est pas devinée mais **recopiée des taux mesurés du rapport de seed**, donc
+aucune requête n'est émise sur un attribut à 100 % ; et le compteur sort du **même
+constructeur de prédicat** que le filtre — deux requêtes écrites séparément dériveraient.
+*Alternative écartée — exclusion silencieuse.* Zéro ligne de code, mais on décide que
+l'absence vaut « ne satisfait pas » sans jamais le dire, et c'est indétectable en éval.
+*Alternative écartée — un troisième ensemble `indetermines`.* Cohérent avec §3.10 sur le
+principe, mais il se propagerait jusqu'aux étapes 7, 8 et 9 — le validateur devrait
+couvrir trois ensembles — pour 0,4 à 4,1 % des lignes.
+
+*Troisième cas, ajouté après coup : **l'absence expliquée par une autre colonne**.*
+L'arbitrage séparait « aucun produit ne fait 144 Hz » de « aucun produit ne déclare sa
+fréquence ». Il manquait le cas qui n'est ni l'un ni l'autre.
+
+`internal-hard-drive.rpm` est renseigné à 33,9 %, et ces 33,9 % **sont** la part de HDD
+du seed. Un SSD n'a pas de vitesse de rotation ; `SpecsDisqueInterne._coherence_type_rpm`
+l'impose déjà à l'insertion. Sans traitement particulier, le chemin était mécanique :
+« 7 200 tr/min en M.2 PCIe » → zéro produit → les 40 disques rouverts par le retrait de
+`rpm` égalaient le compteur d'exclusions → diagnostic `donnee_absente` → l'étape 8
+aurait écrit « ces disques ne déclarent pas leur vitesse de rotation ». C'est faux : ils
+n'en ont pas. **Le moteur fabriquait une affirmation sur le catalogue**, dans le module
+dont c'est précisément la raison d'être (§2).
+
+Le registre porte donc `explique_par`, et le diagnostic un quatrième motif,
+`absence_structurelle`. Deux points importent :
+
+- **le drapeau n'est pas une opinion sur un taux de remplissage.** Il se pose quand une
+  autre colonne **détermine** l'absence, ce qui est vérifiable par la machine : à
+  l'intérieur de chaque valeur de `type`, `rpm` est soit toujours présent, soit toujours
+  absent. Un test le constate sur les 1 026 lignes du seed, il ne le documente pas ;
+- **`cpu.boost_clock` ne le porte pas**, alors qu'il est plus creux (66,1 %). Son
+  absence est *corrélée* à la génération du processeur — aucune colonne ne la
+  *détermine*, et un test le vérifie sur les quatre vocabulaires fermés de la catégorie.
+  C'est exactement la ligne de partage de §3.4quater : calcul déterministe contre
+  supposition.
+
+Conséquence : `rpm` sort du compteur `ecartes_faute_de_donnee` — les SSD ne sont pas des
+disques dont la donnée manque — mais **le filtre ne bouge pas** : un client qui demande
+7 200 tr/min ne reçoit toujours pas de SSD. Le drapeau change ce que le moteur *dit*,
+pas ce qu'il *rend*.
+
+*La condition du troisième cas n'est pas le drapeau seul.* La première version du
+correctif rendait `absence_structurelle` dès que l'attribut portait `explique_par`, et
+présentait comme une « limite assumée » le fait qu'il ne distinguait pas, parmi les
+produits rouverts, ceux que le seuil écartait de ceux auxquels l'attribut ne s'applique
+pas. Ce n'était pas une limite : c'était **le même défaut, déplacé d'une branche**.
+Mesuré sur le seed — `rpm >= 7200` dans un budget de 25 USD : zéro résultat, mais six
+disques tiennent dans ce budget et **deux d'entre eux tournent à 5 400 tr/min**
+(`internal-hard-drive-696751738a` à 14,21 USD et `internal-hard-drive-aa72d12add` à
+19,67 USD). Le moteur allait faire dire « vous avez demandé un disque mécanique » quand
+la phrase juste est « il y en a, mais aucun à 7 200 tr/min ».
+
+La condition retenue est donc **le drapeau et l'absence de valeur atteignable**, cette
+dernière étant déjà calculée par le dépôt : la plus proche réellement présente parmi les
+produits qui satisfont tous les autres critères. Elle existe → l'attribut s'applique bien
+à une partie du catalogue accessible, le critère est seulement trop strict ; elle vaut
+`None` → aucun produit rouvert ne déclare l'attribut, l'absence est structurelle. Les
+trois branches de `_motif_du_retrait` répondent alors à **une seule question** — les
+produits que ce retrait ferait remonter, qu'ont-ils à voir avec ce critère ? — au lieu
+d'une exception en tête de fonction suivie de deux cas généraux.
+
+Ce qu'il faut en retenir, et c'est la troisième fois dans cette étape : un attribut peut
+être structurellement inapplicable à une partie du catalogue **et** trop strictement
+demandé sur le reste. Les deux propriétés cohabitent sur le même champ, dans la même
+requête, et elles n'appellent pas la même phrase.
+
+**F — NULL sur un attribut scoré : retirer le critère et renormaliser.** Un sous-score
+de 0 punirait une donnée manquante, un sous-score de 0,5 inventerait une médiane. Le
+critère est donc retiré du calcul, les poids restants renormalisés, et la trace porte
+`indisponible`. ⚠️ **C'est le point fragile de l'étape, et il est écrit :** un produit à
+données manquantes a mécaniquement moins d'occasions de perdre des points. Garde-fou —
+à score égal, le produit dont **plus de critères ont été réellement évalués** passe
+devant, et la trace expose ce compte (`criteres_evalues`, `criteres_indisponibles`).
+Voir aussi la ligne ajoutée au §7.
+
+**G — Bornes de normalisation absolues, jamais relatives au lot.** Chaque attribut
+numérique porte dans le registre une borne basse et une borne haute **constantes** ; un
+sous-score vaut `(valeur - basse) / (haute - basse)`, borné à `[0, 1]`. Les queues
+lourdes sont winsorisées aux 5ᵉ et 95ᵉ centiles, calculés **une fois** sur le seed
+committé par `scripts/calibrer_bornes.py` et recopiés en constantes — jamais recalculés
+au runtime, sinon c'est du min-max déguisé. Un test vérifie que le script redonne
+exactement les constantes du registre. *Alternative écartée — min-max sur le lot
+candidat.* Contraste toujours plein, mais le score d'un produit dépendrait des produits
+présents à côté de lui : deux conversations classeraient le même produit différemment,
+et les tests deviendraient sensibles à leur fixture.
+
+*Direction du sous-score : la règle a été écrite deux fois avant d'être juste, et les
+deux versions fausses valent d'être gardées.* La règle qui tient est :
+
+> **L'opérateur décide de la satisfaction ; le `sens` du registre ordonne à l'intérieur
+> de la région satisfaisante.**
+
+Il a fallu deux défauts symétriques pour y arriver, et les écrire vaut mieux que
+n'exposer que la conclusion — c'est le même piège qui attend le prochain raffinement.
+
+**Défaut nº1 — le `sens` seul.** C'est ce que l'arbitrage énonçait au départ : le
+sous-score vaut `(valeur - basse) / (haute - basse)`, inversé si `sens =
+plus_bas_mieux`. Sur « un écran d'**au plus** 24 pouces », `screen_size` porte
+`plus_haut_mieux` : le 65 pouces sortait en tête d'une demande qui l'excluait.
+
+**Défaut nº2 — l'opérateur seul.** Le correctif livré à l'étape faisait décider la
+direction par l'opérateur (`au_plus` → `1 - normaliser(valeur)`). Il corrigeait le
+premier défaut et produisait exactement le symétrique. Sur les mêmes bornes calibrées
+`[21,5 ; 34]` :
+
+| dalle | sous-score | rang |
+| ---: | ---: | --- |
+| 21,5″ | 1,00 | 1er |
+| 24″ | 0,80 | après |
+
+Le client qui pose un plafond veut **le plus grand qui rentre**, pas le plus petit qui
+existe. Le défaut valait partout où un `au_plus` rencontre un attribut de `sens =
+plus_haut_mieux` : `screen_size`, `video-card.length` (« 300 mm maximum, mon boîtier »),
+`capacity`, `video-card.memory`, `core_count`.
+
+**Pourquoi la suite ne l'a pas vu.** Le test qui gardait ce point portait sur `cpu.tdp`,
+dont le `sens` est `plus_bas_mieux` : l'opérateur et le registre y disent déjà la même
+chose. Le seul cas qui révèle le problème est celui où ils **divergent**, et il n'était
+pas couvert. Un test l'exerce désormais, et le tableau des quatre configurations est en
+docstring de `sous_score_numerique` — trois de ses lignes passent avec l'une **ou**
+l'autre des deux règles fausses, la quatrième les sépare.
+
+**La règle qui tient**, en deux régions : une valeur qui satisfait le critère marque
+dans `[0,5 ; 1]`, ordonnée par le `sens` du registre **sur la portion de bornes que le
+critère admet** ; une valeur qui ne le satisfait pas marque dans `[0 ; 0,5[`,
+décroissant avec l'écart au seuil. La frontière est stricte dans les deux sens. Un seuil
+hors bornes ne casse rien : la région satisfaisante peut être vide ou couvrir toute
+l'échelle, le sous-score reste dans `[0, 1]` et rien n'est divisé par zéro.
+
+`egal` ne relève d'aucune des deux : la proximité à la valeur demandée reste la seule
+sémantique correcte, et le `sens` n'y a rien à faire.
+
+**Conséquence sur le `sens` :** il redevient porteur sur les critères eux-mêmes, et pas
+seulement dans le score technique de repli du rapport qualité/prix. Le « `sens` a failli
+être une constante décorative » noté plus bas reste vrai de la version livrée à
+l'étape ; il ne l'est plus. Le caractère **absolu** — ce que l'arbitrage protège
+réellement — n'a jamais bougé : rien, dans aucune des trois versions, ne dépend du lot.
+
+**H — Le prix : deux intentions distinctes, et un plafond.** Par défaut, le prix est un
+**filtre dur seul** (le budget) et n'intervient au classement que comme critère de
+**départage**. Il ne devient un sous-score que sur demande explicite, et il y a **deux
+demandes** : `moins_cher` (sous-score décroissant avec le prix) et
+`rapport_qualite_prix` (score technique ÷ prix). Sur `internal-hard-drive` et `memory`,
+la source donne déjà `price_per_gb` et l'étape 5 l'a recalculé sur le prix retenu : il
+est utilisé tel quel. Sur les quatre autres catégories, le ratio est calculé et ramené
+dans `[0, 1]` par un **plafond constant du registre** (`1 / P5(prix)`), pas par le
+maximum du lot — sans quoi la dépendance au lot reparaîtrait sur ce seul sous-score.
+Deux règles dures : le poids du sous-score de prix est **plafonné à 0,5**, strictement
+sous le poids du plus faible critère technique (un `souhait` pèse 1), de sorte qu'un
+produit qui rate complètement un critère énoncé ne peut pas repasser devant par le prix
+seul — sinon « je veux 144 Hz et pas trop cher » finit sur un 60 Hz bon marché ; et
+**toute position gagnée par le prix apparaît dans la trace** (`rang`,
+`rang_sans_le_prix`), parce que le prix compte déjà deux fois — le budget borne, le score
+ordonne — et que c'est volontaire, donc ça s'écrit.
+
+**I — La trace est structurée ; le français est du vocabulaire, pas des phrases.** Par
+produit et par critère : `champ`, `role_applique`, `statut` ∈ {`matche`, `partiel`,
+`rate`, `indisponible`}, `valeur_produit`, `valeur_demandee`, `ecart`, `poids`,
+`sous_score`, `retrograde`. Aucune phrase rédigée, aucune valeur pré-formatée pour
+l'affichage — la mise en forme est l'affaire de l'étape 11. Mais le registre porte un
+**libellé français par attribut** (`refresh_rate` → « fréquence de rafraîchissement ») et
+son unité, et la trace les transporte : c'est le raisonnement de §3.4ter appliqué ici, du
+français dérivé d'un **champ** est déterministe, donc c'est de la donnée. Le repli sur
+template de §3.11 niveau 3 en aura besoin ; le laisser hors du registre reviendrait à le
+redécouvrir à l'étape 9. Un test le garde de façon mécanique : **toute chaîne présente
+dans une trace vient du registre, d'une énumération du module, ou du catalogue.**
+
+**J — Zéro résultat : diagnostic, puis proposition — jamais application.** Analyse par
+retrait d'un critère à la fois, plus, pour les critères numériques, la **valeur
+atteignable** la plus proche. Cinq règles : la valeur proposée est **prise dans le
+catalogue** — la plus proche effectivement présente parmi les produits qui satisfont
+tous les autres critères, jamais un seuil rond calculé, qui rendrait encore zéro et
+affirmerait sur le stock un fait qui n'en est pas un ; l'ordre des suggestions suit
+l'importance déclarée puis le nombre de produits rouverts, un critère de compatibilité
+venant **en dernier** avec un drapeau `dernier_recours` que l'étape 8 lira ; si le
+critère bloquant est le budget, la réponse est l'ensemble `au_dessus_du_budget` de §3.10
+et `prix_usd` est exclu des candidats au retrait ; si aucun retrait unique n'ouvre le
+catalogue, le moteur le dit (`aucun_retrait_simple`) — les combinaisons de degré 2 sont
+hors périmètre, et leur absence est une réponse, pas un silence ; et la suggestion reste
+une **proposition**, le moteur ne l'applique jamais de lui-même.
+
+**K — Un tour, une catégorie.** Tous les produits rendus par un appel appartiennent à une
+seule catégorie, et la catégorie est obligatoire. Il n'y a ni panier, ni budget alloué,
+ni somme suivie d'un tour à l'autre : l'invariant se vérifie en une ligne, et il **est**
+vérifié — le moteur lève si un produit d'une autre catégorie remonte. Une « config
+gaming » est ainsi structurellement impossible à servir en un tour. Ce n'est pas au
+moteur de refuser une telle demande : l'étape 8 la séquencera (« je conseille un
+composant à la fois — on commence par la carte graphique ? »). Conséquences en §8 et
+amendement de §3.6.
+
+**L — Comparaison des textes : égalité stricte.** Sur les énumérations (`chipset`
+241 valeurs, `microarchitecture` 33, `interface` 18…), égalité stricte et jamais de
+`contains` : sinon « RTX 4070 » attrape silencieusement « RTX 4070 Ti » et le critère
+nº4 se dégrade sans qu'on le voie. C'est cohérent avec §3.7 — `probe_catalog` rendra les
+valeurs distinctes, l'agent choisira dedans. Ces égalités passent par une containment
+`@>`, servie par le GIN `jsonb_path_ops` : c'est le seul endroit où l'index de §3.3bis
+travaille réellement. Seule exception, `marque`, que le client tape à la main :
+comparaison sur une clé normalisée (minuscules, ponctuation retirée), écrite **une fois,
+en SQL**, et appliquée aux **deux côtés** de l'égalité plutôt que dupliquée en Python —
+deux implémentations d'une même normalisation dérivent, et la divergence se voit sur un
+cas rare, tard.
+
+**M — L'ordre est total et déterministe.** `(score décroissant, nombre de critères
+évalués décroissant, prix croissant, id croissant)`. Aucun ex æquo ne subsiste, aucun
+classement ne dépend de l'ordre de retour de Postgres, et les tests peuvent asserter une
+liste exacte.
+
+#### Note de performance, avec son seuil de bascule
+
+Les n+1 requêtes de comptage du relâchement se ramènent à une seule avec
+`count(*) FILTER (WHERE …)`. À 1 026 lignes et une poignée de critères, le gain est nul :
+on garde la version lisible. La bascule est documentée en commentaire dans `depot.py`,
+avec sa condition de déclenchement — un changement d'ordre de grandeur du catalogue, ou
+un appel du moteur dans une boucle. C'est le même compromis explicite que §3.3bis.
+
+#### Ce que l'étape a appris, et qui n'était pas prévu
+
+- **La winsorisation ne corrige pas une queue lourde, elle en corrige une énorme.**
+  `memory.price_per_gb` a une borne haute calibrée à **13,375 USD/GB** pour un maximum
+  observé de **497,5** : le 95ᵉ centile est 37 fois sous le maximum. Sans plafonnement,
+  ce seul produit aurait tassé les 170 autres dans un intervalle de 2,7 % de l'échelle.
+  L'ordre de grandeur de l'écart n'était pas anticipé — `schema_attributs.md` demandait
+  de « borner le sous-score », il ne disait pas de combien.
+- **Le comptage des NULL concerne trois filtres durs incomplets, mais deux seulement
+  se comptent.** Le cadrage annonçait `monitor.refresh_rate` (95,9 %) et
+  `video-card.length` (96,5 %). La mesure ajoute `internal-hard-drive.rpm`, à **33,9 %**
+  — et son absence n'est pas une lacune : elle vaut exactement la part de SSD du seed
+  (113 sur 171). La première version de l'étape le comptait quand même, au motif qu'un
+  client demandant 7 200 tr/min a bien perdu les SSD en chemin. C'était vrai du
+  **filtre** et faux du **diagnostic** : voir le troisième cas de l'arbitrage E, qui a
+  fait naître `explique_par` et le motif `absence_structurelle`.
+- **G2 est un cas de départage moins pur que le rapport de seed ne le disait.** Le
+  rapport annonce « toutes les specs identiques, sauf le prix et `color` ». C'est exact
+  **pour le JSONB**, et faux pour la ligne entière : `headphones-06acf63b59` est un
+  Pyle Audio, `headphones-393cd46c64` un Logitech, et `marque` est un **filtre dur**.
+  Sans critère de marque, le départage se fait bien sur le prix, et le cas exerce ce
+  qu'il devait exercer ; avec un critère de marque, ce n'est plus un départage, c'est un
+  filtre. Le test le dit explicitement plutôt que de laisser croire à deux produits
+  interchangeables — et `data/seed/rapport_seed.md` porte la nuance depuis le correctif,
+  émise par le générateur lui-même (`CasLimiteG2` transporte les deux marques) : une
+  note ajoutée à la main dans un fichier généré disparaît à la première régénération.
+- **Un `dans_les_specs` oublié rend zéro produit sans lever.** Les colonnes communes
+  (`marque`, `categorie`…) ne vivent pas dans le JSONB. Le drapeau qui le dit avait été
+  écrit sur `prix_usd` et oublié sur les cinq autres : la containment cherchait alors
+  `specs->'marque'`, une clé inexistante, et le filtre rendait zéro produit **sans la
+  moindre erreur**. Trouvé par le test d'intégration sur la marque. Le drapeau est
+  désormais posé par la construction du registre, pas recopié entrée par entrée — et un
+  test garde cette construction. C'est le mode d'échec le plus désagréable qui soit : un
+  filtre qui marche, et qui a tort.
+- **Le `sens` du registre a failli être retiré pour inutilité — et c'est lui qui
+  manquait.** Le premier correctif de l'arbitrage G faisait décider la direction par
+  l'opérateur seul, ce qui laissait le `sens` sans emploi hors du rapport qualité/prix ;
+  il a bien failli passer pour une constante décorative. Le second correctif a montré
+  qu'il portait exactement la moitié manquante de la règle : l'ordre **à l'intérieur**
+  de la région satisfaisante. Une constante qu'aucun code ne lit est suspecte ; avant de
+  la retirer, il vaut la peine de chercher ce qu'elle devrait porter.
+
+#### Pour l'étape 7 — l'importance d'un critère est **collante** en session
+
+Un critère déclaré `bloquant` ne peut pas être re-déclaré `souhait` par le modèle seul
+lors d'un appel suivant : seule une nouvelle parole du client le change. Sans cette
+règle, le zéro résultat devient une incitation à assouplir en douce, exactement ce que
+§3.6 cherche à empêcher — l'agent essaierait jusqu'à trouver quelque chose à montrer.
+
+**Ce n'est pas implémenté à l'étape 6**, et c'est délibéré : la fusion des critères d'un
+tour à l'autre appartient à la couche outils. L'étape 6 écrit seulement ce que cette
+couche aura besoin de lire — le drapeau `retrogradable` du registre, et la trace des
+rétrogradations effectivement appliquées.
 
 ---
 
@@ -1191,6 +1588,8 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Les cassettes deviennent obsolètes silencieusement** | Moyenne — les tests passent à côté de la réalité | Hash du prompt stocké dans la cassette ; le test échoue si le prompt a changé |
 | **Le nettoyage du dataset déborde** | Moyenne — dérive du projet | Geler le périmètre à ce qui est propre plutôt que poursuivre l'exhaustivité |
 | **Latence perçue de la boucle multi-outils** | Faible | Streaming des événements typés dès le premier appel d'outil |
+| **`absence_structurelle` est posé à la main dans le registre** | Faible aujourd'hui, croissante si le catalogue s'étend | Un seul attribut le porte (`internal-hard-drive.rpm`), et un test vérifie sur le seed que son absence est bien **déterminée** par `type`. Mais rien ne détecte le cas inverse : un attribut futur dont l'absence serait expliquée par une autre colonne ne se signalerait pas tout seul, et son zéro résultat serait diagnostiqué `donnee_absente` — donc expliqué par une phrase fausse. Atténuation partielle : un test balaie tous les attributs incomplets et échoue si l'un d'eux remplit le critère sans porter le drapeau. Il ne couvre que les vocabulaires fermés, et que le seed |
+| **Le garde-fou de l'arbitrage F favorise légèrement les produits à données manquantes** | Faible, mais réelle et constatée | Un critère indisponible sort du calcul et les poids sont renormalisés : un produit incomplet a donc moins d'occasions de perdre des points. Atténuation : à score égal, celui dont **plus de critères ont été évalués** passe devant, et la trace expose `criteres_evalues` / `criteres_indisponibles`. L'atténuation ne supprime pas le biais — elle ne joue qu'à score **exactement** égal. Un écran sans `refresh_rate` déclaré peut donc devancer un écran à 120 Hz sur un souhait de 144 Hz, et c'est visible dans la démonstration de l'étape. Les deux alternatives (0, ou 0,5) sont pires : l'une punit l'absence, l'autre l'invente |
 
 ---
 
@@ -1198,3 +1597,32 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 
 Paiement, compte utilisateur, multilingue, gestion de panier, historique
 inter-sessions.
+
+### La composition multi-catégories (arbitrage K de l'étape 6)
+
+Un appel au moteur rend les produits d'**une seule catégorie**, et la catégorie est
+obligatoire. « Monte-moi une config gaming à 1 500 € » n'est donc pas servi en un tour :
+l'étape 8 le **séquencera** composant par composant (« je conseille un composant à la
+fois — on commence par la carte graphique ? »).
+
+Ce que la composition demanderait, et qu'aucun des trois n'existe dans un MVP qui exclut
+déjà le paiement et le compte client :
+
+1. un **panier explicite** — la liste de ce qui a déjà été retenu, persistée et
+   modifiable ;
+2. un **budget alloué** par composant, avec retraits au fil des choix et
+   réinitialisation quand le client change d'avis ;
+3. un **critère d'acceptation nº2 redéfini par panier** : « budget jamais dépassé »
+   cesse de porter sur un produit pour porter sur une somme, et le validateur de
+   l'étape 9 devrait vérifier un total, pas une ligne.
+
+**Le total dépensé à travers plusieurs tours n'est pas suivi.** C'est ce que « hors
+périmètre » signifie ici, et c'est désormais **constatable** — l'invariant « un tour, une
+catégorie » est vérifié par le moteur, qui lève si un produit d'une autre catégorie
+remonte — plutôt que silencieux. Un client peut donc, en trois tours, se voir recommander
+trois composants dont la somme dépasse ce qu'il avait annoncé : le moteur ne le sait pas,
+et il ne prétend pas le savoir.
+
+Conséquence documentée ailleurs : l'exemple « il me faut aussi une ponceuse, 300 € pour
+les deux » ne peut plus servir à justifier l'agent contre la machine à états. §3.6 porte
+l'amendement.

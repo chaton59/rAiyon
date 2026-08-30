@@ -89,6 +89,12 @@ disallow_incomplete_defs = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# `tests/base_de_test.py` porte la plomberie Postgres commune à `tests/integration/`
+# et `tests/matching/`. Un conftest ne s'importe pas depuis un autre ; un module
+# ordinaire, si — à condition que `tests/` soit sur le chemin. `scripts/` y est pour
+# que `test_calibration.py` rejoue `calibrer_bornes.py` plutôt que d'en recopier la
+# logique : c'est la comparaison au script qui fait foi, pas une seconde version.
+pythonpath = ["tests", "scripts"]
 addopts = "-q --strict-markers -m 'not integration and not llm'"
 markers = [
     "integration: nécessite une base Postgres accessible (désélectionné par défaut)",
