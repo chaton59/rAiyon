@@ -52,6 +52,7 @@ def _jouer(base, conversation, client, depot, message_client):
         message_client=message_client,
         depot=depot,
         max_iterations=8,
+        max_regenerations=1,
         tolerance=TOLERANCE,
     )
     while True:

@@ -7,6 +7,35 @@ paierait l'accumulation des deltas de `tool_use` en JSON partiel dans l'étape q
 déjà le premier appel API du projet. Le contrat d'événements est posé ; l'étape 10
 remplace le producteur, pas le consommateur.
 
+⚠️ **Amendement de l'étape 9 : cette promesse cesse de valoir pour `Texte`.** Voir plus
+bas, c'est l'arbitrage structurant de l'étape.
+
+---
+
+### Le texte est bufferisé, validé, puis émis (étape 9, arbitrage A)
+
+**Valider après génération et streamer le texte au client sont incompatibles** : on ne
+rattrape pas une phrase déjà affichée. §3.11 promet trois niveaux cumulés, §3.12 promet
+des `text_delta` ; les deux étaient en contradiction et personne ne l'avait écrit. C'est
+§3.11 qui gagne.
+
+Le texte d'un message assistant est donc **concaténé, relu par `raiyon.validateur`, puis
+émis** — un seul `Texte`, jamais une suite de deltas. Les événements d'outils
+(`CriteresMisAJour`, `Sondage`, `QuestionSuggeree`, `ProduitsTrouves`) continuent
+d'arriver au fil de l'eau : le panneau de §3.12 vit pendant l'attente, seule la prose
+arrive d'un bloc.
+
+*Alternative écartée — streamer le texte et corriger à l'écran après coup.* Meilleure
+latence perçue, mais le client voit une affirmation puis sa rétractation : c'est §2 pris
+à l'envers, et une démonstration qui montrerait un prix faux pendant deux secondes ne
+démontrerait rien.
+
+Un texte refusé donne un `TexteRejete`, puis **une** régénération : le grief part dans le
+même bloc `user` que les `tool_result`, après eux (arbitrage D). Second échec → repli sur
+template. Le message fautif **reste dans l'historique** — le retirer casserait
+l'appairage des `tool_result` et rendrait le grief incompréhensible ; le modèle voit donc
+sa propre sortie rejetée au tour suivant, et c'est acceptable.
+
 Le générateur rend `Evenement` et **retourne** une `IssueDuTour`. C'est bien un
 `Iterator[Evenement]` pour la console, qui n'a que les événements à consommer ; le type
 de retour porte en plus ce dont la persistance a besoin — l'état final et les lignes à
@@ -73,13 +102,17 @@ from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import (
     CriteresMisAJour,
     Evenement,
+    MotifDeRepli,
     ProduitsTrouves,
     QuestionPosee,
     QuestionSuggeree,
     Repli,
     Sondage,
     Texte,
+    TexteRejete,
 )
+from raiyon.agent.prompts import message_de_grief
+from raiyon.matching.moteur import ResultatMatching
 from raiyon.tools.erreurs import OutilRefuse
 from raiyon.tools.etat import EtatSession
 from raiyon.tools.outils import (
@@ -92,13 +125,27 @@ from raiyon.tools.outils import (
     en_tool_result,
 )
 from raiyon.tools.repartiteur import ContexteOutils, executer
+from raiyon.validateur.contexte import contexte_des_messages
+from raiyon.validateur.repli import rediger
+from raiyon.validateur.validateur import VERDICT_SANS_GRIEF, Verdict, valider
 
 logueur = structlog.get_logger(__name__)
 
 PHRASE_DE_REPLI = (
     "Je m'y perds un peu — pouvez-vous me redire ce que vous cherchez, et pour quel usage ?"
 )
-"""Écrite en Python, jamais générée. Voir l'alternative écartée dans `Repli`."""
+"""Écrite en Python, jamais générée. Voir l'alternative écartée dans `Repli`.
+
+Celle du repli de validation vit dans `validateur/repli.py` : deux situations, donc deux
+phrases. Ici le modèle a tourné en rond ; là il a affirmé ce qu'il n'avait pas."""
+
+SEPARATEUR_DE_BLOCS = "\n"
+"""Ce qui recolle les blocs `text` d'un même message assistant avant validation.
+
+L'API n'en rend qu'un en pratique ; en rendre plusieurs et les valider séparément
+laisserait passer une phrase coupée en deux blocs — et le découpage en phrases du
+validateur, qui coupe déjà sur le saut de ligne, retrouve exactement la même granularité
+que si les blocs étaient restés séparés."""
 
 ROLE_ASSISTANT = "assistant"
 ROLE_CLIENT = "user"
@@ -131,6 +178,26 @@ class _Message:
     textes: list[str] = field(default_factory=list)
     appels: list[dict[str, Any]] = field(default_factory=list)
 
+    @property
+    def texte(self) -> str:
+        """Le texte du message, **entier**. C'est lui que le validateur relit."""
+        return SEPARATEUR_DE_BLOCS.join(self.textes).strip()
+
+
+@dataclass(frozen=True, slots=True)
+class _Executions:
+    """Ce qu'un message assistant a produit en exécutant ses outils.
+
+    `recherche` est le dernier `ResultatMatching` **typé** du tour : c'est ce dont le
+    repli sur template a besoin, et il ne survit pas à la sérialisation en `tool_result`
+    — le reconstruire depuis le JSON demanderait un second lecteur du protocole.
+    """
+
+    etat: EtatSession
+    resultats: list[dict[str, Any]]
+    question: ResultatPrecision | None
+    recherche: ResultatMatching | None
+
 
 def repondre(
     *,
@@ -142,6 +209,7 @@ def repondre(
     etat: EtatSession,
     contexte: ContexteOutils,
     max_iterations: int,
+    max_regenerations: int,
 ) -> Generator[Evenement, None, IssueDuTour]:
     """Conduit un tour client de bout en bout et rend ce qu'il faut persister.
 
@@ -149,6 +217,10 @@ def repondre(
     `message_client` est le texte du message ; sa ligne `tours_conversation` a déjà été
     posée par l'appelant — c'est son `numero` qui sert de `contexte.tour_client`
     (arbitrage 9), et c'est pourquoi elle ne figure pas dans `IssueDuTour.tours`.
+
+    `max_regenerations` est un budget **de tour**, pas de message : deux refus dans un
+    même tour valent deux refus, quel que soit le message qui les a produits. C'est ce
+    qui borne le coût — chaque tentative est un appel API payé.
     """
     messages: list[dict[str, Any]] = [
         *historique,
@@ -157,18 +229,58 @@ def repondre(
     tours: list[TourProduit] = []
     outils_appeles: list[str] = []
     iteration = 0
+    regenerations = 0
+    derniere_recherche: ResultatMatching | None = None
 
     while iteration < max_iterations:
         iteration += 1
+        # Le contexte fourni se lit sur les `tool_result` **déjà** dans la conversation :
+        # ce sont exactement les faits que le modèle avait sous les yeux en écrivant le
+        # message qu'on s'apprête à lire. Il est cumulatif sur la session, historique
+        # relu compris (étape 9, arbitrage B).
+        fourni = contexte_des_messages(messages)
         reponse = client.repondre(systeme=systeme, outils=outils, messages=messages)
         messages.append({"role": ROLE_ASSISTANT, "content": reponse.blocs})
         tours.append(TourProduit(ROLE_ASSISTANT, reponse.blocs))
 
         message = _depouiller(reponse.blocs)
-        # Le texte part **avant** l'exécution des outils, et sans savoir ce qui suit :
-        # c'est ce qui rend le streaming substituable à l'étape 10 (voir `Texte`).
-        for texte in message.textes:
-            yield Texte(texte)
+        verdict = valider(message.texte, fourni) if message.texte else VERDICT_SANS_GRIEF
+
+        if verdict.griefs:
+            regenerations += 1
+            yield TexteRejete(verdict.griefs, regenerations)
+            _journaliser_le_rejet(verdict, iteration, regenerations, max_regenerations)
+
+            # Les outils du message fautif s'exécutent **quand même** : chaque `tool_use`
+            # doit avoir son `tool_result` (piège technique nº1), et leurs résultats sont
+            # des faits — le panneau de §3.12 n'a pas à mentir parce que la prose ment.
+            executions = yield from _executer_les_appels(message.appels, etat, contexte)
+            etat = executions.etat
+            derniere_recherche = executions.recherche or derniere_recherche
+            outils_appeles.extend(str(appel.get("name")) for appel in message.appels)
+
+            if regenerations > max_regenerations:
+                # Repli sur template (§3.11 niveau 3). Les `tool_result` partent avant de
+                # sortir : sans eux, c'est le tour **suivant** que l'API refuserait.
+                _ajouter_les_resultats(messages, tours, executions.resultats)
+                yield Repli(
+                    rediger(derniere_recherche),
+                    iteration,
+                    tuple(outils_appeles),
+                    MotifDeRepli.VALIDATION,
+                )
+                return IssueDuTour(etat, tuple(tours), iteration, tuple(outils_appeles))
+
+            # Le grief part **après** les `tool_result`, dans le même bloc `user` :
+            # l'API exige les résultats appairés avant tout autre contenu utilisateur.
+            # Quand le message ne portait que du texte, le bloc ne contient que le grief.
+            reprise = [*executions.resultats, _bloc_de_grief(verdict)]
+            messages.append({"role": ROLE_CLIENT, "content": reprise})
+            tours.append(TourProduit(ROLE_CLIENT, reprise))
+            continue
+
+        if message.texte:
+            yield Texte(message.texte)
 
         if not message.appels:
             if reponse.fin == "max_tokens":
@@ -183,15 +295,17 @@ def repondre(
             return IssueDuTour(etat, tuple(tours), iteration, tuple(outils_appeles))
 
         outils_appeles.extend(str(appel.get("name")) for appel in message.appels)
-        etat, resultats, question = yield from _executer_les_appels(message.appels, etat, contexte)
+        executions = yield from _executer_les_appels(message.appels, etat, contexte)
+        etat = executions.etat
+        derniere_recherche = executions.recherche or derniere_recherche
 
         # Un seul bloc `user` porte **tous** les `tool_result`, dans l'ordre des
         # `tool_use`. C'est ce que l'API attend, et c'est ce qui rend l'appairage
         # vérifiable par une simple comparaison de listes.
-        messages.append({"role": ROLE_CLIENT, "content": resultats})
-        tours.append(TourProduit(ROLE_CLIENT, resultats))
+        _ajouter_les_resultats(messages, tours, executions.resultats)
 
-        if question is not None:
+        if executions.question is not None:
+            question = executions.question
             yield QuestionPosee(question=question.question, champ_vise=question.champ_vise)
             logueur.info("boucle.tour_clos_par_question", iterations=iteration)
             return IssueDuTour(etat, tuple(tours), iteration, tuple(outils_appeles))
@@ -205,17 +319,52 @@ def repondre(
         outils_appeles=outils_appeles,
         consequence="tour clos par un message de repli écrit en Python",
     )
-    yield Repli(PHRASE_DE_REPLI, iteration, tuple(outils_appeles))
+    yield Repli(PHRASE_DE_REPLI, iteration, tuple(outils_appeles), MotifDeRepli.MAX_ITERATIONS)
     return IssueDuTour(etat, tuple(tours), iteration, tuple(outils_appeles))
+
+
+def _ajouter_les_resultats(
+    messages: list[dict[str, Any]], tours: list[TourProduit], resultats: list[dict[str, Any]]
+) -> None:
+    """Pose le bloc `user` des `tool_result`, s'il y en a.
+
+    Le garde-fou n'est pas cosmétique : un message assistant sans `tool_use` ne produit
+    aucun résultat, et l'API refuse un bloc de contenu vide.
+    """
+    if not resultats:
+        return
+    messages.append({"role": ROLE_CLIENT, "content": resultats})
+    tours.append(TourProduit(ROLE_CLIENT, resultats))
+
+
+def _bloc_de_grief(verdict: Verdict) -> dict[str, Any]:
+    """Le message de reprise, en bloc `text`. Le texte vit dans `prompts/grief.v1.md`."""
+    return {"type": "text", "text": message_de_grief(verdict.en_lignes())}
+
+
+def _journaliser_le_rejet(
+    verdict: Verdict, iteration: int, regenerations: int, budget: int
+) -> None:
+    """Un `WARNING` par rejet, avec les codes — c'est le taux que l'étape 12 publiera."""
+    logueur.warning(
+        "boucle.texte_rejete",
+        iteration=iteration,
+        tentative=regenerations,
+        budget=budget,
+        codes=[grief.code.value for grief in verdict.griefs],
+        consequence=(
+            "repli sur template" if regenerations > budget else "une régénération est demandée"
+        ),
+    )
 
 
 def _executer_les_appels(
     appels: Sequence[dict[str, Any]], etat: EtatSession, contexte: ContexteOutils
-) -> Generator[Evenement, None, tuple[EtatSession, list[dict[str, Any]], ResultatPrecision | None]]:
+) -> Generator[Evenement, None, _Executions]:
     """Exécute tous les appels d'un message, séquentiellement, en réenchaînant l'état.
 
-    Rend l'état final, les `tool_result` **dans l'ordre des `tool_use`**, et la première
-    demande de précision s'il y en a une.
+    Rend l'état final, les `tool_result` **dans l'ordre des `tool_use`**, la première
+    demande de précision s'il y en a une, et le dernier `ResultatMatching` typé.
 
     ⚠️ **Une fois la question vue, les événements suivants ne partent plus** — « les
     autres résultats sont perdus » (arbitrage 5). Sans cela, un `search_products` appelé
@@ -228,11 +377,16 @@ def _executer_les_appels(
     donc de l'ordre des blocs dans le message. C'est assumé, pour deux raisons : le cas
     est dégénéré (le prompt système dit de ne pas mélanger `ask_clarification` avec un
     autre outil), et toute règle qui n'en dépendrait pas exigerait de connaître la fin du
-    message avant d'émettre le premier événement — c'est-à-dire de bufferiser, donc de
-    rendre le streaming de l'étape 10 inopérant.
+    message avant d'émettre le premier événement.
+
+    ⚠️ **La seconde raison ne vaut plus pour le texte, et elle vaut toujours ici.**
+    L'étape 9 bufferise la prose ; elle ne bufferise pas les événements d'outils, qui
+    continuent de partir au fil de l'eau pendant l'attente (arbitrage A). L'asymétrie
+    reste donc entière pour eux.
     """
     resultats: list[dict[str, Any]] = []
     question: ResultatPrecision | None = None
+    recherche: ResultatMatching | None = None
 
     for appel in appels:
         nom = str(appel.get("name", ""))
@@ -259,11 +413,14 @@ def _executer_les_appels(
                 )
             continue
 
+        if isinstance(resultat, ResultatRecherche):
+            recherche = resultat.resultat
+
         evenement = _evenement_de(resultat)
         if evenement is not None and question is None:
             yield evenement
 
-    return etat, resultats, question
+    return _Executions(etat, resultats, question, recherche)
 
 
 def _evenement_de(resultat: ResultatOutil) -> Evenement | None:

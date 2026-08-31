@@ -40,7 +40,16 @@ def etat_ecran() -> EtatSession:
     )
 
 
-def jouer(client, contexte, outils, *, etat=None, max_iterations=8, message_client="Bonjour"):
+def jouer(
+    client,
+    contexte,
+    outils,
+    *,
+    etat=None,
+    max_iterations=8,
+    max_regenerations=1,
+    message_client="Bonjour",
+):
     """Consomme le générateur **en entier** et rend `(événements, issue)`.
 
     Le générateur ne produit son issue qu'à la fin : un test qui s'arrêterait au premier
@@ -56,6 +65,7 @@ def jouer(client, contexte, outils, *, etat=None, max_iterations=8, message_clie
         etat=etat if etat is not None else EtatSession(),
         contexte=contexte,
         max_iterations=max_iterations,
+        max_regenerations=max_regenerations,
     )
     evenements = []
     while True:

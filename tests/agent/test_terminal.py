@@ -45,11 +45,18 @@ def test_ask_clarification_arrete_la_boucle_sans_second_appel_api(contexte, outi
 def test_ce_qui_part_au_client_est_le_texte_puis_la_question(contexte, outils):
     """« Donner avant de demander » (§3.9) vit dans le message, plus dans un argument.
 
-    L'ordre des événements **est** ce que le client lit : les blocs `text` du message
-    assistant, puis la question. Un `Texte` émis après la `QuestionPosee` ferait lire la
-    question avant la piste qu'elle affine.
+    L'ordre des événements **est** ce que le client lit : le texte du message assistant,
+    puis la question. Un `Texte` émis après la `QuestionPosee` ferait lire la question
+    avant la piste qu'elle affine.
+
+    ⚠️ **La piste de l'étape 8 était « du 27 pouces en 144 Hz », et le validateur de
+    l'étape 9 la refuse.** Ce n'est pas une régression du test : aucun outil n'a encore
+    tourné dans ce scénario, donc ces deux chiffres ne viennent de nulle part. La
+    fixture disait, sans qu'on l'ait vu, exactement ce que §2 interdit — une piste
+    plausible tenue pour un fait. Elle est réécrite sans chiffre, ce qui est **aussi**
+    ce que le prompt système demande quand on n'a rien sous les yeux.
     """
-    piste = "Sur cette gamme je pars plutôt sur du 27 pouces en 144 Hz."
+    piste = "Sur cette gamme, je pars plutôt sur un écran de jeu que sur de la bureautique."
     client = FauxClient(
         [message(texte(piste), appel_outil(NOM_PRECISION, {"question": QUESTION}, id="tu_1"))]
     )

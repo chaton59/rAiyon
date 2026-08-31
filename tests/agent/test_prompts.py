@@ -15,11 +15,14 @@ Trois choses valent d'être vérifiées, et une seule est évidente :
 import pytest
 
 from raiyon.agent.prompts import (
+    GRIEF_V1,
+    MARQUE_DES_GRIEFS,
     REPERTOIRE,
     SYSTEME_V1,
     PromptIntrouvable,
     charger,
     empreinte,
+    message_de_grief,
     prompt_systeme,
 )
 
@@ -89,3 +92,38 @@ def test_le_prompt_v1_dit_la_regle_absolue_et_la_verbatim():
     assert "search_products" in texte
     assert "verbatim" in texte
     assert "id" in texte
+
+
+# --------------------------------------------------------------------------- #
+# Le message de reprise de l'étape 9
+# --------------------------------------------------------------------------- #
+
+
+def test_le_message_de_grief_insere_les_griefs_a_leur_place():
+    """Le gabarit vit dans `prompts/grief.v1.md`, versionné comme le prompt système.
+
+    Il n'est **pas** dans le préfixe mis en cache — il voyage dans un bloc `user` — donc
+    l'interdiction d'interpolation de l'arbitrage 7 ne le concerne pas. La marque est un
+    commentaire markdown plutôt qu'un `{}` de `.format()` : le fichier peut contenir des
+    accolades sans qu'il faille les échapper.
+    """
+    texte = message_de_grief(["- **id_inconnu** — « monitor-00000000ff »"])
+
+    assert MARQUE_DES_GRIEFS not in texte
+    assert "monitor-00000000ff" in texte
+
+
+def test_le_gabarit_de_grief_porte_sa_marque_dinsertion():
+    """Sans elle, le modèle recevrait une reprise sans motif — et la régénération
+    n'aurait aucune chance d'aboutir. Le contrôle lève plutôt que de la laisser passer."""
+    assert MARQUE_DES_GRIEFS in charger(GRIEF_V1)
+
+
+def test_le_gabarit_de_grief_dit_les_trois_facons_dont_un_chiffre_juste_devient_faux():
+    """Il est écrit **pour le modèle** — même convention que les messages d'`erreurs.py` :
+    il dit quoi faire, pas « tu as halluciné »."""
+    texte = charger(GRIEF_V1)
+
+    assert "fourchette de sondage" in texte
+    assert "distribution" in texte
+    assert "au-dessus du budget" in texte

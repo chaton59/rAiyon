@@ -22,6 +22,7 @@ def test_valeurs_par_defaut(monkeypatch):
     assert settings.model_eval_client == "claude-haiku-4-5-20251001"
     assert settings.budget_tolerance == 0.15
     assert settings.max_agent_iterations == 8
+    assert settings.max_regenerations == 1
     assert settings.log_level == "INFO"
     assert settings.app_env == "dev"
     assert settings.database_url.scheme == "postgresql+psycopg"

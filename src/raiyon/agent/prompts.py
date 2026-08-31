@@ -17,6 +17,7 @@ prétendre à une propriété cryptographique dont on n'a pas l'usage.
 """
 
 import hashlib
+from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 
@@ -33,6 +34,21 @@ raison de payer cette complexité avant."""
 
 SYSTEME_V1 = "systeme.v1"
 """La version en vigueur, nommée une fois. La boucle ne cite pas de nom de fichier."""
+
+GRIEF_V1 = "grief.v1"
+"""Le message de reprise de l'étape 9, versionné **comme le prompt système** (§3.14).
+
+Il est écrit pour être lu par le modèle, pas par le client : c'est la même convention
+que les messages d'`erreurs.py`, et c'est pour cela qu'il vit dans `prompts/` plutôt
+qu'en constante Python — l'étape 13 devra pouvoir en changer la formulation et mesurer
+si le taux de régénération réussie bouge."""
+
+MARQUE_DES_GRIEFS = "<!-- griefs -->"
+"""L'emplacement de la liste des griefs dans `grief.v1.md`.
+
+Un commentaire markdown plutôt qu'un `{griefs}` de `.format()` : le fichier peut alors
+contenir des accolades sans qu'il faille les échapper, et une marque oubliée se voit à
+la relecture au lieu de lever un `KeyError` au premier grief de production."""
 
 
 class PromptIntrouvable(Exception):
@@ -73,3 +89,26 @@ def prompt_systeme() -> tuple[str, str]:
     signature = empreinte(texte)
     logueur.info("prompts.systeme", version=SYSTEME_V1, empreinte=signature, octets=len(texte))
     return texte, signature
+
+
+class GriefMalForme(Exception):
+    """`grief.v1.md` ne porte pas sa marque d'insertion. Non rattrapable au runtime."""
+
+
+def message_de_grief(lignes: Sequence[str]) -> str:
+    """Le message de reprise, griefs insérés, et il loggue la version employée.
+
+    Le texte part dans le **même bloc `user` que les `tool_result`**, après eux
+    (arbitrage D de l'étape 9) : c'est ce qui rend la régénération possible même quand
+    le message fautif portait aussi des `tool_use`, l'API exigeant les `tool_result`
+    appairés avant tout autre contenu utilisateur.
+    """
+    gabarit = charger(GRIEF_V1)
+    if MARQUE_DES_GRIEFS not in gabarit:
+        raise GriefMalForme(
+            f"{GRIEF_V1}.md ne contient pas {MARQUE_DES_GRIEFS!r} : la liste des griefs "
+            "n'aurait nulle part où aller, et le modèle recevrait une reprise sans motif."
+        )
+    signature = empreinte(gabarit)
+    logueur.info("prompts.grief", version=GRIEF_V1, empreinte=signature, griefs=len(lignes))
+    return gabarit.replace(MARQUE_DES_GRIEFS, "\n".join(lignes))

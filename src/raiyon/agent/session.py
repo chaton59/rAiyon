@@ -128,6 +128,7 @@ def tour(
     message_client: str,
     depot: DepotProduits,
     max_iterations: int,
+    max_regenerations: int,
     tolerance: Decimal | None = None,
 ) -> Generator[Evenement, None, IssueDuTour]:
     """Un tour client complet : relire, tourner, écrire, commit. **À consommer en entier.**"""
@@ -157,6 +158,7 @@ def tour(
         etat=etat,
         contexte=ContexteOutils(depot=depot, tour_client=numero, tolerance=tolerance),
         max_iterations=max_iterations,
+        max_regenerations=max_regenerations,
     )
 
     for decalage, produit in enumerate(issue.tours, start=1):

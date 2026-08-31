@@ -38,7 +38,7 @@ message qui dit quoi faire, jamais en échec silencieux.
 
 | suite | tests | ce qu'elle exige |
 | --- | --- | --- |
-| `make check` — la totalité de la part pure | **514** en 3,1 s | rien : ni base, ni conteneur, ni clé API |
+| `make check` — la totalité de la part pure | **611** en 4,0 s | rien : ni base, ni conteneur, ni clé API |
 | `make test-int` | **67** | un Postgres joignable |
 
 ## Lancer une conversation
@@ -56,8 +56,10 @@ niveaux d'affichage :
   C'est le panneau « voici ce que j'ai compris de votre besoin » en version terminal,
   et c'est ce qui rend l'architecture visible : on voit que le **code** a compris,
   cherché et trouvé, indépendamment de ce que le modèle raconte ;
-- **`--trace`** — en plus, les distributions du sondage et la trace d'explication
-  critère par critère, avec le rôle appliqué et le sous-score.
+- **`--trace`** — en plus, les distributions du sondage, la trace d'explication critère
+  par critère avec le rôle appliqué et le sous-score, et **les textes refusés par le
+  validateur** : le code du grief et l'extrait fautif. Un texte rejeté n'atteint jamais
+  le client, mais c'est ici qu'on lit qu'une régénération a eu lieu et pourquoi.
 
 ```
 [critères] écran · ≥ 144 Hz fréquence de rafraîchissement (important) · budget 400.00 $

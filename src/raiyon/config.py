@@ -85,6 +85,15 @@ class Settings(BaseSettings):
     # protection technique, pas une règle d'expérience utilisateur.
     max_agent_iterations: int = Field(default=8, ge=1)
 
+    # Régénérations accordées à un message dont le validateur de l'étape 9 a refusé le
+    # texte — cf. PROJET.md §3.11 niveau 2. Une seule : au-delà, c'est le repli sur
+    # template qui répond, parce qu'un modèle qui a manqué deux fois la même correction
+    # n'a pas de raison de réussir la troisième, et que chaque tentative est un appel
+    # API payé. `ge=0` : zéro est une valeur légitime — elle branche directement le
+    # niveau 3, et c'est ce qui permettra à l'étape 12 de mesurer ce que la
+    # régénération rattrape réellement.
+    max_regenerations: int = Field(default=1, ge=0)
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     app_env: Literal["dev", "test", "prod"] = "dev"
 

@@ -50,6 +50,7 @@ from raiyon.agent.evenements import (
     Repli,
     Sondage,
     Texte,
+    TexteRejete,
 )
 from raiyon.agent.prompts import prompt_systeme
 from raiyon.agent.session import SessionIntrouvable, creer_session, lire_session, tour
@@ -113,6 +114,7 @@ def main() -> int:
                 message_client=ligne,
                 depot=depot,
                 max_iterations=reglages.max_agent_iterations,
+                max_regenerations=reglages.max_regenerations,
             )
             issue = _afficher(evenements, trace=arguments.trace)
             if arguments.trace:
@@ -170,8 +172,23 @@ def _afficher(evenements: Generator[Evenement, None, IssueDuTour], *, trace: boo
             _afficher_produits(evenement, trace=trace)
         elif isinstance(evenement, QuestionPosee):
             print(f"\n{evenement.question}")
+        elif isinstance(evenement, TexteRejete):
+            # ⚠️ **Sous `--trace` seulement.** Un texte rejeté est une mécanique interne :
+            # le client n'a pas à voir la phrase qu'on ne lui envoie pas, ni la raison
+            # pour laquelle on la refuse. C'est en revanche ce qu'on vient lire quand on
+            # met le nez dans une conversation, et ce que l'étape 12 comptera.
+            if trace:
+                print(
+                    f"\n\033[33m[texte rejeté]\033[0m tentative {evenement.tentative} — "
+                    f"{len(evenement.griefs)} grief(s)"
+                )
+                for grief in evenement.griefs:
+                    print(f"    \033[33m{grief.code.value}\033[0m « {grief.extrait} »")
         elif isinstance(evenement, Repli):
-            print(f"\n\033[33m[repli]\033[0m après {evenement.iterations} itérations")
+            print(
+                f"\n\033[33m[repli]\033[0m {evenement.motif.value} "
+                f"après {evenement.iterations} itération(s)"
+            )
             print(evenement.message)
 
 
