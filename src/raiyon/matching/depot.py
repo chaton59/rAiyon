@@ -26,10 +26,14 @@ from typing import Protocol
 from sqlalchemy import Numeric, Select, SQLColumnExpression, cast, func, literal, select
 from sqlalchemy.orm import Session
 
-from raiyon.catalogue.schemas import ProduitEnBase
+from raiyon.catalogue.schemas import Categorie, ProduitEnBase
 from raiyon.db.models import Produit
-from raiyon.matching.attributs import Genre, champs_a_compter
+from raiyon.matching.attributs import ATTRIBUTS, Genre, champs_a_compter
 from raiyon.matching.criteres import CritereResolu, Operateur, RequeteMatching
+
+CENTIMES = Decimal("0.01")
+"""L'échelle de `produits.prix_usd` et de `sessions.budget_usd`, tous deux
+`numeric(10, 2)`."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +70,70 @@ class RelevesDeRelachement:
     qui n'en est pas un."""
 
 
+@dataclass(frozen=True, slots=True)
+class BornesPrix:
+    """Le prix du moins cher et du plus cher d'un sous-catalogue. Jamais une moyenne.
+
+    Une moyenne serait une affirmation calculée sur le catalogue ; deux extrêmes sont
+    deux produits qui existent. `None` quand le sous-catalogue est vide — l'absence de
+    fourchette est une information, pas un zéro.
+    """
+
+    plus_bas: Decimal
+    plus_haut: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class Comptages:
+    """La distribution d'un champ sur le sous-catalogue courant. **Des comptages bruts.**
+
+    Ni tri, ni troncature, ni pourcentage : `sondage.py` s'en charge, en Python pur, sur
+    cet objet. C'est la même frontière que `RelevesDeRelachement` — SQL compte, Python
+    décide de ce qu'on en dit — et elle achète la même chose : l'entropie et le
+    classement se testent en injectant des nombres à la main (§3.16).
+    """
+
+    champ: str
+    effectifs: tuple[tuple[str, int], ...]
+    """`(valeur, nombre de produits)`, **valeurs absentes exclues**, dans l'ordre où
+    Postgres les a rendues — c'est-à-dire dans aucun ordre garanti. Le tri est un choix
+    de présentation, il se fait en Python et une seule fois."""
+
+    renseignes: int
+    """Produits qui déclarent une valeur. `total - renseignes` est le nombre de produits
+    muets sur ce champ : c'est ce qui pondère l'entropie de l'arbitrage H, faute de quoi
+    l'outil proposerait de demander une vitesse de rotation à un client dont les deux
+    tiers des candidats sont des SSD."""
+
+    total: int
+    """Produits du sous-catalogue, muets compris."""
+
+    @property
+    def total_distinct(self) -> int:
+        return len(self.effectifs)
+
+
+def plafond_de_tolerance(budget: Decimal, tolerance: Decimal) -> Decimal:
+    """Le haut de la zone de §3.10 : `budget x (1 + tolérance)`, arrondi au centime.
+
+    **Une seule écriture de cette formule dans le projet.** Le moteur en a besoin pour
+    récupérer les produits juste au-dessus du budget, la couche outils pour les compter :
+    deux versions donneraient un jour deux bandes différentes, et le client verrait un
+    produit compté dans le sondage puis absent de la recherche. C'est le raisonnement de
+    §3.10 sur la colonne `budget_usd`, appliqué à la formule plutôt qu'à la valeur.
+
+    L'arrondi au centime est celui de `numeric(10, 2)` : un plafond à trois décimales
+    comparé à un prix qui n'en a que deux ferait dépendre l'appartenance à la zone d'une
+    décimale que la base ne stocke pas.
+    """
+    return (budget * (Decimal(1) + tolerance)).quantize(CENTIMES)
+
+
+def fourchette_de_tolerance(budget: Decimal, tolerance: Decimal) -> Fourchette:
+    """La zone `]budget, budget x (1 + tolérance)]`, sous la forme qu'attend le dépôt."""
+    return Fourchette(min_exclu=budget, max_inclus=plafond_de_tolerance(budget, tolerance))
+
+
 class DepotProduits(Protocol):
     """Ce que le moteur attend d'une source de produits.
 
@@ -85,6 +153,16 @@ class DepotProduits(Protocol):
     def releves_de_relachement(
         self, requete: RequeteMatching, fourchette: Fourchette
     ) -> RelevesDeRelachement: ...
+
+    def compter(self, requete: RequeteMatching, fourchette: Fourchette) -> int: ...
+
+    def bornes_de_prix(
+        self, requete: RequeteMatching, fourchette: Fourchette
+    ) -> BornesPrix | None: ...
+
+    def distributions(
+        self, requete: RequeteMatching, fourchette: Fourchette, champs: Sequence[str]
+    ) -> dict[str, Comptages]: ...
 
 
 def cle_marque(expression: SQLColumnExpression[str]) -> SQLColumnExpression[str]:
@@ -260,6 +338,81 @@ class DepotSql:
             if atteignable is not None:
                 releves.valeurs_atteignables[resolu.champ] = atteignable
         return releves
+
+    # ----------------------------------------------------------------- #
+    # Agrégats — l'extension de l'étape 7 (arbitrage G)
+    # ----------------------------------------------------------------- #
+
+    def compter(self, requete: RequeteMatching, fourchette: Fourchette) -> int:
+        """Combien de produits satisfont les filtres durs, dans cette bande de prix.
+
+        C'est le même prédicat que `candidats()`, sans la projection : « il te reste 12
+        modèles » et « voici les trois meilleurs » ne peuvent donc pas parler de deux
+        ensembles différents.
+        """
+        return self._compter(_requete(requete, fourchette))
+
+    def bornes_de_prix(self, requete: RequeteMatching, fourchette: Fourchette) -> BornesPrix | None:
+        """Le prix du moins cher et du plus cher du sous-catalogue, ou `None` s'il est vide."""
+        requete_sql: Select[tuple[Decimal, Decimal]] = select(
+            func.min(Produit.prix_usd), func.max(Produit.prix_usd)
+        ).where(*_requete(requete, fourchette))
+        plus_bas, plus_haut = self._session.execute(requete_sql).one()
+        if plus_bas is None or plus_haut is None:
+            return None
+        return BornesPrix(plus_bas=Decimal(str(plus_bas)), plus_haut=Decimal(str(plus_haut)))
+
+    def distributions(
+        self, requete: RequeteMatching, fourchette: Fourchette, champs: Sequence[str]
+    ) -> dict[str, Comptages]:
+        """Un `GROUP BY` par champ demandé, plus le total du sous-catalogue.
+
+        **Aucun `ORDER BY`.** Il en faudrait un pour que la sortie soit reproductible, et
+        c'est précisément pourquoi il n'y en a pas : l'ordre des valeurs rendues au
+        client est un choix de présentation (fréquence décroissante, puis valeur
+        croissante), il se fait en Python, une seule fois, et il ne dépend donc ni de la
+        collation de la base ni du plan d'exécution. Un tri écrit ici serait un second
+        ordre, et deux ordres divergent.
+
+        ⚠️ **Note de performance, même seuil de bascule que le relâchement** : une requête
+        par champ. Sept champs sur 1 026 lignes coûtent quelques millisecondes ; les
+        réunir en une seule passe `jsonb_each` deviendrait justifié si le catalogue
+        changeait d'ordre de grandeur, ou si le sondage était appelé en boucle.
+        """
+        conditions = _requete(requete, fourchette)
+        total = self._compter(conditions)
+        return {
+            champ: self._comptages(requete.categorie, champ, conditions, total) for champ in champs
+        }
+
+    def _comptages(
+        self,
+        categorie: Categorie,
+        champ: str,
+        conditions: Sequence[SQLColumnExpression[bool]],
+        total: int,
+    ) -> Comptages:
+        """Le `GROUP BY` d'un champ, absences comprises puis séparées.
+
+        Les lignes à `NULL` remontent avec les autres, et c'est ce qui donne la
+        couverture sans seconde requête : ce que le champ ne dit pas est compté en même
+        temps que ce qu'il dit.
+        """
+        attribut = ATTRIBUTS[categorie][champ]
+        colonne: SQLColumnExpression[str] = (
+            _valeur_specs(champ) if attribut.dans_les_specs else getattr(Produit, champ)
+        )
+        requete_sql: Select[tuple[str, int]] = (
+            select(colonne, func.count()).where(*conditions).group_by(colonne)
+        )
+        lignes = self._session.execute(requete_sql).all()
+        effectifs = tuple((str(valeur), nombre) for valeur, nombre in lignes if valeur is not None)
+        return Comptages(
+            champ=champ,
+            effectifs=effectifs,
+            renseignes=sum(nombre for _, nombre in effectifs),
+            total=total,
+        )
 
     def _compter(self, conditions: Sequence[SQLColumnExpression[bool]]) -> int:
         requete: Select[tuple[int]] = select(func.count()).select_from(Produit).where(*conditions)

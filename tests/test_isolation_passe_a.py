@@ -17,48 +17,22 @@ donc regarder `sys.modules` dans le processus courant ne prouverait rien.
 
 import importlib
 import importlib.util
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
+from isolation_sdk import modules_anthropic_charges_par, modules_du_paquet
+
 PAQUET = "raiyon.catalogue"
 REPERTOIRE = Path(__file__).resolve().parents[1] / "src" / "raiyon" / "catalogue"
 
-VERIFICATION = """
-import sys
-import {module}
-charges = sorted(nom for nom in sys.modules if nom.split(".")[0] == "anthropic")
-print(",".join(charges))
-"""
+# Le mécanisme — découverte sur le disque, interpréteur neuf, contre-épreuve — a
+# déménagé dans `tests/isolation_sdk.py` à l'étape 7, quand `raiyon.tools` a eu besoin
+# de la même garantie. Le recopier aurait donné deux versions d'une même vérification,
+# et celle qu'on ne modifie plus finit par ne plus vérifier grand-chose.
 
 
-def modules_du_catalogue() -> list[str]:
-    """Tous les modules importables de `raiyon.catalogue`, découverts sur le disque.
-
-    Découverts et non listés : une liste écrite à la main ne couvrirait pas le module
-    ajouté demain, et c'est précisément celui-là qui ferait entrer le SDK.
-    """
-    noms = sorted(
-        f"{PAQUET}.{chemin.stem}" for chemin in REPERTOIRE.glob("*.py") if chemin.stem != "__init__"
-    )
-    assert noms, f"aucun module trouvé dans {REPERTOIRE} — le chemin a dû changer"
-    return [PAQUET, *noms]
-
-
-def modules_anthropic_charges_par(module: str) -> list[str]:
-    """Importe `module` dans un interpréteur neuf et rend ce qu'il a tiré d'`anthropic`."""
-    resultat = subprocess.run(
-        [sys.executable, "-c", VERIFICATION.format(module=module)],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return [nom for nom in resultat.stdout.strip().split(",") if nom]
-
-
-@pytest.mark.parametrize("module", modules_du_catalogue())
+@pytest.mark.parametrize("module", modules_du_paquet(PAQUET))
 def test_aucun_module_du_catalogue_ne_charge_le_sdk_anthropic(module: str):
     """`make seed-build` et `make seed` ne font aucun appel API — ni même un import."""
     assert modules_anthropic_charges_par(module) == []

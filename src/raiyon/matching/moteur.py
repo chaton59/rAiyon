@@ -24,7 +24,7 @@ from decimal import Decimal
 from raiyon.catalogue.schemas import Categorie, ProduitEnBase
 from raiyon.config import get_settings
 from raiyon.matching.criteres import RequeteMatching
-from raiyon.matching.depot import DepotProduits, Fourchette
+from raiyon.matching.depot import DepotProduits, Fourchette, plafond_de_tolerance
 from raiyon.matching.relachement import Diagnostic, diagnostiquer
 from raiyon.matching.score import Evaluation, classer, classer_sans_le_prix, evaluer_lot
 from raiyon.matching.trace import TraceProduit
@@ -157,7 +157,7 @@ def _zone_de_tolerance(
     budget = requete.budget_usd
     if budget is None:
         return ()
-    plafond = (budget * (Decimal(1) + tolerance)).quantize(Decimal("0.01"))
+    plafond = plafond_de_tolerance(budget, tolerance)
     produits = depot.candidats(requete, Fourchette(min_exclu=budget, max_inclus=plafond))
     _verifier_la_categorie(produits, requete.categorie)
     ordonnes = sorted(produits, key=lambda produit: (produit.prix_usd, produit.id))

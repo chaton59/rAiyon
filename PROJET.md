@@ -476,6 +476,32 @@ le streaming), et un garde-fou `max_iterations` contre l'emballement.
 fluide pendant la collecte sans court-circuiter le chemin de recommandation, qui
 reste unique et instrumenté.
 
+> **Amendement de l'étape 7 — les quatre outils sont devenus cinq, et deux signatures
+> de ce tableau sont fausses.** Elles sont laissées telles quelles au-dessus : c'est une
+> décision renversée, pas une décision qui n'a jamais eu lieu.
+>
+> 1. **`probe_catalog(criteria)` et `search_products(criteria)` ne prennent plus de
+>    critères.** L'arbitrage C de l'étape 7 fait entrer les critères par **une seule
+>    porte**, et les outils de recherche lisent l'état de session. Un outil de moins à
+>    garder, et surtout une garde de moins à ne pas oublier sur un futur outil.
+> 2. **Un cinquième outil, `record_criteria`, apparaît** — conséquence directe du point
+>    précédent, et non fonctionnalité ajoutée : les critères que ce tableau faisait
+>    voyager en argument de `search_products` ont besoin d'une porte à eux, et cette
+>    porte est un outil parce que le modèle doit pouvoir l'appeler.
+> 3. **`ask_clarification` devient terminal.** Il ne « ne rend rien » plus : il rend
+>    `{ok, terminal}` et clôt le tour, l'étape 8 renvoyant au client le texte de son
+>    argument. La version initiale forçait un aller-retour API supplémentaire et invitait
+>    le modèle à appeler l'outil **puis** à réécrire la question en texte — la question
+>    était posée deux fois.
+>
+> | Outil | Rend |
+> |---|---|
+> | `record_criteria(categorie, criteres, retraits, budget_usd, …)` | L'état mis à jour, et les mouvements refusés |
+> | `probe_catalog(champs)` | Agrégats seuls, troncature déclarée. Aucun produit |
+> | `suggest_next_question()` | Le champ manquant le plus discriminant. Aucune phrase |
+> | `search_products()` | Produits entiers, `produits` et `au_dessus_du_budget` séparés, avec trace |
+> | `ask_clarification(question, champ_vise)` | `{ok, terminal}` — le tour est clos |
+
 ### 3.8 — La relance : gain d'information, pas ordre codé
 
 **Retenu.** `suggest_next_question()` interroge le sous-catalogue courant et rend
@@ -652,6 +678,59 @@ sur des attributs hétérogènes.
 classement fini. Écartée pour deux raisons : le classement deviendrait intestable sans
 base — donc le critère nº5 tomberait — et une pondération renormalisée sur les critères
 disponibles, écrite en SQL, serait illisible et impossible à faire évoluer.
+
+### 3.17 — La règle de collant, et le jeton de parole
+
+> **Un critère déclaré ne se défait pas tout seul. Desserrer coûte une parole du
+> client ; resserrer est libre.**
+
+L'étape 6 l'annonçait pour la seule **importance** : un `bloquant` ne peut pas être
+re-déclaré `souhait` par le modèle seul. C'était insuffisant, et la mesure de l'étape 7
+l'a montré : après un zéro résultat, passer `au_moins 144` à `au_moins 120` obtient
+exactement ce que la rétrogradation obtenait, sans toucher à l'importance — et retirer le
+critère fait pire. La règle porte donc sur le **mouvement**, jamais sur l'un de ses
+attributs :
+
+> Un mouvement **desserre** s'il peut faire remonter un produit qui ne remontait pas.
+
+Une seule fonction pure en décide, `desserre(avant, apres, attribut)`, dérivée de
+l'opérateur et du registre — jamais d'une liste écrite à la main. Le budget n'y a aucune
+ligne propre : il est présenté à cette fonction comme un `au_plus` sur `prix_usd`, et les
+quatre cas du budget (monter, effacer, baisser, poser) tombent des lignes générales.
+
+**Le contrôle est un jeton de parole par tour client.** Un mouvement qui desserre
+consomme le jeton du tour ; un second desserrage dans le même tour est refusé. Le numéro
+de tour est **fourni par l'appelant** : la couche outils n'a aucune notion d'horloge, et
+les tests injectent des entiers.
+
+*Alternative écartée — exiger une citation verbatim d'un message `user`.* Elle donne
+l'illusion d'une preuve : le modèle peut citer « je peux monter un peu », prononcé à
+propos du budget, pour desserrer la fréquence de rafraîchissement. Le jeton ne prouve pas
+que le client a parlé **de ce critère**, mais il borne le nombre de desserrages par
+parole, ce qui tue l'essai-erreur — le vrai mode d'échec que §3.6 cherche à empêcher.
+
+⚠️ **La faiblesse est réelle, elle est au §7, et elle ne se referme pas par un
+raffinement.** Un desserrage par tour au lieu de zéro contrôle est un progrès, pas une
+garantie.
+
+**Trois mouvements ne coûtent rien, et il vaut la peine de dire pourquoi :**
+
+- **redire un critère à l'identique** — sans quoi un modèle qui récapitule l'état à
+  chaque tour se punirait lui-même ;
+- **changer d'`optimisation`** — elle ne touche pas l'ensemble des candidats, seulement
+  son ordre, et ne peut donc pas transformer un zéro résultat en résultat, qui est le
+  seul mode d'échec que le jeton vise. Elle change bien **quels** produits sont montrés,
+  la limite étant de trois : dire « elle ordonne, elle n'exclut pas » serait faux ;
+- **poser une contrainte** — un ajout, une hausse d'importance, un seuil qui avance, un
+  budget qui baisse. Le modèle n'a jamais besoin d'autorisation pour être plus fidèle à
+  ce que le client a dit.
+
+**Le changement de catégorie, lui, paie s'il efface un budget.** Il remet le budget à
+`None` (§ étape 7, arbitrage D), ce qui est exactement la ligne « budget qui passe à
+`None` » : aucune exemption n'est écrite pour le seul chemin qui l'emprunte. La première
+version en exemptait le changement de catégorie et le bornait à un par tour ; le trou
+était **inter-tours**, donc invisible pour une borne posée par tour — partir sur `cpu` au
+tour 5, revenir sur `monitor` au tour 6, et chercher sans plafond.
 
 ---
 
@@ -1414,28 +1493,233 @@ tour à l'autre appartient à la couche outils. L'étape 6 écrit seulement ce q
 couche aura besoin de lire — le drapeau `retrogradable` du registre, et la trace des
 rétrogradations effectivement appliquées.
 
----
-
-### Étape 7 — Couche outils et invariants
-
-Les quatre outils du §3.7, chacun comme une fonction Python testable, avec leur
-schéma JSON d'entrée.
-
-C'est ici que vivent les garanties :
-
-- `search_products` **clampe** les critères du LLM contre `session.validated_criteria` ;
-- `probe_catalog` ne peut structurellement pas rendre de produit ;
-- les critères de session sont dérivés des arguments d'appel et fusionnés par le
-  code, avec gestion explicite des contradictions et des retraits.
-
-**Porte de sortie :** des tests qui appellent les outils avec des arguments
-**hostiles** — budget élargi, catégorie inexistante, critères contradictoires —
-et vérifient qu'aucun ne franchit l'invariant. Toujours zéro appel API.
-
-C'est le critère nº2 franchi au niveau structurel, avant même qu'un LLM existe
-dans le projet.
+> **Suite à l'étape 7 : la règle est devenue §3.17, et elle a changé de portée.** Écrite
+> ici pour la seule **importance**, elle ne couvrait pas le mode d'échec principal :
+> après un zéro résultat, reculer un seuil obtient exactement ce que la rétrogradation
+> obtenait, sans toucher à l'importance. La règle porte désormais sur le **mouvement**.
 
 ---
+
+### Étape 7 — Couche outils et invariants ✅
+
+Les outils du §3.7, chacun comme une fonction Python testable, avec leur schéma JSON
+d'entrée. C'est ici que vivent les garanties.
+
+**Le plan de l'étape a changé d'architecture en cours de route, et il faut le dire.** Le
+texte initial annonçait ceci :
+
+> - `search_products` **clampe** les critères du LLM contre `session.validated_criteria` ;
+> - `probe_catalog` ne peut structurellement pas rendre de produit ;
+> - les critères de session sont dérivés des arguments d'appel et fusionnés par le code.
+
+Le premier point n'a pas été réalisé, et pas par manque de temps : **il a été écarté**
+(arbitrage C). Clamper suppose qu'un critère hostile entre, puis qu'une garde l'arrête —
+une garde à écrire, à tester, et à ne jamais oublier sur un futur outil. Les critères
+entrent désormais par **une seule porte**, et les outils de recherche n'ont plus
+d'argument de critère du tout. Le deuxième point est tenu, et vérifié **sur le type de
+retour**. Le troisième l'est aussi, avec une règle que l'étape 6 n'avait pas prévue : la
+règle de collant, promue en décision numérotée (§3.17).
+
+**Franchie.** 474 tests purs en 2,8 s, 62 tests d'intégration, `make check` et
+`make test-int` verts. La couche outils ne charge pas le SDK `anthropic` — vérifié
+module par module, découverts sur le disque, dans un interpréteur neuf.
+
+```
+src/raiyon/tools/
+    erreurs.py         # OutilRefuse : un code, un message écrit pour le modèle
+    etat.py            # EtatSession, desserre(), fusionner(), forme du JSONB — pur
+    schema_outils.py   # le schéma JSON dérivé du registre — pur
+    outils.py          # les cinq outils, et une seule fonction de sérialisation
+src/raiyon/matching/
+    depot.py           # étendu : comptages, bornes de prix, distributions
+    sondage.py         # entropie, troncature, champ le plus discriminant — pur
+```
+
+#### Les dix arbitrages
+
+**A — La règle de collant est portée par un jeton de parole par tour client.** Consignée
+en décision numérotée : voir §3.17. *Alternative écartée — exiger une citation verbatim
+d'un message `user`* : elle donne l'illusion d'une preuve, le modèle pouvant citer une
+parole prononcée à propos d'un autre critère.
+
+**B — Une règle unique : desserrer consomme, resserrer est libre.** Une seule fonction
+pure, `desserre(avant, apres, attribut)`, dérivée de l'opérateur et du registre. Le
+verdict est un **OU**, pas un ET : un mouvement qui desserre par la valeur en resserrant
+par l'importance consomme le jeton, parce que la question posée est « **peut**-il faire
+remonter un produit ? » et non « le fait-il à coup sûr ? ». *Alternative écartée —
+comparer les ensembles de produits satisfaits.* Exacte, et elle rendrait la question
+décidable au lieu d'approchée ; écartée parce qu'elle exige d'interroger le catalogue,
+donc de rendre impure la seule règle du projet dont on veut pouvoir prouver qu'elle ne
+dépend de rien.
+
+**C — Les outils de recherche ne prennent aucun critère.** C'est l'arbitrage structurant
+de l'étape. `probe_catalog`, `suggest_next_question` et `search_products` n'ont **aucun**
+argument de critère, de budget ni de catégorie : ils lisent l'état de session.
+*Alternative écartée — les outils prennent des critères et le code les clampe contre la
+session (l'esquisse de §3.6).* Un tour de moins, mais l'invariant redevient une garde à
+écrire, à tester et à ne jamais oublier sur un futur outil. Le raisonnement retenu est
+celui de §3.10 sur le budget : **une contrainte qui n'a qu'un seul chemin ne peut pas
+diverger d'elle-même.** La porte de sortie de l'étape change alors de nature — « les
+arguments hostiles ne franchissent pas l'invariant » devient « il n'existe pas d'argument
+par lequel passer », et cela se teste sur des **signatures**. ⚠️ À dire honnêtement : on
+ne supprime pas la garde, on la **concentre** dans `record_criteria`, qui devient le seul
+endroit où la règle de collant mord. Conséquence sur §3.7, qui porte l'amendement : les
+quatre outils deviennent cinq.
+
+**D — L'état est indexé par catégorie ; le budget est global et remis à `None` au
+changement de catégorie.** Un client qui revient à l'écran retrouve ce qu'il avait dit.
+Cela ne crée **aucun panier** : aucune somme n'est suivie, l'invariant « un tour, une
+catégorie » tient, et §8 reste vrai mot pour mot. Le budget garde sa **colonne**
+(`sessions.budget_usd`) et n'est pas dupliqué dans le JSONB — deux copies divergent.
+*Alternative écartée — le budget survit au changement de catégorie.* Une question de
+moins à poser, donc une métrique nº3 flattée ; mais un client qui a dit « 300 $ pour
+l'écran » verrait cette contrainte s'appliquer à son SSD, c'est-à-dire une contrainte
+qu'il n'a jamais posée — ce que §2 interdit, appliqué à un critère au lieu d'un fait.
+*Alternative écartée — un état plat, vidé à chaque changement de catégorie.* Plus simple
+d'une ligne, mais il perd ce que le client a déjà dit et forcerait une migration du JSONB
+dès que le besoin apparaîtrait. Forme arrêtée :
+
+```json
+{
+  "categorie_courante": "monitor",
+  "criteres": {
+    "monitor": [{"champ": "refresh_rate", "operateur": "au_moins",
+                 "valeur": "144", "importance": "bloquant"}],
+    "video-card": []
+  },
+  "optimisation": "aucune",
+  "tour_du_dernier_desserrage": 3
+}
+```
+
+**E — Un tour, une catégorie : la garde vit ici.** Le moteur garantit qu'**un appel** rend
+une seule catégorie ; il ne garantit rien sur **un tour**. `search_products` refuse donc
+une recherche sur une catégorie différente de celle déjà cherchée dans le même tour
+client, avec un message qui dit à l'agent de séquencer. `probe_catalog` et
+`suggest_next_question` restent libres : ils ne rendent aucun produit, donc ils ne peuvent
+rien faire citer. C'est ce qui rend le critère d'acceptation nº2 vérifiable **produit par
+produit**, sans notion de panier.
+
+**F — Un schéma JSON unique, et `valeur` est toujours une chaîne.** L'`enum` des champs
+est l'**union** des champs utilisables des six catégories — 36 entrées — et la validation
+par catégorie se fait à l'exécution, avec le message du registre. *Alternative écartée —
+un schéma par catégorie* : l'`enum` serait plus courte et le modèle se tromperait moins,
+mais la définition des outils changerait en cours de conversation, ce qui **casse le cache
+de prompt** (§3.13) à chaque fois que le client change de sujet. *Alternative écartée pour
+`valeur` — une union `bool | number | string`* : mal supportée par le sous-ensemble de
+JSON Schema admis en mode `strict`, et le précédent existe déjà — le JSONB sérialise les
+`Decimal` en chaînes pour la même raison. Les descriptions des champs sont **dérivées** de
+`libelle_fr` et `unite`, et un test vérifie que le schéma couvre **exactement** les champs
+utilisables du registre.
+
+> **Ce qui a été vérifié sur `strict`, et ce qui ne l'a pas été.** Le projet s'est fait
+> piéger trois fois par une capacité supposée disponible et jamais vérifiée (`smt` à
+> l'étape 3, `temperature=0` et `nom_fr` à l'étape 5). Donc, mesuré :
+> `anthropic==1.1.0` **porte** `strict: bool` sur `ToolParam`, hors beta, documenté
+> « When true, guarantees schema validation on tool names and inputs » ; en revanche, **le
+> sous-ensemble de JSON Schema admis sous ce drapeau n'est écrit nulle part dans le paquet
+> installé**, et l'étape 7 n'appelle pas l'API. Le schéma reste donc dans un sous-ensemble
+> volontairement pauvre — `type`, `enum`, `description`, `properties`, `required`,
+> `items`, `additionalProperties: false` — qu'un test vérifie en parcourant l'arbre, et
+> `schema_des_outils(strict=False)` existe **dès maintenant**, avec son log : le jour où
+> l'API refuse une définition, le repli est un argument, pas une séance de débogage au
+> milieu de l'étape 8.
+
+**G — `probe_catalog` : agrégats exacts, troncature déclarée, budget appliqué.** C'est ici
+que la leçon de l'étape 6 mord — du code qui décide de ce qui sera **affirmé** au client.
+Le budget s'applique, sinon « il te reste 12 modèles » désigne des produits que le client
+ne peut pas acheter ; par symétrie avec §3.10, le sondage rend **deux comptes séparés**,
+dans le budget et dans la zone de tolérance. La troncature se déclare : 241 chipsets ne
+rentrent pas, l'outil rend les 15 valeurs les plus fréquentes **et** `total_distinct`
+**et** `tronque`, toujours présents — même contrat que `ecartes_faute_de_donnee` au §3.16.
+L'ordre est total : fréquence décroissante, puis valeur croissante, **décidé en Python**
+pour qu'aucune réponse client ne dépende de l'ordre de retour ni de la collation de
+Postgres. *Alternative écartée — rendre des paliers arrondis pour empêcher l'agent de
+déduire un prix exact.* ⚠️ Le risque est réel et il est au §7 ; mais un arrondi est
+lui-même une affirmation approximative sur le catalogue, et il en fabrique une pour en
+éviter une autre. La contrainte est portée par le prompt de l'étape 8 et vérifiable à
+l'étape 9.
+
+**H — `suggest_next_question` : entropie pondérée par la couverture, et le budget en cas
+spécial.** Elle ne rend **aucune phrase** : champ, libellé, unité, valeurs atteignables et
+score — l'agent écrit la question (§3.14, arbitrage I de l'étape 6). La mesure est
+l'**entropie de Shannon normalisée** sur la distribution des valeurs du sous-catalogue
+courant, **multipliée par le taux de couverture réel** ; sans cette pondération, l'outil
+proposerait de demander une vitesse de rotation à un client dont 66 % des candidats sont
+des SSD, et la réponse écarterait des produits sur une **absence de donnée**.
+*Alternative écartée — « le champ qui coupe le plus près de la moitié »* : correct sur un
+booléen, inutilisable au-delà de deux valeurs. Si `budget_usd is None`, l'outil rend le
+budget **en tête**, dans un champ typé distinct — `prix_usd` est dans
+`CHAMPS_A_CHAMP_DEDIE`, le déguiser en attribut rouvrirait le second chemin que §3.10
+ferme. Répartition §3.16 : `GROUP BY` en SQL, entropie et classement en **Python pur**,
+sur des comptages injectables.
+
+**I — `ask_clarification` est un outil terminal.** Il rend `{"ok": true, "terminal":
+true}` et **clôt le tour** ; l'étape 8 renverra le texte de son argument au client au lieu
+de relancer une génération. *Alternative écartée — le garder tel que §3.7 le décrivait, un
+outil qui ne rend rien et n'existe que pour être tracé.* Il force un aller-retour API
+supplémentaire et invite le modèle à appeler l'outil **puis** à réécrire la question en
+texte : la question est posée deux fois. La question devient ainsi une donnée typée —
+utile aussi pour l'événement SSE de §3.12 et pour la métrique nº3, qui est un critère
+d'acceptation.
+
+**J — `search_products` rend le produit entier.** Toutes les specs, plus la trace.
+*Alternative écartée — réduire le produit aux champs cités par la trace, plus les champs
+d'affichage.* Elle rendrait **impossible** d'affirmer une spec dont la pertinence n'a
+jamais été établie, et coûterait moins de jetons. Elle est écartée parce qu'elle coupe la
+comparaison spontanée (« celui-ci a en plus du HDMI 2.1 »), qui est un bon comportement de
+vendeur, et parce que l'étape 9 valide de toute façon ce qui est **cité**. Décision
+assumée avec sa contrepartie, pas restriction par prudence.
+
+#### Porte de sortie — franchie
+
+`make check` vert **sans base, sans conteneur, sans clé API** ; `make test-int` vert pour
+les agrégats ; les dix-sept portes hostiles fermées (25 cas, `tests/tools/test_hostile.py`),
+chacune nommée d'après ce qu'elle empêche ; le test d'isolation confirme qu'aucun module de
+`raiyon.tools` ne charge le SDK.
+
+C'est le **critère d'acceptation nº2 franchi au niveau structurel, avant même qu'un LLM
+existe dans le projet**.
+
+#### Ce que l'étape a appris, et qui n'était pas prévu
+
+- **Une dérivation naïve peut mentir aussi bien qu'une constante écrite à la main.** Les
+  descriptions du schéma sont dérivées de `libelle_fr` et `unite`, et la première règle
+  disait : ne pas accoler l'unité si le libellé la porte déjà — « nombre de cœurs en
+  cœurs » est ce que donne la version sans règle. Elle testait une **sous-chaîne** :
+  « Mo » est dans « mémoire », et l'unité de `internal-hard-drive.cache` disparaissait
+  silencieusement, dans un texte que rien d'autre ne relit et que seul le modèle lira. La
+  comparaison porte désormais sur les **mots**. La leçon n'est pas « comparer des mots » :
+  c'est que **dériver ne dispense pas de vérifier la dérivation**, et que la seule raison
+  pour laquelle ce défaut a été vu est qu'un test parcourait les six catégories.
+- **Le trou du budget était inter-tours, et la première parade regardait à l'intérieur du
+  tour.** La règle « changer de catégorie est gratuit » avait pour garde-fou « un seul
+  changement de catégorie par tour ». Elle fermait l'aller-retour dans un même message et
+  laissait passer le même aller-retour en deux messages, ce qui coûte au modèle deux
+  tours et rien d'autre. La bonne parade n'était pas une seconde règle mais **l'absence
+  d'exemption** : l'effacement du budget est un desserrage, il paie comme les autres. Une
+  règle qui a besoin d'un garde-fou est souvent une exception qui n'aurait pas dû être
+  écrite.
+- **Deux `conftest.py` importables entrent en collision, et l'ordre de collecte décide
+  lequel gagne.** `tests/matching/` et `tests/tools/` ont chacun le leur, et les deux
+  suites faisaient `from conftest import …` : `pytest tests/tools tests/matching` échouait
+  à l'import, alors que `pytest` seul passait. Les helpers **importables** vivent
+  désormais dans des modules nommés (`produits_de_test.py`, `outils_de_test.py`,
+  `isolation_sdk.py`) et les `conftest` ne portent plus que des fixtures, que pytest
+  résout par répertoire. Le dépôt avait déjà ce motif avec `base_de_test.py` ; il valait
+  la peine de le suivre plutôt que de le redécouvrir.
+- **Le champ le plus discriminant du sondage est souvent `marque`, et ce n'est pas un
+  défaut de la mesure.** Sur les 32 écrans à 144 Hz sous 400 $, `marque` marque 0,93
+  contre 0,73 pour le type de dalle : treize marques bien réparties portent plus
+  d'information qu'un choix entre IPS et VA. La mesure a raison, et pourtant « tu as une
+  préférence de marque ? » n'est pas toujours la meilleure question de vente. Le gain
+  d'information et la valeur conversationnelle ne sont pas le même critère — l'outil rend
+  le premier, le prompt de l'étape 8 arbitrera le second. La ligne est au §7.
+- **`Decimal("NaN")` et `Decimal("Infinity")` se parsent sans lever.** La conversion des
+  valeurs textuelles du schéma passe par `Decimal(texte)` ; « beaucoup » lève bien, mais
+  « NaN » aurait donné un critère qui ne satisfait aucune comparaison et un budget qui
+  empoisonne tous les tests d'appartenance — sans la moindre erreur. Le contrôle est une
+  ligne (`is_finite()`), et il n'existerait pas sans avoir été cherché.
 
 ### Étape 8 — Boucle agent et prompt système v1
 
@@ -1486,6 +1770,15 @@ C'est le critère nº1 franchi au niveau du mécanisme.
 
 FastAPI, endpoint de chat en SSE, événements typés du §3.12, persistance de
 session en Postgres, configuration entièrement par variables d'environnement.
+
+⚠️ **Contrainte héritée de l'étape 7 : la session se persiste aux frontières de tour,
+jamais au milieu.** L'état de session porte deux gardes qui ne valent qu'à l'intérieur
+d'un tour client — la recherche déjà faite (arbitrage E) et le jeton de parole en cours
+d'appel. Elles ne sont pas dans le JSONB, parce qu'une valeur périmée y refuserait une
+recherche légitime au tour suivant. Si l'étape 10 devait persister l'état **au milieu**
+d'un tour — reprise après incident en cours de boucle d'agent, par exemple —, ces gardes
+devraient rejoindre `criteres_valides` ; le JSONB n'ayant pas de schéma, cela ne
+demanderait aucune migration, mais il faudrait le décider et non le découvrir.
 
 **Porte de sortie :** une conversation complète menée en `curl`, avec les
 événements typés visibles dans le flux ; le serveur redémarré en cours de
@@ -1589,6 +1882,12 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Le nettoyage du dataset déborde** | Moyenne — dérive du projet | Geler le périmètre à ce qui est propre plutôt que poursuivre l'exhaustivité |
 | **Latence perçue de la boucle multi-outils** | Faible | Streaming des événements typés dès le premier appel d'outil |
 | **`absence_structurelle` est posé à la main dans le registre** | Faible aujourd'hui, croissante si le catalogue s'étend | Un seul attribut le porte (`internal-hard-drive.rpm`), et un test vérifie sur le seed que son absence est bien **déterminée** par `type`. Mais rien ne détecte le cas inverse : un attribut futur dont l'absence serait expliquée par une autre colonne ne se signalerait pas tout seul, et son zéro résultat serait diagnostiqué `donnee_absente` — donc expliqué par une phrase fausse. Atténuation partielle : un test balaie tous les attributs incomplets et échoue si l'un d'eux remplit le critère sans porter le drapeau. Il ne couvre que les vocabulaires fermés, et que le seed |
+| **Le jeton de parole ne vérifie pas que le client a parlé *de ce critère*** | Moyenne — c'est la limite de §3.17, et elle est structurelle | Un mouvement qui desserre consomme le jeton du tour ; rien ne détecte qu'un desserrage autorisé par une parole a été appliqué à un **autre** critère que celui dont le client parlait. « Je peux monter un peu », dit du budget, peut payer un recul de la fréquence de rafraîchissement. Un desserrage par tour au lieu de zéro contrôle tue l'essai-erreur — l'agent ne peut plus tâtonner jusqu'à trouver quelque chose à montrer — mais ce n'est pas une garantie, et l'alternative (exiger une citation verbatim) donne l'illusion d'une preuve sans en être une. Atténuation réelle : chaque mouvement est tracé, donc mesurable en éval à l'étape 12 |
+| **Le budget effacé au changement de catégorie est tarifé, pas empêché** | Moyenne | Changer de catégorie remet le budget à `None` (étape 7, arbitrage D) et **paie le jeton du tour**, comme n'importe quel desserrage. Le modèle peut donc, en deux messages du client, revenir à la catégorie de départ sans plafond : c'est le prix d'une parole, pas une porte fermée. Le seul correctif qui fermerait vraiment est un **budget par catégorie**, et il rouvre exactement la divergence que §3.10 ferme en donnant au budget une colonne unique — deux copies d'une même contrainte finissent par dire deux choses. Le choix est donc assumé : une porte tarifée plutôt qu'une seconde source de vérité |
+| **`probe_catalog` est un oracle à prix** | Moyenne — elle porte sur le critère nº1 | Le sondage rend une fourchette de prix exacte sur le sous-catalogue courant. Avec deux ou trois sondages resserrés, l'agent connaît le prix d'un produit qu'on ne lui a **jamais** donné, et sans identifiant. L'alternative — rendre des paliers arrondis — a été écartée parce qu'un arrondi est lui-même une affirmation approximative sur le catalogue : il en fabrique une pour en éviter une autre. Atténuation : le prompt de l'étape 8 porte la règle « une fourchette de sondage n'est jamais le prix d'un produit », et l'étape 9 traite les agrégats comme du contexte fourni, donc vérifiable |
+| **L'entropie sur un champ numérique continu est grossière** | Faible | Sur `price_per_gb` ou `core_clock`, chaque produit porte presque sa propre valeur : l'entropie normalisée y est maximale alors que la question n'apprendrait rien. La parade est une **exclusion par nombre de valeurs distinctes** — au-delà de la moitié des candidats, le champ sort du classement. C'est **un seuil, pas une théorie**, et il n'a pas été calibré : le découpage en classes, qui serait la vraie réponse, est hors périmètre. Second effet, écrit plutôt que masqué : la normalisation par `log2(k)` mesure l'équilibre et non le gain brut, d'où un départage à score égal sur le nombre de valeurs atteignables |
+| **Le champ le plus discriminant n'est pas toujours la meilleure question** | Faible — c'est la qualité perçue | Mesuré sur le seed : sur les 32 écrans à 144 Hz sous 400 $, `marque` marque 0,93 contre 0,73 pour le type de dalle, parce que treize marques bien réparties portent plus d'information que deux types de dalle. La mesure a raison ; « tu as une préférence de marque ? » n'est pourtant pas toujours ce qu'un vendeur demanderait. Gain d'information et valeur conversationnelle sont deux critères distincts : l'outil rend le premier et **reste une suggestion** (§3.8), le prompt de l'étape 8 arbitre le second, et la métrique nº3 le mesure |
+| **La garde de l'arbitrage C concentre l'invariant, elle ne le supprime pas** | Faible, mais à ne pas oublier | Les outils de recherche n'ont plus d'argument de critère : il n'existe donc plus d'argument hostile à clamper. Mais la règle de collant doit toujours être appliquée quelque part, et ce quelque part est maintenant **unique** — `record_criteria`. Un futur outil qui écrirait dans l'état sans passer par `fusionner()` rouvrirait tout, et rien dans le typage ne l'en empêche. Atténuation : `EtatSession` est immuable et ses champs sont typés `Mapping`, donc une écriture en place ne compile pas sous `mypy --strict` ; mais construire un état neuf à la main reste possible |
 | **Le garde-fou de l'arbitrage F favorise légèrement les produits à données manquantes** | Faible, mais réelle et constatée | Un critère indisponible sort du calcul et les poids sont renormalisés : un produit incomplet a donc moins d'occasions de perdre des points. Atténuation : à score égal, celui dont **plus de critères ont été évalués** passe devant, et la trace expose `criteres_evalues` / `criteres_indisponibles`. L'atténuation ne supprime pas le biais — elle ne joue qu'à score **exactement** égal. Un écran sans `refresh_rate` déclaré peut donc devancer un écran à 120 Hz sur un souhait de 144 Hz, et c'est visible dans la démonstration de l'étape. Les deux alternatives (0, ou 0,5) sont pires : l'une punit l'absence, l'autre l'invente |
 
 ---

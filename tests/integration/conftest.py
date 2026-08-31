@@ -21,8 +21,16 @@ from base_de_test import (
     supprimer_base,
     url_de,
 )
+from raiyon.catalogue.chargement import charger_en_base
+from raiyon.catalogue.pipeline import FICHIER_SEED, lire_seed
+from raiyon.matching.depot import DepotSql
 
 NOM_BASE_DE_TEST = "raiyon_test"
+# Base seedée pour les agrégats de l'étape 7. Elle est distincte de celle de
+# `tests/matching/` bien qu'elle porte le même catalogue : cette dernière est déclarée
+# dans le conftest d'un autre répertoire, et la partager voudrait dire déplacer des
+# fixtures dont 44 assertions dépendent — pour économiser une seconde de chargement.
+NOM_BASE_AGREGATS = "raiyon_test_agregats"
 # Base distincte pour l'aller-retour des migrations : ce test détruit le schéma,
 # il ne peut donc pas partager la base des autres.
 NOM_BASE_MIGRATIONS = "raiyon_test_migrations"
@@ -79,3 +87,34 @@ def base_jetable() -> Iterator[tuple[URL, Config]]:
         yield url, config_alembic(url)
     finally:
         supprimer_base(NOM_BASE_MIGRATIONS)
+
+
+@pytest.fixture(scope="session")
+def moteur_agregats() -> Iterator[Engine]:
+    """Le catalogue réel, migré et seedé **une seule fois** pour toute la session."""
+    if not FICHIER_SEED.is_file():
+        pytest.skip(f"{FICHIER_SEED} est absent — lancer `make seed-build`.")
+
+    url = preparer_base(NOM_BASE_AGREGATS)
+    moteur = create_engine(url, pool_pre_ping=True)
+    with Session(moteur) as session:
+        charger_en_base(session, lire_seed(FICHIER_SEED))
+        session.commit()
+    yield moteur
+    moteur.dispose()
+    supprimer_base(NOM_BASE_AGREGATS)
+
+
+@pytest.fixture
+def depot_catalogue(moteur_agregats: Engine) -> Iterator[DepotSql]:
+    """Le dépôt Postgres branché sur les 1 026 produits, en lecture seule."""
+    connexion = moteur_agregats.connect()
+    transaction = connexion.begin()
+    session = Session(bind=connexion, expire_on_commit=False)
+    try:
+        yield DepotSql(session)
+    finally:
+        session.close()
+        if transaction.is_active:
+            transaction.rollback()
+        connexion.close()

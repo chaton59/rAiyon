@@ -27,9 +27,15 @@ make test-int  # tests d'intégration : migrations, contraintes, index, chargeme
 
 Les tests d'intégration créent leurs propres bases jetables sur le Postgres de
 `docker-compose` (`raiyon_test` pour le schéma et le chargement, `raiyon_test_matching`
-pour le moteur, seedée une seule fois par session), les migrent et les suppriment : ils
-ne touchent pas à la base de travail. Sans Postgres joignable, ils sont ignorés avec un
+pour le moteur, `raiyon_test_agregats` pour les agrégats de la couche outils, les deux
+dernières seedées une seule fois par session), les migrent et les suppriment : ils ne
+touchent pas à la base de travail. Sans Postgres joignable, ils sont ignorés avec un
 message qui dit quoi faire, jamais en échec silencieux.
+
+| suite | tests | ce qu'elle exige |
+| --- | --- | --- |
+| `make check` — la totalité de la part pure | **474** en 2,8 s | rien : ni base, ni conteneur, ni clé API |
+| `make test-int` | **62** | un Postgres joignable |
 
 ## Le catalogue
 
@@ -79,8 +85,8 @@ Côté SQL : les filtres durs, les comptages, les valeurs atteignables. Côté P
 le scoring, le classement, la trace d'explication et le traitement du zéro résultat.
 
 **Conséquence directe, et c'est le critère d'acceptation nº5 :** `tests/matching/` se
-scinde en deux parts. La **part pure** — 147 tests — tourne dans `make check`, sans
-Postgres, sans conteneur et **sans clé API**, en 0,14 seconde. La part **`integration`**
+scinde en deux parts. La **part pure** — 170 tests — tourne dans `make check`, sans
+Postgres, sans conteneur et **sans clé API**, en 0,16 seconde. La part **`integration`**
 — 28 tests — porte le marqueur du même nom, travaille sur le catalogue réel des
 1 026 produits et se lance par `make test-int`. Il n'y a rien à débrancher pour tester
 le moteur hors ligne, parce qu'il n'y a rien de branché.
@@ -107,6 +113,47 @@ un test.
 Les queues lourdes sont winsorisées au 95ᵉ centile. L'écart n'est pas anecdotique : le
 prix au gigaoctet des mémoires monte à **497,5 USD/Go** sur des modules minuscules, pour
 une borne haute calibrée à **13,375**.
+
+## La couche outils, et ce qu'elle rend impossible
+
+Le modèle dispose de cinq outils. Un seul écrit dans la session :
+
+| outil | rend |
+| --- | --- |
+| `record_criteria` | l'état mis à jour, et les mouvements refusés |
+| `probe_catalog` | des agrégats seuls — **aucun produit**, vérifié sur le type de retour |
+| `suggest_next_question` | le champ manquant le plus discriminant — **aucune phrase** |
+| `search_products` | les produits entiers, `produits` et `au_dessus_du_budget` séparés |
+| `ask_clarification` | une question, et la clôture du tour |
+
+**Les quatre derniers ne prennent aucun critère, aucun budget, aucune catégorie.** Ils
+lisent l'état de session. Ce n'est pas une commodité : c'est ce qui fait qu'il n'existe
+pas d'argument par lequel contourner une contrainte que le client a posée. La question
+« l'argument hostile est-il arrêté ? » devient « existe-t-il un argument ? », et elle se
+vérifie sur des **signatures**.
+
+**Un critère déclaré ne se défait pas tout seul.** Desserrer — retirer un critère,
+baisser son importance, reculer un seuil, relever le budget — coûte **une parole du
+client** : un seul de ces mouvements est accepté par message, le second est refusé et
+l'outil le dit sans erreur, pour que l'agent puisse répondre « je garde 144 Hz tant que
+tu ne me dis pas le contraire ». Resserrer est toujours libre. La limite est écrite
+plutôt que tue : le jeton borne le **nombre** d'assouplissements par parole, il ne
+vérifie pas que le client parlait de ce critère-là.
+
+Le schéma JSON des outils est **dérivé du registre d'attributs**, jamais écrit à la
+main : un test vérifie que son énumération de champs couvre exactement les champs
+utilisables, catégorie par catégorie. Un schéma qui promettrait un champ que le moteur
+refuse ferait échouer le modèle tour après tour sans que rien ne casse côté code.
+
+Dix-sept portes hostiles sont fermées et testées une par une, chacune nommée d'après ce
+qu'elle empêche : budget élargi en cours de tour, catégorie inexistante, champ d'une
+autre catégorie, champ d'affichage posé en critère, promotion d'un attribut de score en
+bloquant, seuil qui recule après un zéro résultat… Les critères contradictoires, eux, ne
+lèvent pas : « au moins 200 Hz et au plus 100 Hz » rend zéro produit **et un
+diagnostic**, parce qu'une contradiction est une réponse, pas un bug.
+
+Aucun module de `raiyon.tools` ne charge le SDK Anthropic — vérifié module par module,
+découverts sur le disque, chacun dans un interpréteur neuf.
 
 ## Données
 
