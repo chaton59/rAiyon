@@ -6,7 +6,7 @@ Aucun de ces tests ne touche le réseau ni Postgres.
 import pytest
 from pydantic import ValidationError
 
-from raiyon.config import ConfigurationError, Settings, get_settings
+from raiyon.config import ConfigurationError, Settings, cle_api, get_settings
 
 CLE_FACTICE = "sk-ant-test-0123456789"
 
@@ -30,12 +30,46 @@ def test_valeurs_par_defaut(monkeypatch):
     assert settings.database_url.path == "/raiyon"
 
 
-def test_cle_api_absente_echoue_bruyamment():
-    """`ANTHROPIC_API_KEY` absente doit lever, pas se rabattre sur un défaut."""
-    with pytest.raises(ValidationError) as erreur:
-        get_settings()
+def test_cle_api_absente_ne_bloque_plus_le_demarrage():
+    """La clé est **optionnelle** depuis l'étape 8 (arbitrage 10), et c'est un renversement.
 
-    assert "ANTHROPIC_API_KEY" in str(erreur.value)
+    Elle était obligatoire depuis l'étape 2, au nom d'« échouer tôt ». La décision était
+    raisonnable tant que le pipeline appelait un modèle ; §3.4ter a supprimé ce seul
+    appel, et `make seed`, `make seed-build` et `make calibrer` réclamaient depuis lors
+    une clé qu'ils n'utilisent jamais — un mensonge sur la dépendance, celui-là même que
+    la suppression de la passe LLM avait fait disparaître ailleurs.
+
+    Le principe ne change pas, son objet si : on échoue tôt **sur ce qui est réellement
+    requis**, c'est-à-dire au premier appel API — voir le test suivant.
+    """
+    settings = get_settings()
+
+    assert settings.anthropic_api_key is None
+    assert settings.model_agent == "claude-sonnet-5"
+
+
+def test_cle_api_absente_echoue_bruyamment_au_moment_de_lutiliser():
+    """`cle_api()` est le **seul** site de déballage, et il dit quoi faire.
+
+    L'alternative — un `SecretStr | None` déballé sur chaque site d'usage — répandrait un
+    `| None` dans chaque appelant. L'accesseur n'en laisse qu'un, et c'est lui qui porte
+    le message.
+    """
+    with pytest.raises(ConfigurationError) as erreur:
+        cle_api()
+
+    message = str(erreur.value)
+    assert "ANTHROPIC_API_KEY" in message
+    # Le message nomme les commandes concernées plutôt que de dire « clé manquante ».
+    assert "make chat" in message
+    assert "make seed" in message
+
+
+def test_cle_api_presente_est_rendue_deballee(monkeypatch):
+    """Contre-épreuve : sans elle, un `cle_api()` qui lèverait toujours passerait."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", CLE_FACTICE)
+
+    assert cle_api() == CLE_FACTICE
 
 
 def test_budget_tolerance_hors_bornes_est_refuse(monkeypatch):

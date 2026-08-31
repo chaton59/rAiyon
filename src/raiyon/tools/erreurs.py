@@ -68,6 +68,15 @@ class CodeRefus(StrEnum):
     """Un champ cité hors critère — la projection d'un sondage, la cible d'une
     demande de précision — n'existe pas dans la catégorie courante."""
 
+    OUTIL_INCONNU = "outil_inconnu"
+    """Le nom d'outil appelé n'existe pas. Ajouté à l'étape 8 avec le répartiteur.
+
+    La convention du module est « un code par geste », et corriger un nom d'outil n'est
+    pas corriger un champ : le modèle doit relire la liste des outils, pas la valeur
+    qu'il a écrite. En pratique le cas est rare — le mode `strict` de l'API garantit les
+    noms d'outils — mais le répartiteur ne peut pas s'appuyer là-dessus, puisque le repli
+    de l'arbitrage 11 retire précisément ce drapeau."""
+
 
 class OutilRefuse(Exception):
     """Un appel d'outil que le modèle doit corriger avant de recommencer.

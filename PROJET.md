@@ -615,6 +615,36 @@ en bout. `model_extraction` **reste configuré** — la constante existe, elle e
 et testée — mais plus rien ne la lit à cette étape. La ligne est barrée plutôt
 qu'effacée : c'est une décision renversée, pas une décision qui n'a jamais eu lieu.
 
+> **Amendement de l'étape 8 — le point de coupe du cache, et sa conséquence de
+> conception.** « Prompt caching activé sur le prompt système » ci-dessus décrit une
+> intention ; l'étape 8 en fixe le mécanisme et, surtout, **ce qu'il interdit**.
+>
+> Un seul point de coupe, posé sur le bloc système :
+>
+> ```python
+> system = [{"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}]
+> ```
+>
+> Le préfixe mis en cache est `tools` + `system`. Une coupe sur le système couvre donc
+> **aussi les cinq définitions d'outils**, qui sont la partie la plus lourde et la plus
+> stable de la requête ; un second point de coupe n'aurait rien à protéger de plus.
+>
+> ⚠️ **La contrainte que cela crée est une règle de conception du prompt, pas une
+> optimisation.** Le préfixe doit être identique **octet pour octet** d'un appel à
+> l'autre. Donc : **ni la date, ni l'état de session, ni le numéro de tour, ni la
+> catégorie courante ne vont dans le prompt système.** L'état ne vit que dans les
+> `tool_result`. C'est écrit ici, et pas seulement dans le code, parce que la faute est
+> silencieuse : un prompt interpolé n'échoue pas, il cesse simplement d'être mis en
+> cache, sans erreur ni log, et cela ne se voit que sur la facture. Deux tests le
+> constatent — l'un que deux appels d'un même tour reçoivent un `systeme` et des
+> `outils` identiques, l'autre que `prompts/systeme.v1.md` ne porte aucun marqueur
+> d'interpolation.
+>
+> Mesuré au passage : **le drapeau `strict` des définitions d'outils ne fait pas partie
+> de la clé de cache** — un appel sans le drapeau lit le cache écrit par un appel avec.
+> On ne peut donc pas se servir du compteur de cache pour vérifier que `strict` est
+> appliqué.
+
 **Note.** L'architecture agent a rendu caduque la séparation « Haiku pour
 l'extraction / Sonnet pour la rédaction » envisagée initialement : il n'y a plus
 d'appel d'extraction distinct. Les critères sont désormais **dérivés des
@@ -798,6 +828,26 @@ d'un travail de fond, ce qui est là qu'on introduit des clés en dur.
 - **Plugin mypy de Pydantic activé tout de suite**, alors qu'il ne sert encore à
   rien : l'ajouter après l'étape 4 ferait apparaître des dizaines d'erreurs d'un
   coup sur les modèles.
+
+> **Amendement de l'étape 8 — `ANTHROPIC_API_KEY` n'est plus obligatoire au démarrage.**
+> Cette étape avait posé la clé en champ requis de `Settings`, au nom d'« échouer tôt ».
+> **La décision était raisonnable à ce moment-là**, et il ne s'agit pas de réécrire
+> l'histoire : le plan prévoyait alors une passe LLM dans le pipeline de l'étape 5, donc
+> tout chemin qui ouvrait la configuration menait effectivement à un appel API. Exiger la
+> clé au démarrage revenait à échouer tôt sur une dépendance réelle.
+>
+> **Ce qui l'a renversée est §3.4ter**, qui a supprimé la passe B et avec elle le seul
+> appel LLM du chemin de données. À partir de là, `make seed`, `make seed-build` et
+> `make calibrer` — du code déterministe de bout en bout — réclamaient une clé qu'ils
+> n'utilisent jamais. `scripts/seed_charger.py` portait d'ailleurs la conséquence en
+> docstring depuis l'étape 5, en attendant l'arbitrage : *« cette commande réclame une clé
+> qu'elle n'utilisera jamais »*. C'était devenu un **mensonge sur la dépendance**, celui-là
+> même que la suppression de la passe LLM avait fait disparaître ailleurs.
+>
+> Le principe ne change pas, son objet si : on échoue tôt **sur ce qui est réellement
+> requis**. `anthropic_api_key` est `SecretStr | None`, et `cle_api()` est le **seul site
+> de déballage** — il lève une `ConfigurationError` qui nomme les commandes concernées.
+> Seules `make chat` et `make fumee` en ont besoin.
 
 ---
 
@@ -1721,7 +1771,7 @@ existe dans le projet**.
   empoisonne tous les tests d'appartenance — sans la moindre erreur. Le contrôle est une
   ligne (`is_finite()`), et il n'existerait pas sans avoir été cherché.
 
-### Étape 8 — Boucle agent et prompt système v1
+### Étape 8 — Boucle agent et prompt système v1 ✅
 
 Boucle de tool use : appel, exécution des outils, réinjection, jusqu'à réponse
 texte ou `max_iterations`. Prompt système en fichier versionné. Journalisation
@@ -1744,9 +1794,206 @@ caractère près** contre la base, par simple égalité de chaînes. Avec un `no
 base, le validateur aurait dû comparer la sortie du modèle à un texte lui-même généré
 — une vérification qui ne prouve rien.
 
+**Franchie.** 514 tests purs en 3,1 s (dont 37 pour la boucle et le répartiteur), 67 d'intégration,
+`make check` et `make test-int` verts — **sans base, sans conteneur et sans clé API**.
+Une conversation de bout en bout aboutit à des recommandations de produits réels, et une
+session reprise après redémarrage retrouve ses critères.
+
+```
+src/raiyon/tools/
+    repartiteur.py         # nom d'outil → fonction, pur, aucun import anthropic
+    erreurs.py             # + CodeRefus.OUTIL_INCONNU
+src/raiyon/agent/
+    client.py              # Protocol ClientLLM, dataclass ReponseLLM
+    client_anthropic.py    # SEUL module qui importe anthropic ; repli strict
+    evenements.py          # les sept événements typés, dataclasses frozen
+    prompts.py             # chargement versionné + empreinte sha256
+    boucle.py              # repondre() : générateur d'événements
+    session.py             # lecture/écriture de sessions et tours_conversation
+prompts/systeme.v1.md      # onze sections, rien de dynamique
+scripts/console.py         # make chat        scripts/fumee.py  # make fumee
+```
+
+#### Les douze arbitrages
+
+**1 — La boucle rend des événements typés, mais n'appelle pas `messages.stream()`.**
+`client.messages.create()`, et un générateur d'`Evenement` = `CriteresMisAJour | Sondage
+| QuestionSuggeree | ProduitsTrouves | QuestionPosee | Texte | Repli`. *Alternative
+écartée — streamer dès maintenant* : la console serait plus vivante, mais on paierait
+l'accumulation des deltas de `tool_use` en JSON partiel dans l'étape qui fait déjà le
+premier appel API du projet. *Alternative écartée — des retours simples, les événements à
+l'étape 10* : une abstraction de moins, mais l'étape 10 réécrirait alors la boucle au lieu
+d'en remplacer le producteur, ce que §6 dit d'éviter. **L'étape 10 doit pouvoir remplacer
+`messages.create()` par `messages.stream()` sans que le consommateur bouge** — et c'est
+cette phrase qui a tranché la forme de `Texte`, émis dès qu'il est lu, sans savoir ce qui
+suit dans le message.
+
+**2 — Un `Protocol` de client LLM, comme `DepotProduits`.** `ReponseLLM` porte les blocs
+bruts (sérialisables tels quels en JSONB) et le `stop_reason`. L'implémentation SDK vit
+dans `agent/client_anthropic.py`, **seul module du projet qui importe `anthropic`** ; un
+faux scripté vit dans `tests/agent/faux_client.py`. *Alternative écartée — ne tester la
+boucle que par cassettes à l'étape 12* : elle teste la vérité, mais rien avant l'étape 12,
+et **un défaut de réenchaînement d'état ne se voit pas dans une cassette** — la cassette
+rejoue les réponses du modèle, pas notre gestion de l'état.
+
+> ⚠️ **Tension avec §3.15, à ne pas laisser passer pour un reniement.** §3.15 écarte les
+> « mocks écrits à la main » au motif qu'on y teste ses propres suppositions sur ce que le
+> LLM répond. La nuance est que le faux client ne teste pas *ce que le modèle répond* — il
+> teste *ce que la boucle fait d'une réponse donnée* : enchaînement, état, terminalité,
+> appairage des `tool_result`. C'est légitime, et **ça ne remplace pas** les cassettes de
+> l'étape 12, qui restent au plan.
+
+**3 — Le répartiteur vit dans `raiyon.tools`, pas dans `raiyon.agent`.**
+`executer(nom, entree, etat, contexte)` rend `(EtatSession, ResultatOutil | OutilRefuse)` :
+l'état sort **toujours**, inchangé sur un refus. *Alternative écartée — le répartiteur dans
+`agent/`* : la couche outils resterait « cinq fonctions », mais `record_criteria`
+s'écrirait alors dans deux modules de deux couches — exactement le motif que
+`en_tool_result()` refuse, **un seul endroit où un nom du protocole est écrit**. Conséquence
+vérifiée : le test d'isolation SDK, qui découvre les modules sur le disque, couvre
+`repartiteur.py` sans qu'on ait eu à l'y inscrire. `CodeRefus.OUTIL_INCONNU` est ajouté :
+la convention est « un code par geste », et corriger un nom d'outil n'est pas corriger un
+champ. Une `ValidationError` devient un `OutilRefuse` de code `VALEUR_ILLISIBLE` qui
+**recopie le message de Pydantic verbatim** — il nomme le champ fautif, ce qu'une
+reformulation perdrait.
+
+**4 — Blocs multiples dans un message assistant : tout exécuter, séquentiellement.**
+Chaque `tool_use` s'exécute sur l'état rendu par le précédent ; un `OutilRefuse` ne fait
+pas tomber les suivants, qui repartent de l'état d'avant. **Chaque `tool_use` reçoit
+exactement un `tool_result`, dans le même ordre, sans aucune exception** — y compris quand
+le tour est clos par `ask_clarification`, y compris quand `max_iterations` est atteint. Ce
+dernier point n'est pas un choix : l'API refuse un historique où un `tool_use` n'a pas son
+`tool_result` appairé, et comme les tours sont persistés, un orphelin ne casse pas le tour
+courant mais **le suivant**. Une assertion générique (`verifier_appairage`) est appliquée à
+tous les scénarios de test.
+
+**5 — `ask_clarification` terminal : le texte qui précède est le préambule.** §3.7 avait un
+argument `preamble` ; l'étape 7 l'a supprimé, et le « donner avant de demander » de §3.9
+vit désormais dans le message lui-même. **Ce qui part au client est la suite des blocs
+`text`, puis la question.** *Alternative écartée — jeter le texte et n'envoyer que
+`question`* : plus simple, mais elle supprime mécaniquement le comportement que §3.9
+réclame. Cas résiduels tranchés : deux `ask_clarification` — la première gagne, la seconde
+s'exécute quand même (elle a besoin de son `tool_result`) et son résultat est ignoré avec
+un `WARNING` ; `ask_clarification` avec un autre outil — tous s'exécutent, tous ont leur
+`tool_result`, la question part et **les événements des outils qui la suivent ne partent
+pas** au client.
+
+> ⚠️ **Une asymétrie assumée, écrite plutôt que découverte.** Un événement émis *avant* la
+> question, lui, reste émis : on ne rattrape pas ce qui est parti. La règle dépend donc de
+> l'ordre des blocs. C'est accepté pour deux raisons — le cas est dégénéré (le prompt dit
+> de ne pas mélanger), et toute règle qui n'en dépendrait pas exigerait de connaître la fin
+> du message avant d'émettre le premier événement, c'est-à-dire de bufferiser, donc de
+> rendre inopérant le streaming de l'étape 10.
+
+**6 — On ne touche pas aux descriptions d'outils, et la duplication est tolérée en v1.**
+`DESCRIPTION_SONDER` et `DESCRIPTION_PRECISION` portent déjà des règles de dialogue que le
+prompt v1 redit. Toucher `schema_outils.py` invaliderait le cache de prompt, rouvrirait une
+couche qu'on vient de fermer et de tester, et **on ne sait pas encore laquelle des deux
+formulations porte l'effet** — c'est précisément ce que le harnais d'éval saura dire.
+*Alternative écartée — répartir maintenant : le contrat d'appel dans la description, la
+conduite dans le prompt.* C'est la bonne cible, elle suit le raisonnement d'`erreurs.py`
+(deux rédactions d'une même règle finissent par en dire deux choses), et elle est
+**reportée, pas abandonnée** — voir l'étape 13.
+
+**7 — Cache de prompt activé, et ce qu'il interdit.** Un seul point de coupe, sur le bloc
+système : le préfixe couvert est `tools` + `system`, donc les cinq définitions d'outils
+sont dedans. **La contrainte que ça crée est ce qui compte** — voir l'amendement du §3.13.
+Un test constate que deux appels du même tour reçoivent un `systeme` et des `outils`
+identiques, et un autre que `systeme.v1.md` ne contient aucun marqueur d'interpolation.
+
+**8 — `max_iterations` atteint : un message de repli écrit en Python.** `WARNING` avec le
+compte d'itérations et les noms d'outils appelés, puis un événement `Repli` portant une
+phrase constante. *Alternative écartée — un dernier appel sans outils pour forcer une
+réponse texte* : plus élégante, et c'est ce que l'étape 9 rendra sûr ; écartée ici parce
+qu'après huit itérations le modèle a précisément tourné en rond et que **rien ne valide
+encore sa sortie** — ce serait le texte le moins fiable de toute la conversation qu'on
+enverrait au client.
+
+**9 — Persistance en base dès maintenant, et `tour_client` est le numéro du tour.** *Cet
+arbitrage se tranche seul, et il faut le dire :* la console a **de toute façon** besoin de
+Postgres, puisque `search_products` interroge le dépôt — l'argument « garder la console
+utilisable sans conteneur » est faux. `sessions` et `tours_conversation` sont donc écrits
+dès l'étape 8, et `en_jsonb()` / `depuis_jsonb()` exercés sur un aller-retour **réel**,
+sans quoi l'étape 10 découvrirait le défaut avec le streaming par-dessus. `tour_client` est
+le `numero` de la ligne du message client : croissant, unique par session, stable au
+redémarrage. **Ni un compte de lignes `user`** — les `tool_result` en portent aussi —
+**ni un compteur en mémoire**, qui rendrait le jeton de parole contournable en relançant la
+console. Un seul commit, en fin de tour : un tour est atomique, et le générateur n'écrit
+qu'à la fin, donc la console le consomme entièrement.
+
+**10 — `ANTHROPIC_API_KEY` devient optionnelle, avec un accesseur qui lève.** Voir
+l'amendement du §5 étape 2. *Alternative écartée — statu quo* : simple, et un projet
+portfolio a de toute façon une clé ; mais `make seed` et `make calibrer` sont du code
+déterministe depuis §3.4ter, et exiger une clé pour eux est un mensonge sur la dépendance.
+*Alternative écartée — `SecretStr | None` déballé partout* : elle répand un `| None` dans
+chaque site d'usage ; `cle_api()` n'en concentre qu'un.
+
+**11 — Le premier appel API du projet valide `strict: true`, avant la boucle.** `make
+fumee` livré, et **lancé avant d'écrire la boucle**. Résultat : `strict: true` **passe**,
+avec l'`enum` de 36 champs et les propriétés optionnelles hors `required`. Le repli reste
+en place — automatique et mémorisé sur un `BadRequestError` tant que le mode n'est pas
+établi — mais il n'a pas eu à servir. C'est le point que le dépôt avait raté trois fois
+(`smt` à l'étape 3, `temperature=0` et `nom_fr` à l'étape 5) ; cette fois il a été mesuré
+avant d'être supposé.
+
+**12 — Quatre réglages, tranchés au plus simple.** Pas de thinking étendu en v1 (les blocs
+`thinking` devraient être réinjectés verbatim et persistés, pour un raisonnement qui tient
+en deux lignes — à rouvrir à l'étape 13 si la métrique nº4 plafonne). On ne fixe pas
+`temperature` : le dépôt s'est déjà fait prendre à supposer que `temperature=0` donnait du
+déterminisme, on ne le suppose plus et on ne le revendique nulle part. `max_tokens = 2048`.
+Le faux client reste dans `tests/` : pas de mode démo hors ligne, ce serait une seconde
+façon de faire tourner le produit, à maintenir.
+
+#### Ce que l'étape a appris, et qui n'était pas prévu
+
+- **`strict: true` passe, et le repli n'a jamais servi.** L'étape 7 avait écrit noir sur
+  blanc que le sous-ensemble de JSON Schema admis sous ce drapeau n'était documenté nulle
+  part dans le paquet installé, et avait livré `schema_des_outils(strict=False)` par
+  précaution. La mesure dit que la précaution était inutile — **et elle valait quand même
+  d'être prise**, parce que c'est elle qui a rendu la mesure possible en un appel au lieu
+  d'une séance de débogage au milieu de l'étape.
+- **⚠️ Le drapeau `strict` ne fait pas partie de la clé de cache.** Constaté par la
+  contre-épreuve de `make fumee` : un appel envoyant les définitions **sans** `strict`,
+  juste après un appel qui les envoyait **avec**, a lu le cache écrit par le premier
+  (`cache_lu=6039`). Le préfixe est donc considéré identique par l'API alors qu'il ne l'est
+  pas octet pour octet côté client. Conséquence pratique : un repli en cours de processus ne
+  coûterait pas une réécriture de cache. Conséquence à ne pas oublier : **on ne peut pas se
+  servir du compteur de cache pour vérifier que `strict` est bien appliqué.**
+- **`make fumee` a d'abord menti sur son propre résultat.** Sous `--sans-strict`, il
+  affichait « mode retenu : strict: true » — parce que la propriété `client.strict` dit
+  seulement que le *repli* ne s'est pas déclenché, pas que `strict` a été envoyé. Une cible
+  qui existe pour mesurer une capacité affichait donc une mesure fausse dans un de ses deux
+  modes. Corrigé en séparant « mode demandé », « repli déclenché » et « mode effectif ».
+  C'est exactement le motif du F1 de l'étape 5 : un chiffre affiché sans que le chemin qui
+  le produit ait été relu.
+- **Le piège des deux `conftest.py` s'est redéclenché, à l'identique.** `tests/agent/` et
+  `tests/tools/` ont chacun le leur, et `from conftest import SYSTEME` a résolu vers celui
+  de `tests/tools/`. Le motif est documenté dans `outils_de_test.py` depuis l'étape 7 — le
+  connaître ne suffit pas, il faut appliquer la règle dès le premier fichier. Les helpers
+  sont dans `tests/agent/scenarios.py`, les fixtures restent dans `conftest.py`.
+- **`caplog` de pytest ne voit rien de ce que loggue le projet.** Le dépôt loggue en
+  structlog, qui écrit sur la sortie standard sans passer par le `logging` de la
+  bibliothèque standard : un test qui asserte `"max_iterations" in caplog.text` échoue sur
+  un `WARNING` pourtant bien émis. `structlog.testing.capture_logs()` rend les événements
+  structurés, ce qui permet d'asserter sur la clé et le niveau plutôt que sur du texte.
+- **`score=0` dans la trace n'est pas un défaut, et l'afficher seul le laissait croire.**
+  Sur une recherche où tous les critères sont des filtres durs, aucun sous-score n'est
+  produit, `agreger()` rend 0 et le classement se joue entièrement sur le départage — c'est
+  le scénario G2 de l'étape 6. La première version de `--trace` affichait `score=0` sans
+  rien d'autre. Elle affiche désormais le rôle appliqué, le nombre de critères scorés et
+  les critères indisponibles, ce qui distingue « rien à scorer » de « tout raté ».
+- **La section 6 du prompt v1 a produit son effet dès la première conversation.**
+  `suggest_next_question` a rendu `marque` — le champ le plus discriminant, comme l'étape 7
+  l'avait mesuré — et le modèle a demandé l'usage et la fréquence de rafraîchissement. C'est
+  l'atténuation du risque « le champ le plus discriminant n'est pas toujours la meilleure
+  question », observée une fois. **Une observation n'est pas une mesure** : rien ne le
+  vérifie avant l'étape 12, et c'est au §7.
+
 **Porte de sortie :** une conversation manuelle en console, de bout en bout, qui
 aboutit à une recommandation de produits réels. Pas encore de qualité garantie —
-juste la preuve que la boucle tourne et que les logs sont lisibles.
+juste la preuve que la boucle tourne et que les logs sont lisibles. **Franchie** :
+conversation complète jusqu'à trois écrans réels avec leurs `id` et leurs prix, deux
+produits de la zone de tolérance présentés avec leur écart exact, puis une reprise de la
+même session par `--session` qui retrouve la catégorie, le critère et le budget.
 
 ---
 
@@ -1827,6 +2074,27 @@ varier le prompt système, comparer les tableaux, versionner ce qui gagne. Viser
 en priorité la métrique nº3 — le délai avant première valeur — qui est ce que
 ressent un vrai utilisateur.
 
+**Deux dettes de l'étape 8 se règlent ici, et elles y ont été reportées explicitement :**
+
+1. **Résorber la duplication entre les descriptions d'outils et le prompt système**
+   (arbitrage 6 de l'étape 8). `DESCRIPTION_SONDER` et `DESCRIPTION_PRECISION` portent
+   des règles de dialogue — « une fourchette de prix n'est jamais le prix d'un produit »,
+   « ne jamais demander sans donner quelque chose » — que le prompt v1 redit. La cible est
+   la répartition « le contrat d'appel dans la description, la conduite dans le prompt »,
+   qui suit le raisonnement d'`erreurs.py` : deux rédactions d'une même règle finissent
+   par en dire deux choses. Elle a été **reportée, pas abandonnée** — toucher
+   `schema_outils.py` invalidait le cache de prompt et rouvrait une couche fermée, et
+   surtout **on ne savait pas laquelle des deux formulations portait l'effet**. C'est
+   exactement ce que le harnais sait dire, et c'est pour ça que la dette est ici.
+2. **Rouvrir le thinking étendu si la métrique nº4 plafonne** (arbitrage 12). Écarté en v1
+   parce que les blocs `thinking` doivent être réinjectés verbatim et persistés, ce qui
+   alourdit l'historique pour un raisonnement qui tient en deux lignes.
+
+Le prompt v1 a été écrit **court exprès** — onze sections numérotées, une idée chacune —
+pour que cette étape puisse en déplacer **une** et attribuer l'effet. Un prompt v1 maximal
+aurait laissé les métriques nº3 et nº4 sans marge de progression et rendu chaque
+changement ultérieur non attribuable.
+
 **Porte de sortie :** au moins deux versions de prompt comparées chiffres en
 main, et la trace de cette comparaison conservée dans le dépôt.
 
@@ -1888,6 +2156,9 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **L'entropie sur un champ numérique continu est grossière** | Faible | Sur `price_per_gb` ou `core_clock`, chaque produit porte presque sa propre valeur : l'entropie normalisée y est maximale alors que la question n'apprendrait rien. La parade est une **exclusion par nombre de valeurs distinctes** — au-delà de la moitié des candidats, le champ sort du classement. C'est **un seuil, pas une théorie**, et il n'a pas été calibré : le découpage en classes, qui serait la vraie réponse, est hors périmètre. Second effet, écrit plutôt que masqué : la normalisation par `log2(k)` mesure l'équilibre et non le gain brut, d'où un départage à score égal sur le nombre de valeurs atteignables |
 | **Le champ le plus discriminant n'est pas toujours la meilleure question** | Faible — c'est la qualité perçue | Mesuré sur le seed : sur les 32 écrans à 144 Hz sous 400 $, `marque` marque 0,93 contre 0,73 pour le type de dalle, parce que treize marques bien réparties portent plus d'information que deux types de dalle. La mesure a raison ; « tu as une préférence de marque ? » n'est pourtant pas toujours ce qu'un vendeur demanderait. Gain d'information et valeur conversationnelle sont deux critères distincts : l'outil rend le premier et **reste une suggestion** (§3.8), le prompt de l'étape 8 arbitre le second, et la métrique nº3 le mesure |
 | **La garde de l'arbitrage C concentre l'invariant, elle ne le supprime pas** | Faible, mais à ne pas oublier | Les outils de recherche n'ont plus d'argument de critère : il n'existe donc plus d'argument hostile à clamper. Mais la règle de collant doit toujours être appliquée quelque part, et ce quelque part est maintenant **unique** — `record_criteria`. Un futur outil qui écrirait dans l'état sans passer par `fusionner()` rouvrirait tout, et rien dans le typage ne l'en empêche. Atténuation : `EtatSession` est immuable et ses champs sont typés `Mapping`, donc une écriture en place ne compile pas sous `mypy --strict` ; mais construire un état neuf à la main reste possible |
+| **Le prompt v1 n'est mesuré par rien avant l'étape 12** | **Élevée** — c'est la qualité perçue, et elle n'a aucun filet | Les sections 4 (« une fourchette n'est jamais un prix »), 6 (« la question suggérée est une suggestion ») et 9 (« dire le refus plutôt que le contourner ») sont des **atténuations déclarées, pas vérifiées** : elles sont écrites dans le prompt et rien ne constate qu'elles produisent leur effet. Une observation en conversation manuelle n'est pas une mesure. Le harnais de l'étape 12 est ce qui les transforme en taux ; d'ici là, ce sont des intentions bien rédigées |
+| **Le faux client teste la boucle, pas le modèle** | Moyenne — et c'est un angle mort de `make check` | `tests/agent/` couvre l'enchaînement, le réenchaînement de l'état, la terminalité, l'appairage des `tool_result` et la garde d'itérations — tout ce qui ne dépend pas de ce que le modèle répond. **Un défaut de conduite du dialogue passe donc entièrement à travers `make check`** : un agent qui interrogerait le client six fois de suite, ou qui citerait un prix jamais fourni, ferait une suite verte. C'est la contrepartie assumée de l'arbitrage 2, et elle ne se referme qu'avec les cassettes et le client simulé de l'étape 12 |
+| **Le texte sortant n'est validé par rien jusqu'à l'étape 9** | **Élevée**, et c'est le seul moment du projet dans ce cas | §2 — « le LLM ne produit jamais un fait » — repose aujourd'hui **uniquement sur le prompt système**. Les trois niveaux de §3.11 sont censés être cumulés ; seul le premier existe. Le code fournit bien les faits et sépare structurellement `produits` de `au_dessus_du_budget`, mais rien ne relit la phrase produite : un prix recopié de travers, un `id` approximatif ou une spec déduite d'un sondage partiraient au client. **C'est pour cette raison que l'étape 9 est la suivante et pas l'étape 10** — mettre une API et un front devant un texte non validé multiplierait la surface avant de fermer le trou |
 | **Le garde-fou de l'arbitrage F favorise légèrement les produits à données manquantes** | Faible, mais réelle et constatée | Un critère indisponible sort du calcul et les poids sont renormalisés : un produit incomplet a donc moins d'occasions de perdre des points. Atténuation : à score égal, celui dont **plus de critères ont été évalués** passe devant, et la trace expose `criteres_evalues` / `criteres_indisponibles`. L'atténuation ne supprime pas le biais — elle ne joue qu'à score **exactement** égal. Un écran sans `refresh_rate` déclaré peut donc devancer un écran à 120 Hz sur un souhait de 144 Hz, et c'est visible dans la démonstration de l'étape. Les deux alternatives (0, ou 0,5) sont pires : l'une punit l'absence, l'autre l'invente |
 
 ---

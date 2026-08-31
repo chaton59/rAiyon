@@ -53,7 +53,18 @@ class Settings(BaseSettings):
         protected_namespaces=(),
     )
 
-    anthropic_api_key: SecretStr = Field(validation_alias="ANTHROPIC_API_KEY")
+    anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
+    """**Optionnelle**, et déballée par `cle_api()` seule (étape 8, arbitrage 10).
+
+    Elle était obligatoire au démarrage depuis l'étape 2 — « échouer tôt ». La décision
+    était raisonnable tant que le pipeline appelait un modèle ; §3.4ter a supprimé ce
+    seul appel, et `make seed`, `make seed-build` et `make calibrer` sont devenus du code
+    déterministe qui réclamait une clé qu'il n'utilise jamais. Le principe ne change pas,
+    son objet si : on échoue tôt **sur ce qui est réellement requis**, c'est-à-dire au
+    premier appel API.
+
+    *Alternative écartée — `SecretStr | None` déballé sur chaque site d'usage.* Elle
+    répand un `| None` dans chaque appelant ; l'accesseur n'en laisse qu'un."""
 
     database_url: PostgresDsn = PostgresDsn(
         "postgresql+psycopg://raiyon:raiyon@localhost:5432/raiyon"
@@ -161,7 +172,23 @@ def get_settings() -> Settings:
     verifier_cles_inconnues()
     # Aucun argument : `BaseSettings` lit tout dans l'environnement. Le plugin
     # mypy de Pydantic sait que cet appel est légitime — sans lui, mypy réclame
-    # `anthropic_api_key` et il faut un `# type: ignore[call-arg]`.
-    # L'absence de clé reste détectée à l'exécution, par une ValidationError
-    # (cf. tests/test_config.py).
+    # les champs sans défaut et il faut un `# type: ignore[call-arg]`.
     return Settings()
+
+
+def cle_api() -> str:
+    """La clé API, ou une `ConfigurationError` qui dit quoi faire. **Seul déballage.**
+
+    Tout ce qui appelle l'API passe par ici. La conséquence est que le message d'absence
+    est écrit une fois, qu'il nomme les commandes concernées, et qu'aucune autre partie
+    du code n'a à connaître le fait que la clé puisse manquer.
+    """
+    cle = get_settings().anthropic_api_key
+    if cle is None:
+        raise ConfigurationError(
+            "ANTHROPIC_API_KEY est absente, et cette commande appelle l'API Anthropic.\n"
+            "La renseigner dans .env (voir .env.example) ou l'exporter dans le shell.\n"
+            "Rappel : make seed, make seed-build et make calibrer n'en ont pas besoin — "
+            "seules make chat et make fumee appellent un modèle."
+        )
+    return cle.get_secret_value()

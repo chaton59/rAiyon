@@ -14,14 +14,18 @@ code lui a fournis.
 
 ```bash
 make install   # dépendances, hooks pre-commit, création de .env
-# renseigner ANTHROPIC_API_KEY dans .env — non utilisée par le catalogue, mais
-# `Settings` l'exige au démarrage de tout ce qui ouvre une connexion base
 make up        # démarre Postgres et attend le healthcheck
 make migrate   # applique les migrations (crée le schéma)
 make seed      # charge le catalogue committé (~1 000 produits, aucun appel API)
 make check     # lint + types + tests
 make test-int  # tests d'intégration : migrations, contraintes, index, chargement
 ```
+
+**`ANTHROPIC_API_KEY` n'est requise que pour `make chat` et `make fumee`.** Tout le
+reste — installation, migrations, seed, calibration, `make check` — est du code
+déterministe qui n'appelle aucun modèle, et exiger une clé pour ces commandes serait un
+mensonge sur la dépendance. Son absence est signalée au moment de s'en servir, par un
+message qui dit quoi faire.
 
 `make` seul liste les autres cibles.
 
@@ -34,8 +38,46 @@ message qui dit quoi faire, jamais en échec silencieux.
 
 | suite | tests | ce qu'elle exige |
 | --- | --- | --- |
-| `make check` — la totalité de la part pure | **474** en 2,8 s | rien : ni base, ni conteneur, ni clé API |
-| `make test-int` | **62** | un Postgres joignable |
+| `make check` — la totalité de la part pure | **514** en 3,1 s | rien : ni base, ni conteneur, ni clé API |
+| `make test-int` | **67** | un Postgres joignable |
+
+## Lancer une conversation
+
+```bash
+make up && make migrate && make seed   # une fois : la console interroge le catalogue
+make fumee                             # contrôle : un appel API jetable, dit si strict passe
+make chat                              # dialogue en console, Ctrl-D pour sortir
+```
+
+`make chat` crée une session, affiche son UUID, et lit stdin ligne à ligne. Deux
+niveaux d'affichage :
+
+- **par défaut** — le dialogue, plus une ligne compacte par événement non textuel.
+  C'est le panneau « voici ce que j'ai compris de votre besoin » en version terminal,
+  et c'est ce qui rend l'architecture visible : on voit que le **code** a compris,
+  cherché et trouvé, indépendamment de ce que le modèle raconte ;
+- **`--trace`** — en plus, les distributions du sondage et la trace d'explication
+  critère par critère, avec le rôle appliqué et le sous-score.
+
+```
+[critères] écran · ≥ 144 Hz fréquence de rafraîchissement (important) · budget 400.00 $
+[sondage]  32 candidats · 108.00 $ à 399.99 $ · 4 dans la zone de tolérance
+[question] marque suggéré (marque) · 32 candidats
+[produits] 3 trouvés sur 32 candidats · 2 au-dessus du budget
+    monitor-9d9e443e00  AOPEN UM.UW1AA.P01  108.00 $
+    monitor-ee31fe1bb3  MSI MAG 255XFV  129.99 $
+    monitor-3e3a4798db  BenQ MOBIUZ EX240N  139.99 $
+    +17.14 $ monitor-80e6d42e2f  Samsung Odyssey G50A  417.14 $
+```
+
+La conversation est **persistée** : `uv run python scripts/console.py --session <uuid>`
+reprend une session existante et retrouve ses critères, son budget et son historique.
+Les produits au-dessus du budget sont rendus dans un ensemble séparé, avec leur écart
+exact — jamais mélangés au classement principal.
+
+`make chat` consomme la clé API. Le prompt système en vigueur et son empreinte sont
+affichés au démarrage et logués à chaque appel : c'est ce qui permettra, à l'étape 12,
+de détecter une cassette enregistrée sur un prompt qui a changé depuis.
 
 ## Le catalogue
 

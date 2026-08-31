@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install up down logs psql migrate revision seed-build seed calibrer fmt lint typecheck test test-int check clean
+.PHONY: help install up down logs psql migrate revision seed-build seed calibrer fumee chat fmt lint typecheck test test-int check clean
 
 help: ## Liste les cibles disponibles
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -61,6 +61,17 @@ calibrer: ## Recalcule les bornes du moteur sur le seed committé (à recopier d
 	@# Sa sortie est du **code**, pas un cache : elle se recopie dans
 	@# src/raiyon/matching/attributs.py, et un test vérifie qu'elle correspond.
 	uv run python scripts/calibrer_bornes.py
+
+fumee: ## Contrôle de fumée — un appel API jetable qui dit si strict:true passe
+	@# Le seul but est de mesurer ce que l'API accepte du schéma d'outils avant
+	@# que la boucle en dépende (étape 8, arbitrage 11). Consomme la clé API.
+	uv run python scripts/fumee.py
+
+chat: ## Console de conversation — nécessite base + seed + clé API
+	@# `make up && make migrate && make seed` d'abord : search_products interroge
+	@# le dépôt, la console n'est pas utilisable sans conteneur.
+	@# ARGS passe les options : make chat ARGS="--trace --session <uuid>".
+	uv run python scripts/console.py $(ARGS)
 
 fmt: ## Formate le code et applique les corrections automatiques de ruff
 	uv run ruff format .
