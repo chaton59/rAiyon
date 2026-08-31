@@ -20,11 +20,40 @@ qui permet à l'étape 12 de rejouer le validateur sur une cassette sans rejouer
 """
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from raiyon.validateur.contexte import ContexteFourni
 from raiyon.validateur.regles import REGLES, CodeGrief, Grief
 
-__all__ = ["VERDICT_SANS_GRIEF", "CodeGrief", "Grief", "Verdict", "valider"]
+__all__ = [
+    "VERDICT_SANS_GRIEF",
+    "CodeGrief",
+    "Grief",
+    "OrigineRejet",
+    "Verdict",
+    "valider",
+]
+
+
+class OrigineRejet(StrEnum):
+    """Ce que le validateur a refusé. **Deux chemins de sortie, deux natures de défaut.**
+
+    Ce n'est pas de la décoration : sans elle, l'étape 12 ne pourra pas dire *où* le
+    modèle hallucine, et c'est précisément la métrique qui décide quoi corriger dans le
+    prompt à l'étape 13. Une conversation contient beaucoup plus de questions que de
+    recommandations — un taux global masquerait lequel des deux chemins fuit.
+
+    Elle commande aussi le repli : on ne répond pas par un classement de produits à
+    quelqu'un qu'on était en train d'interroger (voir `repli.rediger`).
+    """
+
+    TEXTE = "texte"
+    """Les blocs `text` d'un message assistant, concaténés."""
+
+    QUESTION = "question"
+    """L'argument `question` d'`ask_clarification`. Elle n'est pas un bloc `text` : elle
+    traverse le répartiteur et part au client verbatim, et c'est ce qui la rendait
+    invisible au validateur jusqu'au correctif de l'étape 9."""
 
 
 @dataclass(frozen=True, slots=True)

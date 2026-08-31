@@ -2062,9 +2062,9 @@ valeurs chiffrées. Vérification contre le contexte réellement fourni à l'app
 Écart → une régénération avec le grief en message ; second échec → repli sur
 template.
 
-**Franchie.** 611 tests purs en 4,0 s (dont 97 pour le validateur et son branchement),
+**Franchie.** 624 tests purs en 4,0 s (dont 110 pour le validateur et son branchement),
 67 d'intégration, `make check` et `make test-int` verts — **sans base, sans conteneur et
-sans clé API**. Les neuf pièges sont détectés, les six sorties légitimes acceptées sans
+sans clé API**. Les douze pièges sont détectés, les onze sorties légitimes acceptées sans
 un grief, et une conversation console de bout en bout aboutit à une recommandation
 validée — après que le validateur a **réellement mordu au premier tour** (voir plus bas).
 
@@ -2073,13 +2073,13 @@ src/raiyon/validateur/
     contexte.py      # ContexteFourni, construit depuis les tool_result — pur
     extraction.py    # ids, montants, valeurs unitaires, phrases, noms — pur
     regles.py        # les cinq règles, Grief, CodeGrief
-    validateur.py    # valider(texte, contexte) -> Verdict
+    validateur.py    # valider(texte, contexte) -> Verdict ; OrigineRejet
     repli.py         # rédaction par template depuis ResultatMatching
 src/raiyon/agent/
     boucle.py        # texte bufferisé, validé, régénéré une fois, puis repli
     evenements.py    # Repli gagne `motif` ; TexteRejete apparaît
     prompts.py       # message_de_grief(), empreinte loguée
-src/raiyon/config.py # max_regenerations
+src/raiyon/config.py # max_regenerations (budget de tour, partagé texte / question)
 prompts/grief.v1.md  # le message de reprise, écrit pour le modèle
 tests/validateur/    # extraction · regles · pieges · faux_positifs · repli · isolation
 tests/agent/test_validation.py
@@ -2193,12 +2193,14 @@ constate à chaque exécution.
   atterrit dans une phrase qui ne nomme personne), l'écart d'un produit hors budget est
   **sur la même ligne** que lui, et `prix_usd` est **écarté du « pourquoi »**. Un niveau 3
   qui ne passerait pas le niveau 2 aurait été un aveu.
-- **La règle 2 crie sur une phrase que le prompt système n'interdit pas.** « Le X à
-  249,99 $, dans votre budget de 400 $ » lève un grief : 400 est un agrégat, et admettre
-  les agrégats dans une phrase à produit rouvrirait exactement l'oracle à prix. C'est le
-  prix de l'arbitrage B, il est réel, et la correction demandée au modèle est de séparer
-  les deux phrases — pas de retirer l'information. À surveiller à l'étape 12 : si ce cas
-  pèse dans le taux de régénération, c'est la règle qu'il faudra affiner, pas le modèle.
+- **La règle 2 criait sur une phrase que le prompt système n'interdit pas — fermé par le
+  correctif.** « Le X à 249,99 $, dans votre budget de 400 $ » levait un grief. Le budget
+  est désormais admis dans une phrase à produit, **et lui seul** : ce n'est pas un fait du
+  catalogue mais une **parole du client**, entrée par `record_criteria` et rendue dans son
+  `tool_result` ; le lui répéter n'invente rien. Une borne de sondage, elle, reste
+  interdite — c'est une affirmation sur le catalogue que rien n'attache à un produit, et
+  c'est le piège nº6, le seul test qui échoue si quelqu'un aplatit le contexte. La
+  distinction est ce qui empêchera d'élargir « pour faire pareil ».
 - **`ContexteFourni` lit les clés du protocole que `en_tool_result()` écrit, et c'est un
   second endroit.** L'étape 7 avait posé « un seul endroit où une clé du protocole porte
   un nom » ; l'étape 9 en crée un deuxième, en lecture. Il est concentré dans un bloc de
@@ -2206,18 +2208,107 @@ constate à chaque exécution.
   absents — ils sont lus par `ProduitEnBase`, qui les nomme déjà **et les valide**. Le
   fixture de test ne recopie aucune charge utile à la main : il les fait produire par les
   vrais outils, donc un renommage de clé casse les tests au lieu de les laisser passer.
-- **`ask_clarification` reste hors du champ du validateur.** Sa question est un argument
-  d'appel, pas un bloc `text` : rien ne la relit. Constaté en écrivant le branchement,
-  non corrigé pour rester dans le périmètre, et **ajouté au §7** plutôt que gardé pour
-  soi.
+- **`ask_clarification` échappait au validateur** — sa question est un argument d'appel,
+  pas un bloc `text`. Constaté en écrivant le branchement, ajouté au §7 plutôt que gardé
+  pour soi, et **refermé dans la foulée** : voir le correctif ci-dessous.
+
+#### Correctif — la question d'`ask_clarification` est validée
+
+L'étape 9 avait signalé son propre trou au §7 : **la question n'était validée par rien.**
+C'est un *argument d'outil*, pas un bloc `text` — elle sort de `demander_precision`, la
+boucle la rend au client verbatim, et `valider()` ne la voyait jamais. Le critère nº1
+était donc percé sur son chemin le plus fréquent : une conversation contient beaucoup plus
+de questions que de recommandations. Fermé ici plutôt qu'à l'étape 12.
+
+**1 — La validation vit dans la boucle, jamais dans l'outil.** `demander_precision` reste
+pure et ignorante du contexte fourni : lui passer un `ContexteFourni` casserait
+l'arbitrage C de l'étape 7 — un outil ne prend que ce qu'il lit dans l'état — et ferait
+entrer le validateur dans `raiyon.tools`. La question est relue juste après
+`_executer_les_appels`, avant `QuestionPosee`, **contre le même instantané de contexte que
+le texte** : celui accumulé *avant* les `tool_result` du message courant, parce que le
+modèle a écrit sa question sans avoir vu ces résultats-là. Élargir le contexte à ce qu'il
+n'avait pas sous les yeux validerait une affirmation qu'il ne pouvait pas fonder — c'est
+la règle de l'arbitrage A, la même, pas une seconde.
+
+Les **cinq règles telles quelles**, aucune de neuve : la question est de la prose
+française qui peut nommer un produit, un prix, une spec, et un second jeu de règles
+finirait par diverger du premier (le raisonnement d'`erreurs.py`). Le budget de
+régénération est **partagé** avec celui du texte — il vaut pour le tour, pas par nature de
+sortie ; un budget par nature doublerait le pire cas d'appels API et donnerait deux
+compteurs à réconcilier à l'étape 12. Le repli d'une question rejetée deux fois est la
+**phrase générique, jamais le template de recommandation** : on ne répond pas par un
+classement de produits à quelqu'un qu'on était en train d'interroger. `TexteRejete` gagne
+`origine` (`TEXTE` | `QUESTION`), sans quoi l'étape 12 ne pourrait pas dire *où* le modèle
+hallucine — et c'est cette métrique qui décide quoi corriger dans le prompt à l'étape 13.
+
+*Alternative écartée — concaténer texte et question et ne valider qu'une fois.* Plus proche
+de ce que le client lit d'un seul tenant ; écartée parce qu'elle obligerait à retarder
+l'émission du texte jusqu'**après** l'exécution des outils. Le préambule arriverait alors
+après `[critères]` et `[sondage]`, et l'arbitrage A perdrait la propriété qui le rend
+acceptable : les événements d'outils vivent pendant que la prose se fait attendre, pas
+l'inverse. ⚠️ **Conséquence assumée** : un produit hors budget nommé dans le texte dont
+l'écart ne serait donné que dans la question déclencherait la règle 4. Le prompt système ne
+demande jamais de citer un produit dans un préambule de question — si le cas se produit,
+c'est un signal, pas un faux positif.
+
+**2 — Le budget de session est admis dans une phrase qui nomme un produit.** C'était le
+faux positif que l'étape 9 signalait, et il devient la formulation naturelle dès lors que
+les questions sont validées : « le X à 249,99 $ rentre dans vos 400 $, vous voulez que je
+regarde plus grand ? ». La justification n'est pas de commodité — **le budget n'est pas un
+fait du catalogue, c'est une parole du client**, entrée par `record_criteria` et rendue
+dans son `tool_result`. §2 interdit au modèle d'inventer un fait ; lui répéter le montant
+qu'il vient d'annoncer n'en est pas un. `ContexteFourni` gagne `budget_usd`, dérivé des
+`tool_result` et **jamais** d'`EtatSession` : le contexte fourni décrit ce que le modèle a
+vu. ⚠️ **Rien d'autre n'est élargi** : les bornes d'agrégat restent interdites dans une
+phrase à produit. Le budget est un montant unique et attribuable ; une fourchette de
+sondage ne l'est pas — c'est le piège nº6, et c'est ce qui empêchera d'élargir « pour faire
+pareil ».
+
+**3 — L'unité se propage dans « entre A et B *unité* ».** Trou observé en vrai : « entre 65
+et 400 dollars » quand la borne fournie valait 64,98 $. « 400 dollars » était vérifié,
+« 65 » non — entier nu, exempté. Or 65 est un **arrondi**, c'est-à-dire une affirmation
+approximative sur le catalogue : exactement ce que l'étape 7 avait refusé de faire produire
+à `probe_catalog` en écartant les paliers arrondis. Le validateur laissait passer ce qu'un
+arbitrage avait refusé de fabriquer. La borne basse hérite donc de l'unité de la borne
+haute. **Une seule forme est traitée parce qu'une seule a été observée** ; « de A à B »,
+« A-B » ou « autour de A » seraient de la théorie, et l'exemption générale de l'entier nu
+reste entière.
+
+**4 — Deux faux positifs trouvés en conversation réelle, et corrigés. Ils n'étaient pas au
+programme.** Ce sont les deux seules décisions de ce correctif qui n'avaient pas été
+demandées, et elles sont là parce que la porte de sortie exigeait une conversation de bout
+en bout — c'est elle qui les a fait sortir.
+
+* **Un nom de produit qui contient une unité.** Le catalogue porte `Sceptre C248W-1920RN` ;
+  cité **verbatim** comme §3.4ter l'exige, « 248W » se lit 248 watts, et la règle 5
+  refusait une recommandation parfaitement juste. Un nom recopié caractère pour caractère
+  est un **identifiant**, pas une affirmation de caractéristique : les noms verbatim sont
+  donc retirés du texte avant lecture des unités — le même geste qu'à la règle 3, pour la
+  même raison. Le retrait ne cache rien, puisqu'il ne porte que sur les caractères d'un nom
+  exact du catalogue.
+* **Décrire son catalogue était devenu impossible.** L'agent annonçait « les fréquences
+  vont de 60 à 240 Hz » — deux valeurs présentes dans la distribution rendue par
+  `probe_catalog`, donc vraies — et le validateur les refusait, deux fois de suite, jusqu'au
+  repli sur template. C'est le mode d'échec que l'étape redoutait, pris en flagrant délit :
+  un validateur qui crie sur du français correct. La règle 5 range désormais les valeurs
+  **par provenance, comme la règle 2 le fait des prix** : `ContexteFourni` gagne
+  `valeurs_de_distribution`, admises dans une phrase qui ne nomme aucun produit, refusées
+  dans une phrase qui en nomme un. Ce n'est pas une règle de plus — c'est l'arbitrage B
+  appliqué là où il ne l'était qu'à moitié, et le piège nº9 continue d'échouer.
+
+**Franchie.** 624 tests purs, 67 d'intégration, `make check` et `make test-int` verts sans
+base ni clé. Douze pièges détectés, onze sorties légitimes acceptées sans un grief. Une
+conversation console où une question passe la validation, et une autre où un nom tronqué
+(« l'Acer Nitro » pour `Acer Nitro EDA270U P`) est refusé puis corrigé par la régénération
+— §3.4ter vérifié par machine, sur un défaut que personne n'avait écrit en fixture.
 
 **Porte de sortie :** des fixtures de sorties LLM **délibérément piégeuses** —
 prix modifié de 10 €, ID inexistant, produit entièrement inventé, spec
 transformée — toutes détectées. Et le repli template produit une réponse
-correcte, même si sèche. **Franchie** : neuf pièges détectés (dont le prix de sondage
-attribué à un produit nommé, qui échoue si le contexte est aplati), six sorties légitimes
-acceptées sans un grief, repli sur template relu par le validateur lui-même, et une
-conversation console de bout en bout où une régénération a réellement eu lieu.
+correcte, même si sèche. **Franchie** : douze pièges détectés (dont le prix de sondage
+attribué à un produit nommé, qui échoue si le contexte est aplati), onze sorties légitimes
+acceptées sans un grief, repli sur template relu par le validateur lui-même, et des
+conversations console où la régénération a réellement rattrapé une sortie fausse.
 
 C'est le critère nº1 franchi au niveau du mécanisme, et le critère nº2 qui cesse d'être
 une propriété structurelle du moteur pour devenir aussi une vérification sur la phrase.
@@ -2370,10 +2461,10 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Le prompt v1 n'est mesuré par rien avant l'étape 12** | **Élevée** — c'est la qualité perçue, et elle n'a aucun filet | Les sections 4 (« une fourchette n'est jamais un prix »), 6 (« la question suggérée est une suggestion ») et 9 (« dire le refus plutôt que le contourner ») sont des **atténuations déclarées, pas vérifiées** : elles sont écrites dans le prompt et rien ne constate qu'elles produisent leur effet. Une observation en conversation manuelle n'est pas une mesure. Le harnais de l'étape 12 est ce qui les transforme en taux ; d'ici là, ce sont des intentions bien rédigées |
 | **Le faux client teste la boucle, pas le modèle** | Moyenne — et c'est un angle mort de `make check` | `tests/agent/` couvre l'enchaînement, le réenchaînement de l'état, la terminalité, l'appairage des `tool_result` et la garde d'itérations — tout ce qui ne dépend pas de ce que le modèle répond. **Un défaut de conduite du dialogue passe donc entièrement à travers `make check`** : un agent qui interrogerait le client six fois de suite, ou qui citerait un prix jamais fourni, ferait une suite verte. C'est la contrepartie assumée de l'arbitrage 2, et elle ne se referme qu'avec les cassettes et le client simulé de l'étape 12 |
 | ~~**Le texte sortant n'est validé par rien jusqu'à l'étape 9**~~ | **Éteint** à l'étape 9 — validateur programmatique branché, texte bufferisé, une régénération puis repli sur template. La ligne est barrée plutôt qu'effacée : c'est le risque qui a décidé de l'ordre du plan | §2 reposait **uniquement sur le prompt système** : un prix recopié de travers, un `id` approximatif ou une spec déduite d'un sondage partaient au client. C'est pour cette raison que l'étape 9 est passée avant l'étape 10 — mettre une API et un front devant un texte non validé aurait multiplié la surface avant de fermer le trou. **Le trou est fermé au niveau du mécanisme, pas de la couverture** : les trois lignes qui suivent disent ce que le validateur ne voit pas |
-| **Un entier nu, sans unité et sans `$`, n'est vérifié par rien** | Moyenne — c'est le trou connu et **assumé** du validateur | La règle 5 ne mord que sur un nombre suivi d'une unité connue, la règle 2 que sur un montant en dollars. « 32 candidats » ou « il en reste douze » ne sont donc contrôlés par personne. L'exemption est délibérée : sans elle, « je vous propose trois modèles » lèverait un grief, et **un validateur qui crie sur du français correct finit par être débranché** — un faux positif se paie deux fois, en appel API et en réponse plus sèche. Observé en conditions réelles dès la première conversation de l'étape : le modèle a écrit « entre 65 et 400 dollars environ » là où la borne fournie valait 64,98 $ ; les 400 $ ont été vérifiés, les 65 sont passés. Fermeture possible et non retenue : exiger qu'un entier nu appartienne aux agrégats fournis, ce qui rendrait « trois modèles » et « les deux premiers » invalides |
+| **Un entier nu, sans unité et sans `$`, n'est vérifié par rien — sauf dans un intervalle** | Moyenne — c'est le trou connu et **assumé** du validateur, désormais réduit | La règle 5 ne mord que sur un nombre suivi d'une unité connue, la règle 2 que sur un montant en dollars. « 32 candidats » ou « il en reste douze » ne sont donc contrôlés par personne. L'exemption est délibérée : sans elle, « je vous propose trois modèles » lèverait un grief, et **un validateur qui crie sur du français correct finit par être débranché**. **Une exception depuis le correctif de l'étape 9** : dans « entre A et B *unité* », la borne basse hérite de l'unité de la borne haute et cesse d'être un entier nu. Elle vient d'un cas de terrain — le modèle a écrit « entre 65 et 400 dollars environ » là où la borne fournie valait 64,98 $, et 65 est un **arrondi**, c'est-à-dire l'affirmation approximative sur le catalogue que l'étape 7 avait refusé de faire produire à `probe_catalog`. Une seule forme est traitée parce qu'une seule a été observée ; « de A à B » ou « autour de A » seraient de la théorie. Fermeture complète possible et non retenue : exiger qu'un entier nu appartienne aux agrégats fournis, ce qui rendrait « trois modèles » et « les deux premiers » invalides |
 | **Le découpage en phrases est une heuristique, pas une analyse syntaxique** | Faible à moyenne — elle porte la règle 2, qui est la plus fine du lot | `extraction.SEPARATEURS_DE_PHRASE` coupe sur `.`, `!`, `?` et le saut de ligne, avec une exception non négociable : un point **entre deux chiffres** n'est pas une fin de phrase, sans quoi « 417.14 $ » se lirait « 417 » puis « 14 $ ». La contrepartie est qu'« etc. » ou « M. Dupont » coupent une phrase en deux. Le sens de l'erreur est le bon : le contexte de phrase devient trop **étroit**, jamais trop large — une règle peut donc rater une attribution de prix, elle n'en invente pas. Atténuation de conception : la décision vit dans **un seul endroit**, nommé, pour être remplaçable par un vrai découpage le jour où il en faudra un |
 | **La détection d'un nom de produit réécrit est floue** | Faible, mais c'est la seule règle du validateur qui peut se tromper **contre** le modèle | La règle 3 ne peut pas se contenter d'une égalité : elle doit constater qu'un nom apparaît **de travers**, ce qui est le cas de la francisation que §3.4ter interdit (« l'Odyssée de Samsung »). Elle retire d'abord du texte les noms cités verbatim, puis cherche dans ce qui reste une ressemblance de jetons (`difflib`, seuil 0,8 par jeton et 0,6 sur le nom), avec deux garde-fous : la marque seule ne suffit jamais à accuser, et une liste de mots français courants (« modèle », « écran », « gamme »…) est exclue du rapprochement. **Ces trois nombres sont des seuils, pas une théorie.** Un catalogue dont un produit s'appellerait « Modèle X » les mettrait en défaut. Atténuation : `tests/validateur/test_faux_positifs.py` existe pour ça, et il est aussi bloquant que `test_pieges.py` |
-| **La question d'`ask_clarification` n'est pas validée** | Faible aujourd'hui, à ne pas oublier | Le validateur relit les blocs `text` d'un message assistant. La question posée par l'outil est, elle, un **argument d'appel** : elle traverse le répartiteur, part au client, et aucune règle ne la lit. Un « vous préférez du 165 Hz ou du 240 Hz ? » adossé à des valeurs jamais fournies passerait donc. Le cas est moins grave qu'il n'y paraît — une question n'affirme pas — mais elle peut affirmer par présupposition. Fermeture : passer `question` par `valider()` avec le même contexte, ce qui est une dizaine de lignes et n'a pas été fait pour rester dans le périmètre de l'étape |
+| ~~**La question d'`ask_clarification` n'est pas validée**~~ | **Éteint** par le correctif de l'étape 9 | La question était un **argument d'appel**, pas un bloc `text` : elle traversait le répartiteur et partait au client sans qu'aucune règle ne la lise — sur le chemin le plus fréquent d'une conversation, qui contient beaucoup plus de questions que de recommandations. Elle est désormais relue dans `boucle.py` par les **mêmes** cinq règles, contre le **même** instantané de contexte que le texte, avec le **même** budget de régénération. La ligne est barrée plutôt qu'effacée : c'est le seul trou que l'étape 9 avait signalé elle-même et refermé sans qu'on le lui demande |
 | **Le garde-fou de l'arbitrage F favorise légèrement les produits à données manquantes** | Faible, mais réelle et constatée | Un critère indisponible sort du calcul et les poids sont renormalisés : un produit incomplet a donc moins d'occasions de perdre des points. Atténuation : à score égal, celui dont **plus de critères ont été évalués** passe devant, et la trace expose `criteres_evalues` / `criteres_indisponibles`. L'atténuation ne supprime pas le biais — elle ne joue qu'à score **exactement** égal. Un écran sans `refresh_rate` déclaré peut donc devancer un écran à 120 Hz sur un souhait de 144 Hz, et c'est visible dans la démonstration de l'étape. Les deux alternatives (0, ou 0,5) sont pires : l'une punit l'absence, l'autre l'invente |
 
 ---

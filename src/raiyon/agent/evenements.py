@@ -50,7 +50,7 @@ from raiyon.matching.moteur import ResultatMatching
 from raiyon.matching.sondage import ChampDiscriminant, Distribution
 from raiyon.tools.etat import MouvementRefuse
 from raiyon.tools.outils import BesoinDeBudget
-from raiyon.validateur.validateur import Grief
+from raiyon.validateur.validateur import Grief, OrigineRejet
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,8 +185,8 @@ class TexteRejete:
 
     **Ce n'est pas du confort de trace.** Sans lui, `--trace` ne montrerait pas qu'une
     régénération a eu lieu, et l'étape 12 devrait deviner un taux qu'on peut compter :
-    combien de messages sont refusés, sur quels codes de grief, et combien de fois la
-    seconde tentative suffit.
+    combien de messages sont refusés, sur quels codes de grief, **sur quelle nature de
+    sortie**, et combien de fois la seconde tentative suffit.
 
     C'est le seul événement destiné au **développeur** et non au client — la console ne
     l'affiche que sous `--trace`, pour la même raison qu'un `OutilRefuse` n'est pas un
@@ -198,6 +198,15 @@ class TexteRejete:
     griefs: tuple[Grief, ...]
     tentative: int
     """1 pour le premier refus. Au-delà de `max_regenerations`, c'est le repli."""
+
+    origine: OrigineRejet
+    """Le texte du message, ou la question d'`ask_clarification` (correctif de l'étape 9).
+
+    Les deux passent par les **mêmes** cinq règles et le **même** budget de
+    régénération ; ce champ ne sert donc pas à la boucle, il sert à la mesure. L'étape 12
+    doit pouvoir dire *où* le modèle hallucine : une conversation contient beaucoup plus
+    de questions que de recommandations, et un taux global masquerait lequel des deux
+    chemins fuit."""
 
 
 Evenement = (

@@ -13,7 +13,7 @@ import pytest
 from contexte_de_test import LG, SAMSUNG, contexte_complet, resultat_de_recherche
 
 from raiyon.matching.moteur import ResultatMatching
-from raiyon.validateur.repli import PHRASE_SANS_RECHERCHE, rediger
+from raiyon.validateur.repli import PHRASE_GENERIQUE, rediger
 from raiyon.validateur.validateur import valider
 
 
@@ -62,12 +62,12 @@ def test_le_pourquoi_vient_de_la_trace_et_jamais_du_prix(resultat):
 
 def test_sans_recherche_le_repli_est_la_phrase_generique():
     """« Si aucune recherche n'a eu lieu, le repli est la phrase d'excuse générique. »"""
-    assert rediger(None) == PHRASE_SANS_RECHERCHE
+    assert rediger(None) == PHRASE_GENERIQUE
 
 
 def test_la_phrase_generique_passe_aussi_le_validateur():
     """Elle ne porte aucun chiffre — et c'est vérifié, pas supposé."""
-    assert valider(PHRASE_SANS_RECHERCHE, contexte_complet()).valide
+    assert valider(PHRASE_GENERIQUE, contexte_complet()).valide
 
 
 def test_un_zero_resultat_est_dit_avec_le_diagnostic_du_moteur():

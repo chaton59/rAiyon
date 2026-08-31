@@ -151,19 +151,44 @@ class Montant:
     extrait: str
 
 
-MOTIF_MONTANT = re.compile(rf"({NOMBRE})[{ESPACES}]*(?:\$|dollars?|USD(?!/))", re.IGNORECASE)
+MONNAIE = r"\$|dollars?|USD(?!/)"
 """⚠️ `USD(?!/)` : `USD/Go` est une **unité de spec** (`price_per_gb`), pas un montant.
 Sans la garde négative, « 0,10 USD/Go » entrerait dans la règle 2 comme un prix."""
 
+MOTIF_MONTANT = re.compile(rf"({NOMBRE})[{ESPACES}]*(?:{MONNAIE})", re.IGNORECASE)
+
+MOTIF_INTERVALLE_MONNAIE = re.compile(
+    rf"[Ee]ntre[{ESPACES}]+({NOMBRE})[{ESPACES}]+et[{ESPACES}]+{NOMBRE}[{ESPACES}]*(?:{MONNAIE})",
+    re.IGNORECASE,
+)
+"""**La borne basse d'un intervalle hérite de l'unité de la borne haute.**
+
+« entre 65 et 400 dollars » : sans ce motif, `400 dollars` est vérifié et `65` ne l'est
+pas — c'est un entier nu, exempté. Or 65 est ici un **arrondi**, c'est-à-dire une
+affirmation approximative sur le catalogue, exactement ce que l'étape 7 avait refusé de
+faire produire à `probe_catalog` en écartant les paliers arrondis. Le validateur laissait
+donc passer ce qu'un arbitrage avait refusé de fabriquer.
+
+⚠️ **Une seule forme est traitée, parce qu'une seule a été observée** — en conversation
+réelle, à l'étape 9, sur une borne fournie à 64,98 $. « de A à B », « A-B » ou « autour de
+A » seraient de la théorie. L'exemption générale de l'entier nu **reste** : « je vous
+propose trois modèles » ne lève toujours aucun grief, et la ligne du §7 qui la documente
+reste vraie, précisée d'une exception."""
+
 
 def montants(texte: str) -> tuple[Montant, ...]:
-    """Tous les montants en dollars du texte, dans l'ordre d'apparition."""
-    trouves = []
-    for occurrence in MOTIF_MONTANT.finditer(texte):
-        valeur = en_decimal(occurrence.group(1))
-        if valeur is not None:
-            trouves.append(Montant(valeur, occurrence.group(0).strip()))
-    return tuple(trouves)
+    """Tous les montants en dollars du texte, dans l'ordre d'apparition.
+
+    Les bornes basses d'intervalle en font partie : elles n'ont pas de symbole à elles,
+    mais elles en ont un par héritage — voir `MOTIF_INTERVALLE_MONNAIE`.
+    """
+    trouves: list[tuple[int, Montant]] = []
+    for motif in (MOTIF_MONTANT, MOTIF_INTERVALLE_MONNAIE):
+        for occurrence in motif.finditer(texte):
+            valeur = en_decimal(occurrence.group(1))
+            if valeur is not None:
+                trouves.append((occurrence.start(1), Montant(valeur, occurrence.group(0).strip())))
+    return tuple(montant for _, montant in sorted(trouves, key=lambda paire: paire[0]))
 
 
 # --------------------------------------------------------------------------- #
@@ -201,22 +226,29 @@ def unites_connues() -> frozenset[str]:
     return frozenset(du_registre | UNITES_SUPPLEMENTAIRES)
 
 
-def _motif_des_unites() -> re.Pattern[str]:
-    """Alternation des unités, **les plus longues d'abord** (`USD/Go` avant `Go`).
-
-    La borne de droite refuse une lettre : `12 Go` est une capacité, `12 Gold` non.
-    """
-    alternatives = "|".join(
-        re.escape(unite) for unite in sorted(unites_connues(), key=_par_longueur)
-    )
-    return re.compile(rf"({NOMBRE})[{ESPACES}]*({alternatives})(?![A-Za-zÀ-ÖØ-öø-ÿ])")
+def _alternation_des_unites() -> str:
+    """Les unités en alternation, **les plus longues d'abord** (`USD/Go` avant `Go`)."""
+    return "|".join(re.escape(unite) for unite in sorted(unites_connues(), key=_par_longueur))
 
 
 def _par_longueur(unite: str) -> tuple[int, str]:
     return (-len(unite), unite)
 
 
-MOTIF_UNITE = _motif_des_unites()
+FIN_DUNITE = r"(?![A-Za-zÀ-ÖØ-öø-ÿ])"
+"""La borne de droite refuse une lettre : `12 Go` est une capacité, `12 Gold` non."""
+
+MOTIF_UNITE = re.compile(rf"({NOMBRE})[{ESPACES}]*({_alternation_des_unites()}){FIN_DUNITE}")
+
+MOTIF_INTERVALLE_UNITE = re.compile(
+    rf"[Ee]ntre[{ESPACES}]+({NOMBRE})[{ESPACES}]+et[{ESPACES}]+"
+    rf"{NOMBRE}[{ESPACES}]*({_alternation_des_unites()}){FIN_DUNITE}"
+)
+"""Le pendant de `MOTIF_INTERVALLE_MONNAIE` pour les unités : « entre 60 et 144 Hz ».
+
+Pas d'`IGNORECASE` ici, à la différence de la monnaie : `Mo`, `mm`, `ms` et `MHz` ne se
+distinguent que par la casse, et l'ignorer ferait lire une capacité là où le catalogue
+compte des millisecondes."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,13 +268,19 @@ def valeurs_unitaires(texte: str) -> tuple[ValeurUnitaire, ...]:
     trois modèles » déclencherait un grief, et un validateur qui crie sur du français
     correct finit par être débranché. La conséquence est réelle : « 32 candidats »
     pourrait être faux sans que rien ne le voie.
+
+    **Une exception, et une seule : la borne basse d'un intervalle** (« entre 60 et
+    144 Hz »). Elle a une unité — celle de la borne haute — et la lui refuser
+    reviendrait à exempter un arrondi. Voir `MOTIF_INTERVALLE_UNITE`.
     """
-    trouves = []
-    for occurrence in MOTIF_UNITE.finditer(texte):
-        valeur = en_decimal(occurrence.group(1))
-        if valeur is not None:
-            trouves.append(ValeurUnitaire(valeur, occurrence.group(2), occurrence.group(0).strip()))
-    return tuple(trouves)
+    trouves: list[tuple[int, ValeurUnitaire]] = []
+    for motif in (MOTIF_UNITE, MOTIF_INTERVALLE_UNITE):
+        for occurrence in motif.finditer(texte):
+            valeur = en_decimal(occurrence.group(1))
+            if valeur is not None:
+                lue = ValeurUnitaire(valeur, occurrence.group(2), occurrence.group(0).strip())
+                trouves.append((occurrence.start(1), lue))
+    return tuple(lue for _, lue in sorted(trouves, key=lambda paire: paire[0]))
 
 
 # --------------------------------------------------------------------------- #

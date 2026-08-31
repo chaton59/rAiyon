@@ -38,8 +38,9 @@ from raiyon.matching.moteur import ProduitHorsBudget, ResultatMatching
 from raiyon.matching.relachement import Proposition
 from raiyon.matching.trace import LigneTrace, Statut, TraceProduit, ValeurTracee
 from raiyon.validateur.extraction import canonique
+from raiyon.validateur.validateur import OrigineRejet
 
-PHRASE_SANS_RECHERCHE = (
+PHRASE_GENERIQUE = (
     "Je préfère ne rien affirmer que je n'aie pas vérifié. "
     "Pouvez-vous me redire ce que vous cherchez, et pour quel usage ?"
 )
@@ -47,7 +48,10 @@ PHRASE_SANS_RECHERCHE = (
 
 Elle en diffère par le motif, et le motif change la phrase : `max_iterations` dit « je
 m'y perds », une validation échouée dit « je ne suis pas sûr de ce que j'allais vous
-dire ». Deux phrases parce que deux situations, pas par goût de la variante."""
+dire ». Deux phrases parce que deux situations, pas par goût de la variante.
+
+Elle sert dans **deux** cas de validation : aucune recherche dans le tour, et une
+**question** rejetée — voir `rediger()`."""
 
 CHAMP_DU_PRIX = "prix_usd"
 """Écarté du « pourquoi » : le prix est déjà sur la ligne du produit, et l'y répéter le
@@ -59,14 +63,20 @@ LIMITE_DE_LIGNES = 3
 de specs — et §1 demande un conseil."""
 
 
-def rediger(resultat: ResultatMatching | None) -> str:
+def rediger(resultat: ResultatMatching | None, origine: OrigineRejet = OrigineRejet.TEXTE) -> str:
     """La recommandation écrite par le code. `None` → la phrase générique.
 
     Aucun `Decimal` n'est interpolé sans passer par un formateur de ce module : « les
     prix sont des `Decimal` typés que **le code** formate » (§2).
+
+    ⚠️ **Une question rejetée ne se replie jamais sur le template**, même quand une
+    recherche a eu lieu dans le tour. Répondre par un classement de produits à quelqu'un
+    qu'on était en train d'interroger n'a aucun sens : le modèle cherchait une
+    information, pas à conclure. Le choix se fait donc sur `origine`, pas seulement sur
+    l'existence d'une recherche.
     """
-    if resultat is None:
-        return PHRASE_SANS_RECHERCHE
+    if origine is OrigineRejet.QUESTION or resultat is None:
+        return PHRASE_GENERIQUE
     if not resultat.produits and not resultat.au_dessus_du_budget:
         return _rien_trouve(resultat)
 

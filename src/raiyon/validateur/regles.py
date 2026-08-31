@@ -14,7 +14,9 @@ aucune ne connaît la boucle, aucune n'a besoin d'une base ni d'une clé.
 4. **Écart au budget** — un produit hors budget cité l'est dans une phrase qui porte son
    `ecart_usd` exact. *C'est le **critère d'acceptation nº2**, vérifié sur la phrase.*
 5. **Valeurs unitaires** — tout nombre suivi d'une unité connue est une valeur de spec
-   ou d'agrégat fournie. *Ferme la spec transformée et la spec déduite d'un sondage.*
+   ou d'agrégat fournie ; une valeur de **distribution** n'est admise que dans une phrase
+   qui ne nomme aucun produit. *Ferme la spec transformée et la spec déduite d'un
+   sondage, sans interdire de décrire le catalogue.*
 
 ### La convention du message, et elle vient d'`erreurs.py`
 
@@ -169,12 +171,17 @@ def regle_montants(texte: str, contexte: ContexteFourni) -> tuple[Grief, ...]:
     Dans une phrase qui ne nomme aucun produit, tout prix fourni et tout agrégat fourni
     sont admis : « je vous propose trois modèles entre 108 $ et 400 $ » est vrai.
 
-    ⚠️ **La contrepartie est réelle** : une phrase qui nomme un produit *et* rappelle le
-    budget (« le X à 249,99 $, dans votre budget de 400 $ ») lève un grief, parce que
-    400 n'est ni le prix du X ni son écart. C'est le prix de l'arbitrage B — le budget
-    est un agrégat, et admettre les agrégats dans une phrase à produit rouvrirait
-    exactement le cas ci-dessus. La correction demandée au modèle est de séparer les
-    deux phrases, pas de retirer l'information.
+    **Le budget de session fait exception, et lui seul** (correctif de l'étape 9). « Le X
+    à 249,99 $ rentre dans vos 400 $ » est la formulation naturelle d'une question de
+    vendeur, et elle le devient d'autant plus depuis que les questions sont validées. Le
+    budget n'est pas un fait du catalogue : c'est une **parole du client**, entrée par
+    `record_criteria` et rendue dans son `tool_result` — le lui répéter n'invente rien.
+
+    ⚠️ **Ne rien élargir au-delà.** Les bornes d'agrégat restent interdites dans une
+    phrase à produit : le budget est un montant **unique et attribuable**, une fourchette
+    de sondage est une affirmation sur le catalogue que rien n'attache à un produit.
+    C'est la distinction du piège nº6, et c'est le seul test de l'étape qui échoue si
+    quelqu'un aplatit le contexte.
     """
     griefs = []
     for phrase in phrases(texte):
@@ -187,13 +194,15 @@ def regle_montants(texte: str, contexte: ContexteFourni) -> tuple[Grief, ...]:
             autorises |= {
                 contexte.hors_budget[nom] for nom in nommes if nom in contexte.hors_budget
             }
+            if contexte.budget_usd is not None:
+                autorises.add(contexte.budget_usd)
             code = CodeGrief.PRIX_ETRANGER_AU_PRODUIT
             correction = (
-                "ce montant n'est ni le prix ni l'écart au budget du produit nommé dans "
-                "cette phrase. Reprendre `prix_usd` (ou `ecart_usd`) du `tool_result`, "
-                "chiffre pour chiffre — et sortir de cette phrase tout montant qui "
-                "décrit un ensemble plutôt que ce produit : une fourchette de sondage "
-                "n'est jamais le prix d'un produit."
+                "ce montant n'est ni le prix du produit nommé dans cette phrase, ni son "
+                "écart au budget, ni le budget du client. Reprendre `prix_usd` (ou "
+                "`ecart_usd`) du `tool_result`, chiffre pour chiffre — et sortir de "
+                "cette phrase tout montant qui décrit un ensemble plutôt que ce "
+                "produit : une fourchette de sondage n'est jamais le prix d'un produit."
             )
         else:
             autorises = set(contexte.prix.values()) | set(contexte.agregats)
@@ -292,26 +301,60 @@ def regle_valeurs_unitaires(texte: str, contexte: ContexteFourni) -> tuple[Grief
     """Tout nombre suivi d'une unité connue vient d'un produit fourni ou d'un agrégat.
 
     C'est la règle qui attrape la spec transformée (« 165 Hz » sur un écran qui en porte
-    144) **et** la spec déduite d'un sondage : les valeurs des distributions de
-    `probe_catalog` décrivent un ensemble et n'entrent pas dans `valeurs_de_specs` —
-    voir la docstring de `contexte.py`, c'est là que se joue tout l'arbitrage B.
+    144) **et** la spec déduite d'un sondage.
+
+    **Elle raisonne par phrase, comme la règle 2, et pour la même raison.** Une valeur
+    lue dans la distribution de `probe_catalog` décrit un **ensemble** :
+
+    * dans une phrase qui ne nomme aucun produit, elle est vraie — « les fréquences vont
+      de 60 à 240 Hz » est exactement ce que `probe_catalog` existe pour faire dire
+      (§3.7), et le refuser interdirait à l'agent de décrire son catalogue ;
+    * dans une phrase qui nomme un produit, elle est fausse — « celui-ci est à 165 Hz »
+      n'est pas « 12 écrans sont à 165 Hz ». C'est le piège nº9.
+
+    ⚠️ **Le premier des deux points a été trouvé en conversation réelle**, et il coûtait
+    cher : l'agent annonçait la vraie plage de fréquences du sous-catalogue, le
+    validateur la refusait, et un message informatif et exact finissait en repli sur
+    template. C'est le mode d'échec que l'étape redoutait — un validateur qui crie sur du
+    français correct — pris en flagrant délit.
+
+    ⚠️ **Les noms cités verbatim sont retirés avant lecture**, et ce n'est pas un
+    assouplissement de confort : le catalogue contient `Sceptre C248W-1920RN`, et
+    « 248W » s'y lit comme 248 watts. Un nom recopié caractère pour caractère est un
+    **identifiant** (§3.4ter), pas une affirmation de caractéristique. Trouvé en
+    conversation réelle lui aussi, sur une recommandation parfaitement juste.
+
+    Le retrait ne cache rien : il ne porte que sur les caractères d'un nom **exact du
+    catalogue**. « le X en 27 pouces » reste lu, puisque « 27 pouces » n'est pas dans le
+    nom. C'est le même geste qu'à la règle 3, pour la même raison.
+
+    La règle 2, elle, n'en a pas besoin : elle lit un nombre suivi d'un symbole de
+    monnaie, et aucun nom du catalogue n'en porte.
     """
     griefs = []
-    for valeur in valeurs_unitaires(texte):
-        if canonique(valeur.valeur) in contexte.valeurs_de_specs:
-            continue
-        if valeur.valeur in contexte.agregats:
-            continue
-        griefs.append(
-            Grief(
-                CodeGrief.VALEUR_NON_FOURNIE,
-                valeur.extrait,
-                "aucun produit fourni ne déclare cette valeur, et aucun outil ne l'a "
-                "rendue. Une valeur lue dans la distribution d'un sondage décrit un "
-                "ensemble, pas un produit : reprendre la caractéristique du produit "
-                "dans le `tool_result`, ou ne rien affirmer.",
+    noms = [produit.nom for produit in contexte.produits.values()]
+    for phrase in phrases(texte):
+        attribuable = bool(produits_nommes(phrase, contexte))
+        autorisees = set(contexte.valeurs_de_specs)
+        if not attribuable:
+            autorisees |= contexte.valeurs_de_distribution
+        for valeur in valeurs_unitaires(sans_les_noms(phrase, noms)):
+            if canonique(valeur.valeur) in autorisees or valeur.valeur in contexte.agregats:
+                continue
+            griefs.append(
+                Grief(
+                    CodeGrief.VALEUR_NON_FOURNIE,
+                    valeur.extrait,
+                    "cette valeur n'est déclarée par aucun produit fourni"
+                    + (
+                        " — et une valeur lue dans la distribution d'un sondage décrit un "
+                        "ensemble, pas le produit nommé dans cette phrase."
+                        if attribuable
+                        else ", et aucun outil ne l'a rendue, pas même en distribution."
+                    )
+                    + " Reprendre la caractéristique du `tool_result`, ou ne rien affirmer.",
+                )
             )
-        )
     return _uniques(griefs)
 
 

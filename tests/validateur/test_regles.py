@@ -171,10 +171,20 @@ def test_regle_4_ne_mord_que_sur_les_produits_de_la_zone_de_tolerance(contexte):
     assert regle_ecart_au_budget(f"Le {LG.nom} à 417.14 $.", contexte)
 
 
-def test_regle_5_accepte_une_valeur_de_spec_et_une_valeur_dagregat(contexte):
-    """Une spec vient d'un produit, un agrégat vient d'un outil : les deux sont fournis."""
+def test_regle_5_range_les_valeurs_par_provenance_comme_la_regle_2(contexte):
+    """**La même valeur, deux verdicts, selon que la phrase nomme un produit.**
+
+    165 Hz existe dans la distribution du sondage et sur aucun produit fourni. Dire « il
+    y a des écrans à 165 Hz » est donc vrai — c'est ce que `probe_catalog` existe pour
+    faire dire — et « le Samsung est à 165 Hz » est faux. C'est exactement la structure
+    de la règle 2 sur les bornes de prix, appliquée aux caractéristiques.
+
+    180 Hz, lui, n'est nulle part : ni spec, ni distribution, ni agrégat.
+    """
     assert regle_valeurs_unitaires("Un 27 pouces à 144 Hz.", contexte) == ()
-    assert regle_valeurs_unitaires("Un écran à 165 Hz.", contexte)
+    assert regle_valeurs_unitaires("Il y a des écrans à 165 Hz.", contexte) == ()
+    assert regle_valeurs_unitaires(f"Le {SAMSUNG.nom} monte à 165 Hz.", contexte)
+    assert regle_valeurs_unitaires("Il y a des écrans à 180 Hz.", contexte)
 
 
 # --------------------------------------------------------------------------- #
@@ -199,7 +209,7 @@ def test_une_phrase_nomme_un_produit_par_son_id_son_nom_ou_sa_contrefacon(phrase
 def test_toutes_les_regles_sexecutent_meme_apres_un_premier_grief(contexte):
     """Le budget de régénération est de **une** : un message de reprise qui ne
     signalerait que la première faute ferait payer une régénération par faute."""
-    texte = "Le monitor-00000000ff est à 279,99 $ et monte à 165 Hz."
+    texte = "Le monitor-00000000ff est à 279,99 $ et monte à 180 Hz."
 
     codes = {grief.code for grief in valider(texte, contexte).griefs}
 

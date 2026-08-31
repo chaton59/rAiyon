@@ -1,4 +1,4 @@
-"""Neuf sorties LLM **délibérément piégeuses**, toutes détectées. La porte de sortie.
+"""Douze sorties LLM **délibérément piégeuses**, toutes détectées. La porte de sortie.
 
 Chaque test est nommé d'après **ce qu'il empêche**, pas d'après ce qu'il exerce. Le
 décor est celui de `contexte_de_test.py` : une conversation d'écrans où le sondage a vu
@@ -154,8 +154,60 @@ def test_une_spec_lue_dans_la_distribution_dun_sondage_est_detectee(contexte):
     assert CodeGrief.VALEUR_NON_FOURNIE in codes(texte, contexte)
 
 
-def test_les_neuf_pieges_sont_tous_couverts():
-    """Garde de complétude : la porte de sortie en demande neuf, ce fichier en tient neuf."""
+# --------------------------------------------------------------------------- #
+# 10 et 11 — dans une question, pas dans une recommandation (correctif)
+# --------------------------------------------------------------------------- #
+
+
+def test_un_prix_invente_dans_une_question_est_detecte(contexte):
+    """**Le chemin le plus fréquent d'une conversation, et il n'était pas couvert.**
+
+    La question d'`ask_clarification` est un argument d'outil, pas un bloc `text` : elle
+    partait au client sans passer par le validateur. Une conversation contient beaucoup
+    plus de questions que de recommandations — c'était le critère nº1 percé là où il
+    servait le plus.
+
+    Le texte de la question passe par les **mêmes** cinq règles : rien à écrire de neuf,
+    ce test le constate.
+    """
+    question = "Le Samsung Odyssey G50A à 199 $ vous conviendrait, ou vous voulez plus grand ?"
+
+    assert CodeGrief.PRIX_ETRANGER_AU_PRODUIT in codes(question, contexte)
+
+
+def test_un_produit_invente_dans_une_question_est_detecte(contexte):
+    """Même faute que le piège nº3, sur l'autre chemin de sortie."""
+    question = "Plutôt l'Acer Nitro XV272U à 279,99 $, ou quelque chose de plus grand ?"
+
+    assert CodeGrief.MONTANT_NON_FOURNI in codes(question, contexte)
+
+
+# --------------------------------------------------------------------------- #
+# 12 — le cas de terrain
+# --------------------------------------------------------------------------- #
+
+
+def test_une_borne_basse_arrondie_dans_un_intervalle_est_detectee(contexte):
+    """**Reproduction du cas observé en conversation réelle à l'étape 9.**
+
+    Le modèle a écrit « entre 65 et 400 dollars » quand la borne fournie valait 64,98 $.
+    « 400 dollars » était vérifié, « 65 » non : entier nu, exempté. Or 65 est un
+    **arrondi**, c'est-à-dire une affirmation approximative sur le catalogue — exactement
+    ce que l'étape 7 avait refusé de faire produire à `probe_catalog` en écartant les
+    paliers arrondis. Le validateur laissait passer ce qu'un arbitrage avait refusé de
+    fabriquer.
+
+    Depuis le correctif, la borne basse hérite de l'unité de la borne haute et cesse
+    d'être un entier nu. L'exemption générale, elle, reste — voir
+    `test_faux_positifs.test_un_entier_nu_passe`.
+    """
+    texte = "Je vous propose trois modèles entre 65 et 400 dollars."
+
+    assert CodeGrief.MONTANT_NON_FOURNI in codes(texte, contexte)
+
+
+def test_les_douze_pieges_sont_tous_couverts():
+    """Garde de complétude : la porte de sortie en demande douze, ce fichier en tient douze."""
     pieges = [nom for nom in globals() if nom.startswith("test_") and "couverts" not in nom]
 
-    assert len(pieges) == 9
+    assert len(pieges) == 12

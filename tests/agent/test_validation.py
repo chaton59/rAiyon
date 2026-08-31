@@ -11,11 +11,20 @@ l'étape décorative.
 
 import structlog
 from faux_client import FauxClient, appel_outil, message, texte, verifier_appairage
-from scenarios import ECRAN_144, jouer
+from scenarios import ECRAN_144, etat_ecran, jouer
 
-from raiyon.agent.evenements import MotifDeRepli, ProduitsTrouves, Repli, Texte, TexteRejete
-from raiyon.tools.schema_outils import NOM_ENREGISTRER, NOM_RECHERCHER
+from raiyon.agent.evenements import (
+    MotifDeRepli,
+    ProduitsTrouves,
+    QuestionPosee,
+    Repli,
+    Texte,
+    TexteRejete,
+)
+from raiyon.tools.schema_outils import NOM_ENREGISTRER, NOM_PRECISION, NOM_RECHERCHER
 from raiyon.validateur.regles import CodeGrief
+from raiyon.validateur.repli import PHRASE_GENERIQUE
+from raiyon.validateur.validateur import OrigineRejet
 
 INVENTE = "Je vous conseille le monitor-00000000ff, à 259,99 $."
 """Un identifiant au bon format qu'aucune recherche n'a rendu, et un prix venu de nulle
@@ -23,6 +32,16 @@ part. Deux règles mordent, et c'est voulu : le message de reprise doit porter l
 
 HONNETE = "Dites-moi plutôt pour quel usage, et je cherche."
 """Aucun chiffre, aucun identifiant : rien à vérifier, donc rien à reprocher."""
+
+QUESTION_INVENTEE = "Le monitor-00000000ff à 259,99 $ vous irait, ou plutôt plus grand ?"
+"""Une question — pas un bloc `text` — qui affirme un `id` et un prix jamais fournis."""
+
+QUESTION_HONNETE = "C'est pour jouer, pour du montage, ou pour de la bureautique ?"
+
+
+def question(texte: str):
+    """Un appel à `ask_clarification` portant `texte`. Terminal côté outil."""
+    return appel_outil(NOM_PRECISION, {"question": texte}, id="tu_q")
 
 
 # --------------------------------------------------------------------------- #
@@ -255,3 +274,108 @@ def test_un_budget_de_zero_branche_directement_le_repli(contexte, outils):
 
     assert client.nombre_dappels == 1
     assert isinstance(evenements[-1], Repli)
+
+
+# --------------------------------------------------------------------------- #
+# 7 — La question d'`ask_clarification` est validée (correctif de l'étape 9)
+# --------------------------------------------------------------------------- #
+
+
+def test_une_question_invalide_est_rejetee_puis_regeneree_en_deux_appels(contexte, outils):
+    """**Deux appels, pas trois** — le même budget que pour le texte, sur l'autre chemin.
+
+    La question n'est pas un bloc `text` : c'est un argument d'outil qui part au client
+    verbatim. Elle échappait au validateur jusqu'au correctif, sur le chemin le plus
+    fréquent d'une conversation.
+    """
+    client = FauxClient(
+        [
+            message(question(QUESTION_INVENTEE)),
+            message(question(QUESTION_HONNETE)),
+        ]
+    )
+
+    evenements, _ = jouer(client, contexte, outils, etat=etat_ecran())
+
+    assert client.nombre_dappels == 2
+    assert [type(evenement) for evenement in evenements] == [TexteRejete, QuestionPosee]
+    assert evenements[0].origine is OrigineRejet.QUESTION
+    assert evenements[1].question == QUESTION_HONNETE
+
+
+def test_aucune_question_nest_emise_avant_detre_validee(contexte, outils):
+    """Le pendant de « le texte n'est jamais émis avant d'être validé ».
+
+    Si cette assertion tombait, la question fausse serait partie au client et le repli
+    arriverait derrière elle : le client lirait les deux.
+    """
+    client = FauxClient([message(question(QUESTION_INVENTEE))])
+
+    evenements, _ = jouer(client, contexte, outils, etat=etat_ecran())
+
+    assert not [e for e in evenements if isinstance(e, QuestionPosee)]
+
+
+def test_le_tool_result_de_la_question_precede_le_grief_dans_la_reprise(contexte, outils):
+    """`ask_clarification` est terminal pour l'**outil**, pas pour la boucle.
+
+    Il s'est exécuté, donc il a son `tool_result` — et l'API exige ce résultat appairé
+    avant tout autre contenu utilisateur. Le grief le suit dans le même bloc.
+    """
+    client = FauxClient([message(question(QUESTION_INVENTEE)), message(question(QUESTION_HONNETE))])
+
+    _, issue = jouer(client, contexte, outils, etat=etat_ecran())
+
+    reprise = issue.tours[1].blocs
+    assert [bloc["type"] for bloc in reprise] == ["tool_result", "text"]
+    assert reprise[0]["tool_use_id"] == "tu_q"
+    verifier_appairage(issue.tours)
+
+
+def test_une_question_rejetee_deux_fois_replie_sur_la_phrase_generique(contexte, outils):
+    """**Jamais le template de recommandation, même après une recherche.**
+
+    Répondre par un classement de produits à quelqu'un qu'on était en train d'interroger
+    n'a aucun sens : le modèle cherchait une information, pas à conclure. Le repli choisit
+    donc sur ce qui a été rejeté, pas seulement sur l'existence d'une recherche.
+    """
+    client = FauxClient(
+        [
+            message(appel_outil(NOM_ENREGISTRER, ECRAN_144, id="tu_1")),
+            message(appel_outil(NOM_RECHERCHER, id="tu_2")),
+            message(question(QUESTION_INVENTEE)),
+        ]
+    )
+
+    evenements, _ = jouer(client, contexte, outils)
+
+    repli = evenements[-1]
+    assert isinstance(repli, Repli)
+    assert repli.motif is MotifDeRepli.VALIDATION
+    assert repli.message == PHRASE_GENERIQUE
+    assert "monitor-" not in repli.message
+
+
+def test_le_budget_de_regeneration_est_partage_entre_le_texte_et_la_question(contexte, outils):
+    """**Le test qui prouve que le budget vaut pour le tour, pas par nature de sortie.**
+
+    Le texte est rejeté au premier message et consomme le budget ; la question du message
+    régénéré est rejetée à son tour et part directement au repli. Deux appels API, pas
+    trois — un budget par nature les aurait doublés, et aurait donné deux compteurs à
+    réconcilier à l'étape 12.
+    """
+    client = FauxClient(
+        [
+            message(texte(INVENTE), question(QUESTION_INVENTEE)),
+            message(question(QUESTION_INVENTEE)),
+        ]
+    )
+
+    evenements, issue = jouer(client, contexte, outils, etat=etat_ecran())
+
+    assert client.nombre_dappels == 2
+    rejets = [e for e in evenements if isinstance(e, TexteRejete)]
+    assert [rejet.origine for rejet in rejets] == [OrigineRejet.TEXTE, OrigineRejet.QUESTION]
+    assert [rejet.tentative for rejet in rejets] == [1, 2]
+    assert isinstance(evenements[-1], Repli)
+    verifier_appairage(issue.tours)

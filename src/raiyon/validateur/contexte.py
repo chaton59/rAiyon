@@ -14,8 +14,11 @@ Les faits fournis sont donc rangés par **d'où ils viennent**, pas par ce qu'il
 * `hors_budget` — l'écart exact des produits de la zone de tolérance (§3.10) ;
 * `prix` — le prix de chaque produit fourni, dérivé de `produits` ;
 * `valeurs_de_specs` — les valeurs de caractéristiques **attribuables à un produit** ;
-* `agregats` — les nombres fournis qui ne sont attribuables à **aucun** produit :
-  bornes de prix, comptages, budget, valeurs atteignables d'un diagnostic.
+* `valeurs_de_distribution` — les valeurs que `probe_catalog` a vues dans le
+  sous-catalogue, attribuables à **l'ensemble** et à personne en particulier ;
+* `agregats` — les nombres fournis qui ne sont attribuables à aucun produit : bornes de
+  prix, comptages, budget, valeurs atteignables d'un diagnostic ;
+* `budget_usd` — le plafond, seul agrégat citable à côté d'un produit (voir son champ).
 
 ⚠️ **Les valeurs des distributions de `probe_catalog` n'entrent pas dans
 `valeurs_de_specs`.** Elles décrivent un ensemble, pas un produit : « 12 écrans sont à
@@ -130,6 +133,38 @@ class ContexteFourni:
     comptages, budget, effectifs d'une distribution, valeurs atteignables d'un
     diagnostic."""
 
+    valeurs_de_distribution: frozenset[str] = frozenset()
+    """Les valeurs **présentes dans une distribution** de `probe_catalog`, en texte
+    canonique. Elles décrivent un **ensemble**, jamais un produit.
+
+    ⚠️ **Elles sont séparées de `valeurs_de_specs`, et cette séparation est tout
+    l'arbitrage B.** « 12 écrans sont à 165 Hz » est un fait fourni ; « celui-ci est à
+    165 Hz » ne l'est pas. La règle 5 les admet donc dans une phrase qui ne nomme aucun
+    produit et les refuse dans une phrase qui en nomme un — exactement comme la règle 2
+    fait des bornes de prix. Les verser dans `valeurs_de_specs` rendrait le piège nº9
+    indétectable ; les jeter entièrement interdirait de dire ce que le catalogue
+    contient, qui est la raison d'être de `probe_catalog` (§3.7)."""
+
+    budget_usd: Decimal | None = None
+    """Le plafond en vigueur, **tel que les outils l'ont rendu au modèle**.
+
+    Il est aussi dans `agregats` — c'en est un — mais il en sort par un champ à lui pour
+    une raison précise : c'est le **seul** agrégat admis dans une phrase qui nomme un
+    produit (règle 2).
+
+    ⚠️ **Ce n'est pas une commodité, et il ne faut élargir à rien d'autre.** Le budget
+    n'est pas un fait du catalogue : c'est une **parole du client**, entrée par
+    `record_criteria` et renvoyée dans son `tool_result`. §2 interdit au modèle
+    d'inventer un fait ; répéter au client le montant qu'il vient d'annoncer n'en est pas
+    un. Une borne de sondage, elle, est une affirmation sur le catalogue **et** un
+    montant que le modèle n'a pas le droit d'attribuer à un produit — c'est le piège nº6,
+    et c'est le seul test de l'étape qui échoue si quelqu'un aplatit le contexte.
+
+    Il vient des `tool_result`, jamais d'`EtatSession` : le contexte fourni décrit ce que
+    le modèle a vu, et il se construit toujours depuis ce qui lui a été envoyé. La
+    dernière valeur rencontrée gagne, `null` compris — un budget retiré en cours de
+    session cesse d'être citable."""
+
     @property
     def vide(self) -> bool:
         """Aucun fait fourni. Le modèle n'a alors le droit d'affirmer aucun chiffre."""
@@ -209,7 +244,9 @@ class _Accumulateur:
         self.hors_budget: dict[str, Decimal] = {}
         self.prix: dict[str, Decimal] = {}
         self.specs: set[str] = set()
+        self.distribution: set[str] = set()
         self.agregats: set[Decimal] = set()
+        self.budget: Decimal | None = None
 
     def figer(self) -> ContexteFourni:
         return ContexteFourni(
@@ -217,7 +254,9 @@ class _Accumulateur:
             hors_budget=dict(self.hors_budget),
             prix=dict(self.prix),
             valeurs_de_specs=frozenset(self.specs),
+            valeurs_de_distribution=frozenset(self.distribution),
             agregats=frozenset(self.agregats),
+            budget_usd=self.budget,
         )
 
     def absorber(self, charge: Mapping[str, Any]) -> None:
@@ -238,6 +277,13 @@ class _Accumulateur:
         if isinstance(budget, Mapping):
             self._fourchette(budget.get(CLE_FOURCHETTE))
 
+        if CLE_BUDGET_USD in charge:
+            # La clé est présente dans `record_criteria` **et** dans `probe_catalog`, et
+            # les deux portent le plafond de session au moment de l'appel : lire la clé
+            # plutôt que le nom de l'outil donne donc la bonne valeur, et la dernière
+            # gagne. `null` est une valeur, pas une absence — un budget retiré doit
+            # cesser d'être citable, et un `if valeur is not None` l'aurait figé.
+            self.budget = _nombre(charge.get(CLE_BUDGET_USD))
         self._agregat(charge.get(CLE_BUDGET_USD))
         for cle in COMPTAGES:
             self._agregat(charge.get(cle))
@@ -313,17 +359,28 @@ class _Accumulateur:
         self._agregat(brut.get(CLE_PLUS_HAUT))
 
     def _distribution(self, brut: object) -> None:
-        """⚠️ **Seuls les effectifs entrent, jamais les valeurs.**
+        """⚠️ **Les effectifs sont des agrégats, les valeurs vont dans un champ à part.**
 
-        « 12 écrans à 165 Hz » est un fait sur un ensemble ; il ne rend citable aucune
-        fréquence sur aucun produit. C'est exactement ce que le piège nº9 de l'étape
-        vérifie, et la seule ligne de ce module qu'il ne faut pas « simplifier ».
+        « 12 écrans à 165 Hz » est un fait sur un ensemble : le comptage est un agrégat
+        comme un autre, mais la fréquence n'est citable **d'aucun produit**. Elle n'entre
+        donc pas dans `valeurs_de_specs` — c'est ce que le piège nº9 vérifie — et pas non
+        plus à la poubelle : sans elle, l'agent ne pourrait pas dire ce que le catalogue
+        contient, ce qui est la raison d'être de `probe_catalog`.
+
+        C'est la seule ligne de ce module qu'il ne faut pas « simplifier ».
         """
         if not isinstance(brut, Mapping):
             return
         for valeur in _liste(brut.get(CLE_VALEURS)):
             if isinstance(valeur, Mapping):
                 self._agregat(valeur.get(CLE_EFFECTIF))
+                self._valeur_de_distribution(valeur.get(CLE_VALEUR))
+
+    def _valeur_de_distribution(self, valeur: object) -> None:
+        """Indexe une valeur d'ensemble, sous la même forme canonique que les specs."""
+        if isinstance(valeur, str):
+            nombre = en_decimal(valeur)
+            self.distribution.add(canonique(nombre) if nombre is not None else valeur)
 
 
 def _liste(valeur: object) -> Sequence[Any]:

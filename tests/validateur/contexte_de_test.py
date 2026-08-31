@@ -69,7 +69,8 @@ def ecran(numero: str, nom: str, marque: str, prix: str, **specs: Any) -> Produi
 
 SAMSUNG = ecran("0000000001", "Samsung Odyssey G50A", "Samsung", "249.99")
 DELL = ecran("0000000002", "Dell S2721DGF", "Dell", "329.99")
-AOC = ecran("0000000003", "AOC 24G2SP", "AOC", "189.99", screen_size=Decimal("24"))
+AOC = ecran("0000000003", "AOC 24G2SP", "AOC", "159.99", screen_size=Decimal("24"))
+"""Vu au sondage seulement : le sous-catalogue est plus large que ce que la recherche rend."""
 LG = ecran("0000000004", "LG 27GP850-B", "LG", "417.14")
 """Au-dessus du budget de 400 $ : écart exact de 17,14 $."""
 
@@ -77,11 +78,19 @@ GIGABYTE = ecran("0000000005", "Gigabyte M27Q X", "Gigabyte", "399.99", refresh_
 """**Jamais rendu par une recherche.** Sa fréquence n'existe que dans la distribution du
 sondage : c'est la valeur du piège nº9."""
 
+SCEPTRE = ecran(
+    "0000000007", "Sceptre C248W-1920RN", "Sceptre", "189.99", screen_size=Decimal("24")
+)
+"""**Le nom qui a fait crier la règle 5 en conversation réelle.** « C248W » s'y lit comme
+248 watts, et la règle 5 refusait une recommandation exacte. Il est dans le décor
+**nominal** — pas dans un test à part — parce que c'est là qu'il a mordu : sur une
+recommandation juste, citée verbatim comme §3.4ter l'exige."""
+
 AOPEN = ecran("0000000006", "AOPEN 27HC5R", "AOPEN", "108.00")
 """**Jamais rendu par une recherche.** Son prix est la borne basse de la fourchette :
 c'est le montant du piège nº6."""
 
-RENDUS = (SAMSUNG, DELL, AOC)
+RENDUS = (SAMSUNG, DELL, SCEPTRE)
 HORS_BUDGET = (LG,)
 SONDES = (AOPEN, AOC, SAMSUNG, DELL, GIGABYTE)
 """Le sous-catalogue au moment du sondage — plus large que ce que la recherche rendra."""

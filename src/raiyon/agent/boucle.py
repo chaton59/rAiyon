@@ -36,6 +36,38 @@ template. Le message fautif **reste dans l'historique** — le retirer casserait
 l'appairage des `tool_result` et rendrait le grief incompréhensible ; le modèle voit donc
 sa propre sortie rejetée au tour suivant, et c'est acceptable.
 
+### La question d'`ask_clarification` est validée aussi (correctif de l'étape 9)
+
+Elle n'est pas un bloc `text` : c'est un **argument d'outil** qui traverse le répartiteur
+et part au client verbatim. Elle échappait donc au validateur — sur le chemin le plus
+fréquent d'une conversation, qui contient beaucoup plus de questions que de
+recommandations.
+
+Elle est relue ici, après `_executer_les_appels` et avant `QuestionPosee`, par les
+**mêmes** cinq règles et contre le **même** instantané `fourni` que le texte. Trois
+conséquences, toutes voulues :
+
+* le tour **ne se clôt pas** sur un rejet — `ask_clarification` est terminal pour l'outil,
+  pas pour la boucle ; son `tool_result` est présent, et le grief le suit dans le bloc ;
+* le budget de régénération est **partagé** avec celui du texte : il vaut pour le tour, pas
+  par nature de sortie. Un budget par nature doublerait le pire cas d'appels API et
+  donnerait deux compteurs à réconcilier à l'étape 12 ;
+* le repli d'une question rejetée est la **phrase générique**, jamais le template de
+  recommandation — on ne répond pas par un classement de produits à quelqu'un qu'on était
+  en train d'interroger.
+
+*Alternative écartée — concaténer texte et question et ne valider qu'une fois.* Plus
+proche de ce que le client lit d'un seul tenant ; écartée parce qu'elle obligerait à
+retarder l'émission du texte jusqu'**après** l'exécution des outils. Le préambule
+arriverait alors après `[critères]` et `[sondage]`, et l'arbitrage A perdrait la propriété
+qui le rend acceptable : les événements d'outils vivent pendant que la prose se fait
+attendre, pas l'inverse.
+
+⚠️ **Conséquence assumée** : un produit hors budget nommé dans le texte dont l'écart ne
+serait donné que dans la question déclencherait la règle 4, puisque les deux sont validés
+séparément. Le prompt système ne demande jamais de citer un produit dans un préambule de
+question — si le cas se produit, c'est un signal, pas un faux positif.
+
 Le générateur rend `Evenement` et **retourne** une `IssueDuTour`. C'est bien un
 `Iterator[Evenement]` pour la console, qui n'a que les événements à consommer ; le type
 de retour porte en plus ce dont la persistance a besoin — l'état final et les lignes à
@@ -127,7 +159,12 @@ from raiyon.tools.outils import (
 from raiyon.tools.repartiteur import ContexteOutils, executer
 from raiyon.validateur.contexte import contexte_des_messages
 from raiyon.validateur.repli import rediger
-from raiyon.validateur.validateur import VERDICT_SANS_GRIEF, Verdict, valider
+from raiyon.validateur.validateur import (
+    VERDICT_SANS_GRIEF,
+    OrigineRejet,
+    Verdict,
+    valider,
+)
 
 logueur = structlog.get_logger(__name__)
 
@@ -248,8 +285,10 @@ def repondre(
 
         if verdict.griefs:
             regenerations += 1
-            yield TexteRejete(verdict.griefs, regenerations)
-            _journaliser_le_rejet(verdict, iteration, regenerations, max_regenerations)
+            yield TexteRejete(verdict.griefs, regenerations, OrigineRejet.TEXTE)
+            _journaliser_le_rejet(
+                verdict, OrigineRejet.TEXTE, iteration, regenerations, max_regenerations
+            )
 
             # Les outils du message fautif s'exécutent **quand même** : chaque `tool_use`
             # doit avoir son `tool_result` (piège technique nº1), et leurs résultats sont
@@ -259,12 +298,15 @@ def repondre(
             derniere_recherche = executions.recherche or derniere_recherche
             outils_appeles.extend(str(appel.get("name")) for appel in message.appels)
 
+            # ⚠️ La question du même message n'est **pas** validée ici : le budget du tour
+            # vient d'être consommé par le texte, et la valider ne changerait rien à ce
+            # qui suit. Elle le sera au message régénéré, s'il en repose une.
             if regenerations > max_regenerations:
                 # Repli sur template (§3.11 niveau 3). Les `tool_result` partent avant de
                 # sortir : sans eux, c'est le tour **suivant** que l'API refuserait.
                 _ajouter_les_resultats(messages, tours, executions.resultats)
                 yield Repli(
-                    rediger(derniere_recherche),
+                    rediger(derniere_recherche, OrigineRejet.TEXTE),
                     iteration,
                     tuple(outils_appeles),
                     MotifDeRepli.VALIDATION,
@@ -298,6 +340,48 @@ def repondre(
         executions = yield from _executer_les_appels(message.appels, etat, contexte)
         etat = executions.etat
         derniere_recherche = executions.recherche or derniere_recherche
+
+        # La question d'`ask_clarification` est **de la prose qui part au client**, et
+        # elle échappait au validateur : c'est un argument d'outil, pas un bloc `text`.
+        # Elle est donc relue ici — par les **mêmes** cinq règles, contre le **même**
+        # instantané `fourni` que le texte, c'est-à-dire ce que le modèle avait sous les
+        # yeux en l'écrivant. Ni règle nouvelle, ni contexte élargi : élargir validerait
+        # une affirmation que le modèle ne pouvait pas fonder.
+        #
+        # La validation vit ici et pas dans `demander_precision` : lui passer un
+        # `ContexteFourni` casserait l'arbitrage C de l'étape 7 — un outil ne prend que
+        # ce qu'il lit dans l'état — et ferait entrer le validateur dans `raiyon.tools`.
+        verdict_question = (
+            valider(executions.question.question, fourni)
+            if executions.question is not None
+            else VERDICT_SANS_GRIEF
+        )
+        if verdict_question.griefs:
+            regenerations += 1
+            yield TexteRejete(verdict_question.griefs, regenerations, OrigineRejet.QUESTION)
+            _journaliser_le_rejet(
+                verdict_question, OrigineRejet.QUESTION, iteration, regenerations, max_regenerations
+            )
+
+            if regenerations > max_regenerations:
+                _ajouter_les_resultats(messages, tours, executions.resultats)
+                yield Repli(
+                    # Jamais le template : on ne répond pas par un classement de produits
+                    # à quelqu'un qu'on était en train d'interroger.
+                    rediger(derniere_recherche, OrigineRejet.QUESTION),
+                    iteration,
+                    tuple(outils_appeles),
+                    MotifDeRepli.VALIDATION,
+                )
+                return IssueDuTour(etat, tuple(tours), iteration, tuple(outils_appeles))
+
+            # Le tour **ne se clôt pas** : `ask_clarification` est terminal pour l'outil,
+            # pas pour la boucle quand sa question est refusée. Son `tool_result` est bien
+            # présent — l'outil s'est exécuté — et le grief le suit dans le même bloc.
+            reprise = [*executions.resultats, _bloc_de_grief(verdict_question)]
+            messages.append({"role": ROLE_CLIENT, "content": reprise})
+            tours.append(TourProduit(ROLE_CLIENT, reprise))
+            continue
 
         # Un seul bloc `user` porte **tous** les `tool_result`, dans l'ordre des
         # `tool_use`. C'est ce que l'API attend, et c'est ce qui rend l'appairage
@@ -343,11 +427,12 @@ def _bloc_de_grief(verdict: Verdict) -> dict[str, Any]:
 
 
 def _journaliser_le_rejet(
-    verdict: Verdict, iteration: int, regenerations: int, budget: int
+    verdict: Verdict, origine: OrigineRejet, iteration: int, regenerations: int, budget: int
 ) -> None:
     """Un `WARNING` par rejet, avec les codes — c'est le taux que l'étape 12 publiera."""
     logueur.warning(
         "boucle.texte_rejete",
+        origine=origine.value,
         iteration=iteration,
         tentative=regenerations,
         budget=budget,

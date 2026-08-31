@@ -38,7 +38,7 @@ message qui dit quoi faire, jamais en échec silencieux.
 
 | suite | tests | ce qu'elle exige |
 | --- | --- | --- |
-| `make check` — la totalité de la part pure | **611** en 4,0 s | rien : ni base, ni conteneur, ni clé API |
+| `make check` — la totalité de la part pure | **624** en 4,0 s | rien : ni base, ni conteneur, ni clé API |
 | `make test-int` | **67** | un Postgres joignable |
 
 ## Lancer une conversation

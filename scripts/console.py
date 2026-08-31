@@ -179,8 +179,8 @@ def _afficher(evenements: Generator[Evenement, None, IssueDuTour], *, trace: boo
             # met le nez dans une conversation, et ce que l'étape 12 comptera.
             if trace:
                 print(
-                    f"\n\033[33m[texte rejeté]\033[0m tentative {evenement.tentative} — "
-                    f"{len(evenement.griefs)} grief(s)"
+                    f"\n\033[33m[rejeté : {evenement.origine.value}]\033[0m "
+                    f"tentative {evenement.tentative} — {len(evenement.griefs)} grief(s)"
                 )
                 for grief in evenement.griefs:
                     print(f"    \033[33m{grief.code.value}\033[0m « {grief.extrait} »")
