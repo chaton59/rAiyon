@@ -9,11 +9,25 @@ Ces événements sont donc un besoin de l'étape 10, pas une abstraction spécul
 *Alternative écartée — des retours simples maintenant, les événements à l'étape 10.* Une
 abstraction de moins à porter pendant deux étapes ; écartée parce que l'étape 10
 réécrirait alors la boucle au lieu d'en remplacer le producteur, ce que §6 dit d'éviter.
-**L'étape 10 doit pouvoir remplacer `messages.create()` par `messages.stream()` sans que
-le consommateur bouge.**
+~~**L'étape 10 doit pouvoir remplacer `messages.create()` par `messages.stream()` sans que
+le consommateur bouge.**~~
 
 C'est cette phrase qui a tranché la forme de `Texte` et de `QuestionPosee` — voir plus
 bas, c'est le seul point de conception non trivial du module.
+
+⚠️ **Et cette phrase est renversée. Elle est barrée plutôt qu'effacée, parce qu'elle a
+décidé de la forme du module et que l'effacer rendrait ce module incompréhensible.**
+
+Elle est morte en deux temps. L'étape 9 lui a retiré `Texte` : valider après génération et
+streamer sont incompatibles, donc la prose est bufferisée. L'étape 10 lui a retiré son
+objet : **il ne reste aucun consommateur de delta dans la boucle**, et le fil SSE ne
+streame que serveur → navigateur, une trame par événement entier. `messages.stream()` n'a
+donc plus rien à remplacer, et `client_anthropic.py` n'a pas été touché.
+
+Ce qui **reste vrai**, et qui était la vraie promesse : l'étape 10 a ajouté un **second
+consommateur** — `raiyon.api` à côté de `scripts/console.py` — sans qu'une ligne de la
+boucle ne bouge. C'était l'objet de l'abstraction ; le streaming n'en était qu'une
+justification, et c'était la mauvaise.
 
 ### Aucun événement ne porte l'`EtatSession`
 
@@ -71,6 +85,12 @@ class Texte:
     consommateur bouge » — reste vraie pour tous les autres événements et **devient
     fausse pour celui-là**. Les événements d'outils, eux, continuent d'arriver au fil de
     l'eau : le panneau de §3.12 vit pendant l'attente, seule la prose arrive d'un bloc.
+
+    ⚠️ **L'étape 10 a constaté la seconde moitié : la promesse est fausse pour tous.** Non
+    pas parce que les autres événements auraient changé de forme — ils n'ont pas bougé —
+    mais parce qu'il **n'existe plus aucun consommateur de delta**. Un `tool_use` doit
+    être complet avant d'être exécuté, et le texte est bufferisé : `messages.stream()`
+    n'aurait personne à servir. Voir la docstring du module.
     """
 
     texte: str

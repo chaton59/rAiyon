@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>rAiyon — interface à venir</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #101418;
+        color: #e6e9ec;
+        font: 16px/1.6 system-ui, sans-serif;
+      }
+      main { max-width: 34rem; padding: 2rem; }
+      h1 { font-size: 1.4rem; margin: 0 0 1rem; }
+      code { background: #1c2228; padding: 0.1rem 0.35rem; border-radius: 3px; }
+      p { color: #aab3bb; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>rAiyon — l'interface arrive à l'étape 11</h1>
+      <p>
+        L'API est en place et se mène entièrement en <code>curl</code>. Cette page est
+        servie par le même processus que les routes : un seul serveur, et donc aucun CORS
+        à configurer le jour où le dialogue s'écrira ici.
+      </p>
+      <p>
+        Pour vérifier que le serveur est prêt : <code>GET /health</code> — il rend la base,
+        la version du prompt système et le mode <code>strict</code> retenu par le client.
+      </p>
+      <p>
+        Le protocole du flux est décrit dans le <code>README.md</code>, à la section
+        « L'API et son fil d'événements ».
+      </p>
+    </main>
+  </body>
+</html>

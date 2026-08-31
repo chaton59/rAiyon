@@ -198,6 +198,6 @@ def cle_api() -> str:
             "ANTHROPIC_API_KEY est absente, et cette commande appelle l'API Anthropic.\n"
             "La renseigner dans .env (voir .env.example) ou l'exporter dans le shell.\n"
             "Rappel : make seed, make seed-build et make calibrer n'en ont pas besoin — "
-            "seules make chat et make fumee appellent un modèle."
+            "seules make chat, make api et make fumee appellent un modèle."
         )
     return cle.get_secret_value()

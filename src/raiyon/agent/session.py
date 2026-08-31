@@ -36,7 +36,14 @@ message `user` sans réponse ; l'API l'accepte, mais la conversation relue ne se
 celle qui a eu lieu.
 
 ⚠️ **`tour()` est un générateur : il n'écrit qu'à la fin.** Un appelant qui abandonne
-l'itération en cours de route n'a rien persisté. La console le consomme entièrement.
+l'itération en cours de route n'a rien persisté. La console le consomme entièrement, et
+le générateur SSE de l'étape 10 aussi.
+
+C'est de là que vient toute la sémantique d'erreur de l'API (étape 10, arbitrage I) : une
+**déconnexion client** interrompt l'itération, donc le tour n'est pas persisté — pas même
+le message du client — et l'appel API est payé et perdu. C'est exactement la sémantique
+d'un redémarrage en milieu de tour, et c'est cohérent avec l'atomicité ci-dessus : « sans
+rien perdre » signifie **« sans rien écrire de faux »**.
 """
 
 import uuid

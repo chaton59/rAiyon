@@ -12,6 +12,16 @@ approximativement ailleurs les perdrait :
   prouverait rien ;
 * la **contre-épreuve** existe : sans elle, tout passerait sur une machine où le SDK
   n'est pas installé.
+
+⚠️ **La garantie n'a jamais porté sur SQLAlchemy, et l'étape 10 le redit.** `raiyon.tools`
+et `raiyon.validateur` importent `matching.depot`, donc `sqlalchemy` ; les modules purs de
+`raiyon.api` aussi, puisqu'ils sont typés sur les événements du domaine. La propriété qui
+compte n'est pas « rien n'importe SQLAlchemy » mais **« rien ne se connecte »** : la part
+pure de la suite tourne sans conteneur, et `make check` le constate à chaque exécution.
+
+L'étape 10 a généralisé le mécanisme à un paquet quelconque (`modules_charges_par`), parce
+que `raiyon.api` a besoin de la même preuve sur **`fastapi`** : un module de sérialisation
+qui importerait `Response` cesserait d'être testable hors serveur.
 """
 
 import subprocess
@@ -23,7 +33,8 @@ RACINE = Path(__file__).resolve().parents[1] / "src" / "raiyon"
 VERIFICATION = """
 import sys
 import {module}
-charges = sorted(nom for nom in sys.modules if nom.split(".")[0] == "anthropic")
+racines = {racines!r}
+charges = sorted(nom for nom in sys.modules if nom.split(".")[0] in racines)
 print(",".join(charges))
 """
 
@@ -38,12 +49,23 @@ def modules_du_paquet(paquet: str) -> list[str]:
     return [paquet, *noms]
 
 
-def modules_anthropic_charges_par(module: str) -> list[str]:
-    """Importe `module` dans un interpréteur neuf et rend ce qu'il a tiré d'`anthropic`."""
+def modules_charges_par(module: str, racines: frozenset[str]) -> list[str]:
+    """Importe `module` dans un interpréteur neuf et rend ce qu'il a tiré de `racines`.
+
+    `racines` est un ensemble de paquets de premier niveau (`{"anthropic"}`,
+    `{"fastapi", "starlette"}`…). Rendre la **liste** de ce qui a été chargé plutôt qu'un
+    booléen n'est pas du confort : sur un échec, le message de pytest nomme le module
+    coupable, ce qui évite de rejouer l'import à la main pour le trouver.
+    """
     resultat = subprocess.run(
-        [sys.executable, "-c", VERIFICATION.format(module=module)],
+        [sys.executable, "-c", VERIFICATION.format(module=module, racines=sorted(racines))],
         capture_output=True,
         text=True,
         check=True,
     )
     return [nom for nom in resultat.stdout.strip().split(",") if nom]
+
+
+def modules_anthropic_charges_par(module: str) -> list[str]:
+    """Le cas historique, et de loin le plus important : le SDK Anthropic."""
+    return modules_charges_par(module, frozenset({"anthropic"}))

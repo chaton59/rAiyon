@@ -4,11 +4,23 @@
 
 *Alternative écartée — streamer dès maintenant.* La console serait plus vivante, mais on
 paierait l'accumulation des deltas de `tool_use` en JSON partiel dans l'étape qui fait
-déjà le premier appel API du projet. Le contrat d'événements est posé ; l'étape 10
-remplace le producteur, pas le consommateur.
+déjà le premier appel API du projet. Le contrat d'événements est posé ; ~~l'étape 10
+remplace le producteur, pas le consommateur.~~
 
 ⚠️ **Amendement de l'étape 9 : cette promesse cesse de valoir pour `Texte`.** Voir plus
 bas, c'est l'arbitrage structurant de l'étape.
+
+⚠️ **Amendement de l'étape 10 : elle ne vaut plus du tout, et le producteur n'a pas été
+remplacé.** L'étape 10 a **ajouté un second consommateur** — l'API à côté de la console —
+et n'a pas touché à `client_anthropic.py`. Il n'existe plus rien à streamer côté modèle :
+un `tool_use` doit être complet avant `executer()`, et le texte est bufferisé depuis
+l'arbitrage A de l'étape 9. Le seul streaming du projet est celui du fil SSE, **serveur
+vers navigateur**, une trame par événement entier.
+
+La ligne est barrée plutôt qu'effacée : c'est elle qui a fait choisir un générateur
+d'événements, et ce choix-là s'est révélé juste pour une autre raison que celle qu'on
+avait écrite. Deux consommateurs indépendants de la même boucle, c'est la propriété qui a
+tenu.
 
 ---
 

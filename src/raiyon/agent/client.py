@@ -50,9 +50,16 @@ class ReponseLLM:
 class ClientLLM(Protocol):
     """Ce que la boucle attend d'un modèle. Rien de plus, et surtout rien du SDK.
 
-    ⚠️ **La signature est ce qui rend l'étape 10 possible sans réécrire la boucle**
+    ⚠️ ~~**La signature est ce qui rend l'étape 10 possible sans réécrire la boucle**
     (arbitrage 1) : remplacer `messages.create()` par `messages.stream()` change
-    l'implémentation de cette méthode, pas son contrat.
+    l'implémentation de cette méthode, pas son contrat.~~
+
+    **Troisième copie de la promesse renversée, barrée avec les deux autres** (voir
+    `evenements.py` et `boucle.py`). L'étape 10 n'a pas remplacé `messages.create()` : elle
+    n'en a pas eu l'usage, faute de consommateur de delta. Ce que la signature a réellement
+    acheté est ailleurs, et c'est réel — `dependency_overrides` remplace ce `Protocol` par
+    le faux client de l'étape 8, et `tests/integration/test_api.py` teste ainsi les
+    endpoints, le verrou et le générateur SSE **sans consommer un seul jeton**.
     """
 
     def repondre(

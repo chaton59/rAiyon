@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install up down logs psql migrate revision seed-build seed calibrer fumee chat fmt lint typecheck test test-int check clean
+.PHONY: help install up down logs psql migrate revision seed-build seed calibrer fumee chat api fmt lint typecheck test test-int check clean
 
 help: ## Liste les cibles disponibles
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -72,6 +72,15 @@ chat: ## Console de conversation — nécessite base + seed + clé API
 	@# le dépôt, la console n'est pas utilisable sans conteneur.
 	@# ARGS passe les options : make chat ARGS="--trace --session <uuid>".
 	uv run python scripts/console.py $(ARGS)
+
+api: ## Serveur HTTP + interface web — nécessite base + seed + clé API
+	@# Mêmes prérequis que `chat`, pour la même raison : la boucle interroge le
+	@# dépôt, et le tour appelle le modèle. `--reload` est un réglage de
+	@# développement — il redémarre le processus, donc il **remesure** le mode
+	@# strict du client à chaque rechargement (étape 8, arbitrage 11).
+	@# L'hôte et le port sont ici et nulle part ailleurs : aucune variable
+	@# d'environnement n'a été ajoutée pour eux (étape 10, arbitrage K).
+	uv run uvicorn raiyon.api.app:app --reload --host 127.0.0.1 --port 8000
 
 fmt: ## Formate le code et applique les corrections automatiques de ruff
 	uv run ruff format .

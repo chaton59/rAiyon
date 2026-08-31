@@ -642,6 +642,53 @@ redémarrage, autorise le multi-worker, coûte une trentaine de lignes.
 > même la seule chose qui bouge tant que la prose est en cours de vérification. Seule la
 > prose arrive d'un coup.
 
+> **Amendement de l'étape 10 — les noms du fil sont arrêtés, et le §3.12 d'origine était
+> une esquisse.**
+>
+> Les quatre lignes d'exemple ci-dessus dataient du cadrage : elles parlaient de
+> « perceuse », de `price_range: [90, 340]` et d'un `products_found` portant un champ
+> `explication`. Le fil réel est arrêté à **dix** événements, dont huit viennent de
+> l'union `Evenement` du domaine et deux appartiennent à l'API.
+>
+> | Événement | `event:` | ce qu'il porte |
+> |---|---|---|
+> | `CriteresMisAJour` | `criteria_updated` | la catégorie, son libellé, les critères, le budget, l'optimisation, les mouvements refusés |
+> | `Sondage` | `catalog_probe` | les deux comptes de budget, la fourchette de prix, les distributions entières |
+> | `QuestionSuggeree` | `suggested_question` | le champ de plus fort gain, ou le besoin de budget |
+> | `ProduitsTrouves` | `products_found` | les produits, le hors-budget avec son écart, le diagnostic |
+> | `QuestionPosee` | `question` | la question et le champ visé |
+> | `Texte` | `message` | la prose **validée**, entière |
+> | `TexteRejete` | `text_rejected` | l'origine, la tentative, les griefs |
+> | `Repli` | `fallback` | le message écrit en Python et son motif |
+> | — | `error` | `code` fermé + phrase française. **Après** le premier octet seulement |
+> | — | `done` | terminal et obligatoire |
+>
+> **`text_delta` n'existe pas, et il était déjà mort à l'étape 9.** L'étape 10 le constate
+> une seconde fois par un autre chemin : il n'y a plus aucun consommateur de delta dans la
+> boucle, donc plus rien à streamer côté modèle. Voir l'amendement du §5 étape 8.
+>
+> **Ce que le fil porte, et ce qu'il ne porte pas** — la ligne de partage est : *ce qui
+> prouve un invariant sort, ce qui explique un classement reste.*
+>
+> * `text_rejected` **part au client**. Il est petit (codes de grief et extrait) et c'est
+>   la seule preuve visible à l'écran que §2 est tenu par du **code** et non par un prompt.
+>   C'est le meilleur rapport effet/effort de l'étape 11.
+> * `ResultatMatching.traces` **ne part pas** : c'est du volume et du débogage de moteur.
+>   Restent dehors pour la même raison `ecartes_faute_de_donnee`, `Repli.iterations`,
+>   `Repli.outils_appeles`, et tout `EtatSession`. Si l'étape 11 réclamait la trace, elle
+>   passerait par un endpoint dédié, pas par un élargissement de `products_found`.
+>
+> **Le français du fil est dérivé du registre, jamais inventé par le front.** `Critere` ne
+> porte ni libellé ni unité, et les `specs` d'un produit sont en anglais. Le sérialiseur
+> fait le même geste que la console — `ATTRIBUTS[categorie][champ]` (arbitrage I de
+> l'étape 6) — et le fil porte `libelle_fr` et `unite` à côté de **chaque** champ. Sans
+> cela, l'étape 11 coderait du français en dur dans du JavaScript, et §3.4ter cesserait
+> d'être vrai de bout en bout au moment précis où il devient visible. Un test le vérifie
+> **sur la source du module**, pas sur son résultat.
+>
+> **Tout `Decimal` voyage en chaîne**, comme dans `en_tool_result()` : un flottant JSON
+> perdrait des décimales sur un prix, et §2 se joue au caractère près.
+
 ### 3.13 — Modèles
 
 | Usage | Modèle | Raison |
@@ -1867,8 +1914,8 @@ scripts/console.py         # make chat        scripts/fumee.py  # make fumee
 l'accumulation des deltas de `tool_use` en JSON partiel dans l'étape qui fait déjà le
 premier appel API du projet. *Alternative écartée — des retours simples, les événements à
 l'étape 10* : une abstraction de moins, mais l'étape 10 réécrirait alors la boucle au lieu
-d'en remplacer le producteur, ce que §6 dit d'éviter. **L'étape 10 doit pouvoir remplacer
-`messages.create()` par `messages.stream()` sans que le consommateur bouge** — et c'est
+d'en remplacer le producteur, ce que §6 dit d'éviter. ~~**L'étape 10 doit pouvoir remplacer
+`messages.create()` par `messages.stream()` sans que le consommateur bouge**~~ — et c'est
 cette phrase qui a tranché la forme de `Texte`, émis dès qu'il est lu, sans savoir ce qui
 suit dans le message.
 
@@ -1885,6 +1932,29 @@ suit dans le message.
 > Le renversement n'invalide pas l'arbitrage 1 : c'est parce que le contrat d'événements
 > existait qu'un seul type a pu changer de nature sans que la console ni la persistance
 > bougent d'une ligne.
+
+> ⚠️ **Amendement de l'étape 10 — la promesse est barrée en entier. `messages.stream()`
+> n'a plus aucun consommateur.**
+>
+> L'amendement de l'étape 9 laissait la promesse « entière pour tous les autres
+> événements ». L'étape 10 a constaté que ce reste n'existait pas : **il n'y a plus rien à
+> streamer côté modèle.** Un bloc `tool_use` doit être **complet** avant `executer()` — un
+> JSON partiel n'est pas exécutable — et la prose est bufferisée pour être validée. Les
+> deux seules choses qu'un delta pouvait servir sont donc fermées, et `client_anthropic.py`
+> n'a pas été touché de l'étape.
+>
+> **Ce que l'arbitrage 1 a réellement acheté, et il l'a bien acheté :** un **second
+> consommateur**. `raiyon.api` s'est branché à côté de `scripts/console.py` sans qu'une
+> ligne de `boucle.py` ni de `session.py` ne bouge — deux affichages, deux publics, un seul
+> générateur. La justification écrite (« remplacer le producteur ») était la mauvaise ; la
+> décision, elle, était la bonne.
+>
+> La ligne est barrée plutôt qu'effacée : elle a décidé de la forme de `Texte` et de
+> `QuestionPosee`, et l'effacer rendrait `evenements.py` incompréhensible. Trois docstrings
+> la portaient — `evenements.py`, `boucle.py` et `client.py` — les trois sont barrées.
+>
+> Le seul streaming du projet est désormais celui du fil SSE, **serveur vers navigateur**,
+> une trame par événement entier.
 
 **2 — Un `Protocol` de client LLM, comme `DepotProduits`.** `ReponseLLM` porte les blocs
 bruts (sérialisables tels quels en JSONB) et le `stop_reason`. L'implémentation SDK vit
@@ -2315,10 +2385,10 @@ une propriété structurelle du moteur pour devenir aussi une vérification sur 
 
 ---
 
-### Étape 10 — API et streaming
+### Étape 10 — API et streaming ✅
 
 FastAPI, endpoint de chat en SSE, événements typés du §3.12, persistance de
-session en Postgres, configuration entièrement par variables d'environnement.
+session en Postgres.
 
 ⚠️ **Contrainte héritée de l'étape 7 : la session se persiste aux frontières de tour,
 jamais au milieu.** L'état de session porte deux gardes qui ne valent qu'à l'intérieur
@@ -2329,9 +2399,188 @@ d'un tour — reprise après incident en cours de boucle d'agent, par exemple �
 devraient rejoindre `criteres_valides` ; le JSONB n'ayant pas de schéma, cela ne
 demanderait aucune migration, mais il faudrait le décider et non le découvrir.
 
-**Porte de sortie :** une conversation complète menée en `curl`, avec les
-événements typés visibles dans le flux ; le serveur redémarré en cours de
-conversation, qui reprend la session sans rien perdre.
+> ✅ **La condition est restée fermée, et il faut le dire explicitement.** L'API **ne
+> persiste rien au milieu d'un tour** : `session.tour()` commite exactement une fois, en
+> fin de tour, et le générateur SSE ne fait rien d'autre que le consommer. Ni
+> `recherche_du_tour` ni `tour_du_dernier_desserrage` en cours d'appel ne rejoignent le
+> JSONB, et aucune migration n'a été nécessaire.
+>
+> C'est même l'inverse qui s'est produit : l'atomicité est devenue la **sémantique
+> d'erreur** de toute l'étape (arbitrage I). Un tour interrompu — exception, déconnexion,
+> redémarrage — n'écrit rien du tout, pas même le message du client. La condition de
+> bascule reste donc ouverte pour l'avenir, et elle est aujourd'hui plus loin d'être
+> franchie qu'à l'étape 7 : il faudrait d'abord vouloir reprendre un tour à mi-chemin,
+> c'est-à-dire renoncer à l'atomicité qui rend le reste vrai.
+
+**Porte de sortie franchie :** une conversation de quatre tours menée en `curl` sur le
+catalogue réel, avec les événements typés visibles dans le flux — `criteria_updated`,
+`products_found`, `text_rejected`, `message`, `done` — puis le serveur tué, redémarré, et
+la conversation reprise par son UUID avec l'état et la prose intacts. `GET /health`
+répond avant et après.
+
+#### Ce que l'étape a livré
+
+```
+src/raiyon/api/
+    serialisation.py   # Evenement -> trame SSE ; assert_never — PUR
+    prose.py           # relecture des blocs pour GET /sessions/{id} — PUR
+    schemas.py         # corps de requête et réponses JSON
+    verrou.py          # pg_try_advisory_xact_lock sur l'UUID de session
+    app.py             # application, lifespan, cinq routes, générateur SSE
+web/index.html         # placeholder de l'étape 11
+```
+
+```
+POST /sessions                    -> 201 {"id": "<uuid>"}
+POST /sessions/{id}/messages      -> 200 text/event-stream   (404 | 409 | 422)
+GET  /sessions/{id}               -> 200 {état + prose}      (404)
+GET  /health                      -> 200 {base, prompt, strict}   (503 si base morte)
+GET  /                            -> StaticFiles("web")
+```
+
+**Mesure : 677 tests purs en 5,2 s, 84 d'intégration** — dont 53 purs et 17 d'intégration
+écrits ici. `mypy --strict` et `ruff` propres.
+
+#### Les douze arbitrages
+
+**A — Pile synchrone de bout en bout.** Le générateur passé à `StreamingResponse` est
+**synchrone** ; Starlette l'enveloppe dans `iterate_in_threadpool`. Toute la couche métier
+reste synchrone, ce qui est la condition du critère nº5. *Alternative écartée — un engine
+asyncio* : il imposerait `async def` jusque dans `tests/matching/`, donc ferait tomber le
+critère nº5. Non négociable. Précision qui compte : **ce n'est pas l'endpoint qui doit
+être `def`** — un `async def` rendant un `StreamingResponse` sync marche, le tour ayant
+lieu après le retour de l'endpoint. Les endpoints sont pourtant tous `def` ici, pour une
+**autre** raison : ils font eux-mêmes du SQL bloquant avant de rendre (le 404, le verrou,
+la relecture, le `SELECT 1`), et en `async def` ces requêtes-là bloqueraient la boucle
+d'événements.
+
+**B — POST rendant du `text/event-stream`.** `EventSource` ne sait faire que du GET, et
+mettre le message du client en query string est exclu — longueur, encodage, et un message
+de client dans les logs d'accès. *Alternative écartée — un POST qui ouvre un tour puis un
+GET `/events` en `EventSource`* : deux requêtes, une course entre les deux, et un état
+serveur à porter entre elles pour rien. **Coût assumé, à payer à l'étape 11 :** le front
+devra parser le SSE à la main sur `fetch` + `ReadableStream`.
+
+**C — Aucun heartbeat, et c'est assumé.** Un générateur synchrone bloqué dans
+`messages.create()` ne peut **rien** intercaler : ni `: ping`, ni détection de
+déconnexion. Le silence réel est celui d'un tour sans appel d'outil ; les événements
+d'outils tiennent la connexion vivante le reste du temps. En démo locale et en `curl`,
+aucun effet. **Condition de bascule écrite plutôt que codée :** derrière un proxy qui
+coupe à 60 s d'inactivité, la parade est un endpoint `async` drainant le générateur sync
+par une `queue.Queue` — une quarantaine de lignes de plomberie thread↔asyncio. Tant
+qu'aucun proxy n'est en jeu, ces lignes ne protègent de rien. Reporté au §7.
+
+**D — Un tour à la fois par session, verrouillé en base.** Le verrou en mémoire est
+**interdit par une décision déjà écrite** : §3.12 justifie la persistance des sessions par
+« autorise le multi-worker », et un `dict` de verrous par processus rendrait cette phrase
+fausse dès `uvicorn --workers 2` — sans que rien ne le signale en développement, où il n'y
+a qu'un worker. C'est donc un `pg_try_advisory_xact_lock` pris sur la **même `Session`
+SQLAlchemy** que celle qui servira le tour, **avant** `tour()`. `tour()` commite exactement
+une fois : la portée du verrou coïncide au caractère près avec celle du tour, et il n'y a
+**aucune libération à oublier** — ni sur exception, ni sur déconnexion. Refus → **409 avant
+le premier octet**. *Alternative écartée — `SELECT … FOR UPDATE NOWAIT` sur la ligne de
+session* : même effet, mais elle verrouille une ligne qu'on écrit de toute façon, et son
+message d'erreur parle de la ligne, pas du tour. La clé est un UUID tronqué à 64 bits ; la
+collision est tarifée et bénigne (deux conversations sans rapport ne tourneraient pas en
+même temps), pas silencieuse.
+
+**E — Avant le premier octet, un code HTTP ; après, un événement typé.** C'est la ligne de
+partage de toute la gestion d'erreur. **Avant** : session inconnue → 404, corps invalide →
+422, verrou pris → 409. **Après** : il n'existe plus de code HTTP à changer, donc toute
+exception devient un événement `error` suivi de la fermeture du flux. ⚠️ **Le message d'un
+`error` est écrit pour le client, en français, et ne contient jamais le `str()` de
+l'exception** — une trace SQLAlchemy sur une page web est une fuite. Le détail part en
+`logueur.exception` avec l'identifiant de session, et un test le vérifie sur le flux
+entier.
+
+**F — `error` et `done` n'entrent pas dans l'union `Evenement`.** L'union du domaine décrit
+le dialogue ; « la base a coupé » n'en est pas un fait, et l'y ajouter obligerait la
+console à traiter un cas qui ne peut pas lui arriver. Ces deux-là vivent dans le
+vocabulaire de l'API et sont produits **par le générateur SSE, jamais par la boucle**.
+`done` est terminal et obligatoire : sans lui, le front ne distingue pas « tour terminé »
+de « connexion tombée » — la fermeture du flux seule ne les sépare pas.
+
+**G — Ce que le fil porte, et ce qu'il ne porte pas.** *Ce qui prouve un invariant sort ;
+ce qui explique un classement reste.* Détaillé dans l'amendement du §3.12.
+
+**H — Le français du fil est dérivé du registre, jamais inventé par le front.** Détaillé
+dans le même amendement. Vérifié par un test qui lit la **source** du sérialiseur : aucun
+libellé d'attribut ni nom de catégorie n'y est écrit en dur.
+
+**I — Une déconnexion tue le tour, exactement comme un redémarrage. C'est une correction :
+la note d'arbitrage disait le contraire, et elle avait tort.** Sur une déconnexion,
+Starlette cesse d'itérer et le générateur reçoit un `GeneratorExit` au `yield` en cours ;
+`tour()` n'atteint donc jamais son `commit()`. **Rien n'est persisté, pas même le message
+du client**, et l'appel API est payé et perdu. On ne cherche pas à l'éviter — l'éviter
+demanderait le drainage par file d'attente que l'arbitrage C écarte. On le rend **propre** :
+un `finally` qui `rollback()` puis `close()`, sans quoi la connexion revient au pool en
+transaction avortée et fait échouer la requête **suivante** avec une erreur qui ne désigne
+pas la vraie cause. C'est cohérent avec l'atomicité de `session.py` : « sans rien perdre »
+signifie **« sans rien écrire de faux »**.
+
+**J — `GET /sessions/{id}` relit la prose, jamais les événements.** Les `blocs` ne sont pas
+une projection d'événements : reconstruire `criteria_updated` ou `products_found` depuis
+les `tool_result` demanderait un **second lecteur du protocole**, donc une seconde vérité
+qui divergerait de la première. L'endpoint rend l'**état** — lu par `etat_de()`,
+c'est-à-dire par `depuis_jsonb()`, le lecteur qui existe déjà — et la **prose** : les blocs
+`text`, et l'argument `question` des `tool_use` nommés `ask_clarification`.
+
+**K — Aucune nouvelle variable d'environnement.** Hôte et port sont des arguments
+`uvicorn` dans le `Makefile`. Le front étant servi par le même processus (arbitrage L),
+**il n'y a aucun CORS à configurer**, et donc rien à rendre configurable. `config.py` n'a
+pas bougé.
+
+**L — Le front est servi par le même processus.** `StaticFiles` monté sur `/`, sur un
+`web/` qui porte pour l'instant un placeholder. Un processus, une commande, pas de CORS,
+pas de second serveur de développement. ⚠️ **Le montage `/` vient après les routes**,
+sinon il les avale — et le défaut est silencieux : `/health` rendrait un 404 de fichier
+statique. Un test pur garde l'ordre.
+
+#### Ce que l'étape a appris, et qui n'était pas prévu
+
+**1 — Le message de reprise de l'étape 9 est un piège de relecture, et il n'avait été vu
+par personne.** L'arbitrage J dit « les blocs `text`, une quinzaine de lignes ». Mais tous
+les blocs `text` ne sont pas de la prose de dialogue : le message de grief est un bloc
+`text` de **rôle `user`**, écrit pour le modèle, et qui dit lui-même « le client ne le
+voit pas ». Le rendre afficherait la mécanique interne d'un rejet sous l'identité du
+client. Deux formes existent : accompagné de `tool_result` (reconnaissable à leur
+présence), ou **seul** — et là il est indiscernable d'un message client *par sa forme*. La
+reconnaissance passe donc par le **gabarit chargé** (`prompts/grief.v1.md`), pas par une
+phrase recopiée : elle est dérivée, comme le français du fil. Limite datée et écrite : une
+conversation persistée sous `grief.v1` et relue après un `grief.v2` de l'étape 13
+réafficherait ses anciennes reprises.
+
+**2 — Le ratio pur/intégration s'est dégradé, et il faut le dire avec le chiffre.** Il
+passe de **9,3:1** (624/67) à **8,1:1** (677/84). Sur l'étape seule il vaut 3,1:1. La
+raison est structurelle et non évitable : un advisory lock inter-connexion, un commit qui
+relâche ce verrou, une transaction avortée rendue au pool — **aucune de ces trois
+propriétés ne se voit sans un vrai Postgres**, et ce sont exactement les trois façons dont
+cette étape pouvait échouer en silence. Ce qui a été fait à la place : tout ce qui pouvait
+descendre dans la part pure y est descendu (le contrat de fil en entier, la relecture de
+prose, la validation du corps de requête, la clé de verrou, l'ordre des routes), et
+`make check` reste sans base, sans conteneur et sans clé.
+
+**3 — `db/engine.py` annonçait un mécanisme qui n'a jamais servi.** La docstring promettait
+depuis l'étape 2 que « l'API de l'étape 10 enveloppera ses appels base dans
+`asyncio.to_thread` ». Aucun `await` n'a été écrit : c'est **Starlette** qui fait le saut
+de thread, tout seul, pour un endpoint `def` comme pour un générateur sync. L'argument
+était juste (le moteur reste synchrone pour que le critère nº5 tienne), le mécanisme était
+une supposition. Troisième fois que le dépôt se fait prendre à décrire une capacité
+d'outil qu'il n'avait pas mesurée — après `smt`, `temperature=0` et `strict`.
+
+**4 — Le validateur s'est déclenché en démonstration, et c'est la meilleure preuve de
+l'étape.** Au quatrième tour de la conversation `curl`, le modèle a écrit « 230 $ », un
+montant qu'aucun outil n'avait rendu. Le fil porte l'enchaînement complet :
+`text_rejected` (`montant_non_fourni`, extrait « 230 $ »), puis le `message` régénéré,
+exact. **§2 n'est plus une intention lisible dans un README : il est visible dans le
+flux**, et l'arbitrage G — faire sortir `text_rejected` — se paie tout seul à l'étape 11.
+
+**5 — Le `Protocol` `ClientLLM` a servi à autre chose que ce pour quoi il avait été écrit.**
+Sa justification de l'étape 8 (« remplacer `create()` par `stream()` ») est morte. Sa
+valeur réelle est apparue ici : `dependency_overrides` le remplace par le faux client, et
+les 17 tests d'endpoints — verrou, générateur, persistance, gestion d'erreur — tournent
+**sans consommer un jeton**. Une bonne frontière tient même quand la raison qui l'a fait
+tracer s'effondre.
 
 ---
 
@@ -2465,6 +2714,9 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Le découpage en phrases est une heuristique, pas une analyse syntaxique** | Faible à moyenne — elle porte la règle 2, qui est la plus fine du lot | `extraction.SEPARATEURS_DE_PHRASE` coupe sur `.`, `!`, `?` et le saut de ligne, avec une exception non négociable : un point **entre deux chiffres** n'est pas une fin de phrase, sans quoi « 417.14 $ » se lirait « 417 » puis « 14 $ ». La contrepartie est qu'« etc. » ou « M. Dupont » coupent une phrase en deux. Le sens de l'erreur est le bon : le contexte de phrase devient trop **étroit**, jamais trop large — une règle peut donc rater une attribution de prix, elle n'en invente pas. Atténuation de conception : la décision vit dans **un seul endroit**, nommé, pour être remplaçable par un vrai découpage le jour où il en faudra un |
 | **La détection d'un nom de produit réécrit est floue** | Faible, mais c'est la seule règle du validateur qui peut se tromper **contre** le modèle | La règle 3 ne peut pas se contenter d'une égalité : elle doit constater qu'un nom apparaît **de travers**, ce qui est le cas de la francisation que §3.4ter interdit (« l'Odyssée de Samsung »). Elle retire d'abord du texte les noms cités verbatim, puis cherche dans ce qui reste une ressemblance de jetons (`difflib`, seuil 0,8 par jeton et 0,6 sur le nom), avec deux garde-fous : la marque seule ne suffit jamais à accuser, et une liste de mots français courants (« modèle », « écran », « gamme »…) est exclue du rapprochement. **Ces trois nombres sont des seuils, pas une théorie.** Un catalogue dont un produit s'appellerait « Modèle X » les mettrait en défaut. Atténuation : `tests/validateur/test_faux_positifs.py` existe pour ça, et il est aussi bloquant que `test_pieges.py` |
 | ~~**La question d'`ask_clarification` n'est pas validée**~~ | **Éteint** par le correctif de l'étape 9 | La question était un **argument d'appel**, pas un bloc `text` : elle traversait le répartiteur et partait au client sans qu'aucune règle ne la lise — sur le chemin le plus fréquent d'une conversation, qui contient beaucoup plus de questions que de recommandations. Elle est désormais relue dans `boucle.py` par les **mêmes** cinq règles, contre le **même** instantané de contexte que le texte, avec le **même** budget de régénération. La ligne est barrée plutôt qu'effacée : c'est le seul trou que l'étape 9 avait signalé elle-même et refermé sans qu'on le lui demande |
+| **Une déconnexion client perd le tour en entier, et l'appel API avec** | Faible — c'est un choix, pas un défaut | Starlette cesse d'itérer, le générateur reçoit un `GeneratorExit`, et `session.tour()` n'atteint jamais son `commit()` : rien n'est persisté, **pas même le message du client**, alors que l'appel à Anthropic a été payé. C'est exactement la sémantique d'un redémarrage en milieu de tour, et c'est l'atomicité de `session.py` prise au mot — « sans rien perdre » signifie « sans rien écrire de faux ». Il n'y a **aucune reprise de flux** : un client qui recharge renvoie son message. Ce qui est traité, en revanche, c'est la propreté — un `finally` qui `rollback()` puis `close()`, sans quoi la connexion revient au pool en transaction avortée et fait échouer la requête *suivante* avec une erreur qui ne désigne pas la vraie cause. L'éviter demanderait le drainage par file d'attente que l'arbitrage C de l'étape 10 écarte |
+| **Les messages de repli ne sont pas persistés : une conversation rechargée les perd** | Faible aujourd'hui, visible à l'étape 11 | `Repli` est émis par la boucle mais n'entre pas dans `IssueDuTour.tours` — c'est du texte écrit en Python, que le modèle n'a jamais produit. `GET /sessions/{id}` relit la prose depuis les blocs (étape 10, arbitrage J) : un tour clos par un repli réapparaît donc **sans sa réponse** après un F5. Le correctif serait de persister ce message comme un tour assistant — mais il l'injecterait alors dans l'historique relu, donc dans ce que le modèle voit au tour suivant, et le modèle se lirait affirmer une phrase qu'il n'a pas écrite. C'est une décision de l'étape 11 si elle en a besoin, pas un effet de bord à prendre au passage |
+| **Aucun heartbeat sur le flux SSE** | Nulle en local, certaine derrière un proxy | Un générateur synchrone bloqué dans `messages.create()` ne peut rien intercaler : ni `: ping`, ni détection de déconnexion (étape 10, arbitrage C). Le silence réel est celui d'un tour sans appel d'outil — les événements d'outils tiennent la connexion vivante le reste du temps — et en démo locale comme en `curl`, l'effet est nul. **À rouvrir le jour d'un déploiement derrière un proxy qui coupe à 60 s d'inactivité** : la parade est nommée et chiffrée, un endpoint `async` drainant le générateur sync par une `queue.Queue`, soit une quarantaine de lignes de plomberie thread↔asyncio. Elle n'est pas écrite parce qu'aucun proxy n'est en jeu, et qu'elle ne protégerait de rien aujourd'hui |
 | **Le garde-fou de l'arbitrage F favorise légèrement les produits à données manquantes** | Faible, mais réelle et constatée | Un critère indisponible sort du calcul et les poids sont renormalisés : un produit incomplet a donc moins d'occasions de perdre des points. Atténuation : à score égal, celui dont **plus de critères ont été évalués** passe devant, et la trace expose `criteres_evalues` / `criteres_indisponibles`. L'atténuation ne supprime pas le biais — elle ne joue qu'à score **exactement** égal. Un écran sans `refresh_rate` déclaré peut donc devancer un écran à 120 Hz sur un souhait de 144 Hz, et c'est visible dans la démonstration de l'étape. Les deux alternatives (0, ou 0,5) sont pires : l'une punit l'absence, l'autre l'invente |
 
 ---

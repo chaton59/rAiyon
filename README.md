@@ -21,7 +21,7 @@ make check     # lint + types + tests
 make test-int  # tests d'intégration : migrations, contraintes, index, chargement
 ```
 
-**`ANTHROPIC_API_KEY` n'est requise que pour `make chat` et `make fumee`.** Tout le
+**`ANTHROPIC_API_KEY` n'est requise que pour `make chat`, `make api` et `make fumee`.** Tout le
 reste — installation, migrations, seed, calibration, `make check` — est du code
 déterministe qui n'appelle aucun modèle, et exiger une clé pour ces commandes serait un
 mensonge sur la dépendance. Son absence est signalée au moment de s'en servir, par un
@@ -38,8 +38,8 @@ message qui dit quoi faire, jamais en échec silencieux.
 
 | suite | tests | ce qu'elle exige |
 | --- | --- | --- |
-| `make check` — la totalité de la part pure | **624** en 4,0 s | rien : ni base, ni conteneur, ni clé API |
-| `make test-int` | **67** | un Postgres joignable |
+| `make check` — la totalité de la part pure | **677** en 5,2 s | rien : ni base, ni conteneur, ni clé API |
+| `make test-int` | **84** | un Postgres joignable |
 
 ## Lancer une conversation
 
@@ -80,6 +80,131 @@ exact — jamais mélangés au classement principal.
 `make chat` consomme la clé API. Le prompt système en vigueur et son empreinte sont
 affichés au démarrage et logués à chaque appel : c'est ce qui permettra, à l'étape 12,
 de détecter une cassette enregistrée sur un prompt qui a changé depuis.
+
+## L'API et son fil d'événements
+
+```bash
+make up && make migrate && make seed   # une fois
+make api                               # http://127.0.0.1:8000 — Ctrl-C pour sortir
+```
+
+Un seul processus sert l'API **et** l'interface web : pas de CORS à configurer, pas de
+second serveur de développement à lancer. `web/` porte pour l'instant un placeholder —
+l'interface est l'étape 11.
+
+```
+POST /sessions                    -> 201 {"id": "<uuid>"}
+POST /sessions/{id}/messages      -> 200 text/event-stream   (404 | 409 | 422)
+GET  /sessions/{id}               -> 200 {état + prose}      (404)
+GET  /health                      -> 200 {base, prompt, strict}
+GET  /                            -> l'interface web
+```
+
+`GET /health` dit les trois choses qui peuvent manquer avant une démonstration — la base
+est-elle joignable, quelle rédaction du prompt système tourne, et quel mode `strict` le
+client a retenu :
+
+```console
+$ curl -s http://127.0.0.1:8000/health
+{"base":true,"prompt":{"version":"systeme.v1","empreinte":"6da03a675684"},"strict":true}
+```
+
+### Une conversation en `curl`
+
+```console
+$ SID=$(curl -s -X POST http://127.0.0.1:8000/sessions | jq -r .id)
+
+$ curl -N -X POST "http://127.0.0.1:8000/sessions/$SID/messages" \
+    -H 'Content-Type: application/json' \
+    -d '{"message":"Un écran pour jouer, 400 $ max, et il me faut du 144 Hz."}'
+
+event: criteria_updated
+data: {"categorie": "monitor", "libelle_categorie": "écran", "criteres": [{"champ":
+"refresh_rate", "libelle_fr": "fréquence de rafraîchissement", "unite": "Hz", "operateur":
+"au_moins", "valeur": "144", "importance": "bloquant"}], "budget_usd": "400.00", …}
+
+event: products_found
+data: {"categorie": "monitor", "candidats_trouves": 32, "produits": [{"id":
+"monitor-ee31fe1bb3", "nom": "MSI MAG 255XFV", "marque": "MSI", "prix_usd": "129.99", …}]}
+
+event: message
+data: {"texte": "Voici trois écrans 144 Hz et plus, dans votre budget…"}
+
+event: done
+data: {}
+```
+
+`-N` désactive le tampon de `curl` : sans lui, tout arrive d'un bloc à la fin, ce qui
+marche mais ne montre rien.
+
+### Les dix événements
+
+Huit viennent du domaine — ce sont exactement ceux que la console affiche — et deux
+appartiennent à l'API.
+
+| `event:` | quand | ce qu'il porte |
+| --- | --- | --- |
+| `criteria_updated` | après `record_criteria` | catégorie et son libellé, critères, budget, optimisation, **mouvements refusés** |
+| `catalog_probe` | après `probe_catalog` | les deux comptes de budget, la fourchette de prix, les distributions entières |
+| `suggested_question` | après `suggest_next_question` | le champ de plus fort gain, ou le besoin de budget |
+| `products_found` | après `search_products` | les produits, le hors-budget **avec son écart**, le diagnostic de zéro résultat |
+| `question` | `ask_clarification` clôt le tour | la question et le champ visé |
+| `message` | prose **validée**, entière | le texte |
+| `text_rejected` | le validateur a refusé | l'origine, la tentative, les griefs |
+| `fallback` | tour clos par du texte écrit en Python | le message et son motif |
+| `error` | échec **après** le premier octet | un code fermé et une phrase française |
+| `done` | fin de tour | rien — sa seule information est son nom |
+
+Trois choses qui ne se devinent pas en lisant cette table :
+
+- **Le français vient du registre d'attributs, pas du front.** Chaque champ voyage avec
+  son `libelle_fr` et son `unite`. Sans cela, l'interface coderait « fréquence de
+  rafraîchissement » en dur dans du JavaScript, et la règle « le français est du
+  vocabulaire dérivé, jamais recopié » cesserait d'être vraie au moment précis où elle
+  devient visible.
+- **Tout montant est une chaîne** (`"129.99"`), jamais un nombre JSON : un flottant
+  perdrait des décimales sur un prix, et ce projet compare des prix au caractère près.
+- **`done` est obligatoire.** Sans lui, l'interface ne pourrait pas distinguer « tour
+  terminé » de « connexion tombée » — la fermeture du flux seule ne les sépare pas.
+
+`products_found` ne porte **pas** la trace d'explication du moteur. La ligne de partage
+est simple : ce qui prouve un invariant sort, ce qui explique un classement reste. C'est
+pour cette raison que `text_rejected`, lui, sort : c'est la seule preuve visible à
+l'écran que l'anti-hallucination est tenue par du **code** et non par un prompt.
+
+```
+event: text_rejected
+data: {"origine": "texte", "tentative": 1, "griefs": [{"code": "montant_non_fourni",
+"extrait": "230 $", "correction": "aucun outil n'a rendu ce montant dans cette
+conversation. Le reprendre d'un résultat que vous avez sous les yeux, ou ne pas le
+citer."}]}
+
+event: message
+data: {"texte": "Honnêtement, dans votre créneau IPS 27\" à 144 Hz et plus, monter à
+500 $ ne change rien : les trois mêmes écrans restent les meilleurs choix…"}
+```
+
+Ces deux trames sont réelles : elles viennent d'une conversation de recette. Le montant
+refusé n'a jamais atteint le client.
+
+### Ce que l'API garantit, et ce qu'elle ne garantit pas
+
+**Un tour à la fois par session.** Le verrou est un *advisory lock* Postgres à portée de
+transaction, pris sur la connexion qui écrira : un second tour concurrent reçoit un
+`409` **avant le premier octet**, et le verrou tombe avec le commit de fin de tour. En
+mémoire, il aurait cessé de protéger dès `uvicorn --workers 2`, en silence.
+
+**Un tour est entier, ou il n'a pas eu lieu.** La session est écrite en une fois, à la
+fin. Une exception, une déconnexion ou un redémarrage n'écrivent **rien** — pas même le
+message du client. C'est assumé : un message client persisté sans sa réponse produirait,
+au tour suivant, une conversation relue qui n'est pas celle qui a eu lieu.
+
+**Le serveur se redémarre en cours de conversation.** Les sessions vivent en base, pas
+dans un dictionnaire : `GET /sessions/{id}` rend l'état et la prose après un redémarrage,
+et le tour suivant repart de là.
+
+**Aucun heartbeat.** Un générateur synchrone bloqué dans un appel au modèle ne peut rien
+intercaler. Sans effet en local ; à rouvrir derrière un proxy qui coupe sur inactivité.
 
 ## Le catalogue
 

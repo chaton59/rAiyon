@@ -3,10 +3,21 @@
 **Le moteur est synchrone, et c'est un arbitrage.** Le moteur de matching (étape 6)
 et le pipeline (étape 5) restent ainsi des fonctions pures, testables sans boucle
 asyncio - ce qui est la condition du critère d'acceptation nº5 (« la suite tourne
-hors ligne »). L'API FastAPI de l'étape 10 enveloppera ses appels base dans
-`asyncio.to_thread` : un saut de thread par requête, contre une contamination
-`async` de toute la couche métier. Alternative écartée : un engine asyncio, qui
-aurait imposé `async def` jusque dans les tests du moteur.
+hors ligne »). Alternative écartée : un engine asyncio, qui aurait imposé
+`async def` jusque dans les tests du moteur.
+
+⚠️ **Correctif de l'étape 10 : le mécanisme annoncé ici était faux, l'argument
+reste juste.** Cette docstring disait que « l'API FastAPI de l'étape 10 enveloppera
+ses appels base dans `asyncio.to_thread` ». Elle ne le fait pas, et elle n'aurait
+rien eu à y gagner : c'est **Starlette** qui fait le saut de thread, et il le fait
+tout seul. Un endpoint déclaré `def` est exécuté dans le threadpool par FastAPI, et
+un générateur synchrone rendu à `StreamingResponse` est enveloppé dans
+`iterate_in_threadpool`. Aucun `await` n'a donc été écrit nulle part, et aucune
+couche métier n'a eu à devenir `async`.
+
+Ce qui ne change pas : le moteur reste synchrone **pour que le critère nº5 tienne**,
+et c'est la seule raison qui compte. Le saut de thread n'était pas le prix à payer,
+c'était une supposition sur la façon de le payer.
 """
 
 from collections.abc import Iterator
