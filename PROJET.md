@@ -2634,7 +2634,8 @@ saisie réactivée.
 
 **Mesure : 713 tests purs en 5,9 s, 84 d'intégration** — 36 purs écrits ici, **aucun
 d'intégration**. Le ratio pur/intégration remonte de 8,1:1 à **8,5:1**, ce qui n'était pas
-prévu : voir « ce que l'étape a appris ».
+prévu : voir « ce que l'étape a appris ». *(Le correctif ci-dessous porte le total à 720
+purs, ratio 8,6:1.)*
 
 #### Ce que l'étape a livré
 
@@ -2838,6 +2839,110 @@ spécification testée** (95 lignes de JavaScript pour 455 lignes de test Python
 deux défauts que la démonstration a révélés. Le rapport effet/effort du panneau est réel ;
 il n'est pas celui de l'étape.
 
+#### Correctif — le dernier refus d'un tour
+
+L'étape 11 avait fermé une brèche dans §2 : un texte refusé par le validateur revenait au
+client après un `F5`. Le correctif était juste — `prose_de()` écarte un message assistant
+suivi d'un message de reprise, reconnaissance exacte tirée de ce que `boucle.py` empile
+réellement. **Il restait un chemin, et c'était le pire des trois.**
+
+**Le défaut.** `boucle.py` n'écrivait le message de reprise que là où une **régénération**
+était demandée. Sur les deux branches `if regenerations > max_regenerations` — celle du
+texte et celle de la question — il faisait `_ajouter_les_resultats()`, `yield Repli(...)`,
+`return` : aucun `_bloc_de_grief`. Le dernier message refusé du tour n'était donc suivi
+d'aucune reprise, et `prose_de()` le rendait. Deux formes, toutes deux touchées : avec des
+`tool_use`, le message suivant ne portait que des `tool_result`, sans bloc `text` à
+reconnaître ; **sans** `tool_use`, `_ajouter_les_resultats()` sortait tôt et **rien
+n'était empilé** — le message fautif était le dernier de l'historique, sans suivant du tout.
+
+**Pourquoi c'était le pire des trois.** Deux raisons qui se cumulent. C'est le texte que le
+validateur a refusé **et** que la régénération n'a pas su corriger : la sortie la plus
+fausse que le tour ait produite, pas la première. Et comme le message de repli n'est pas
+persisté (ligne du §7 posée à l'étape 10), le rechargement affichait **exactement l'inverse
+de ce qui s'est passé** — la phrase que le client n'a jamais vue, et rien de celle qu'il a
+lue. Constaté avant le correctif, sur un tour réellement joué à travers `GET /sessions/{id}`
+avec sa base :
+
+```
+— le fil du tour —
+   criteria_updated · products_found · text_rejected · text_rejected · fallback · done
+
+— GET /sessions/{id}, avant le correctif —
+  client    : un écran 144 Hz à 400 $
+  assistant : Pardon : il est à 512 $ en promotion.      ← refusé deux fois, jamais affiché
+
+— GET /sessions/{id}, après —
+  client    : un écran 144 Hz à 400 $
+```
+
+**Le correctif vit dans `boucle.py`, pas dans `prose.py`.** Les deux branches de budget
+épuisé empilent désormais le même bloc que les branches qui régénèrent, par une fonction
+partagée `_empiler_la_reprise()`. La propriété devient **sans exception : tout message
+refusé est suivi d'une reprise**, et la règle de `prose.py` couvre tous les chemins sans
+bouger d'une ligne. Le correctif ne rend pas la détection plus fine — il rend la trace
+uniforme.
+
+Sur ces deux chemins, la reprise n'a **aucune utilité pour le modèle** : le tour se termine
+juste après, plus personne ne relira `messages`. Elle n'existe que pour la trace persistée,
+ce qui la rend fragile — elle ressemble à du code mort à qui ne lit pas `prose.py`. D'où un
+commentaire sur chaque branche, et l'avertissement dans la docstring de la fonction
+partagée.
+
+*Alternative écartée — élargir la détection dans `prose.py` à « dernier message assistant
+du tour ».* Elle est **ambiguë** : cette forme est aussi celle d'un tour légitimement clos
+par `ask_clarification`, dont le texte a bel et bien été affiché. Les distinguer
+redeviendrait heuristique — exactement ce que le correctif de l'étape 11 refusait, et pour
+la même raison.
+
+*Alternative écartée — persister le message de repli comme un tour assistant.* Orthogonale :
+elle réparerait la moitié « la conversation rechargée ne montre rien », pas la moitié « elle
+montre le texte refusé ». Elle reste écartée pour le motif déjà écrit au §7 — le modèle se
+lirait affirmer une phrase qu'il n'a pas produite.
+
+**Ce qui a été vérifié plutôt que supposé.** La reprise ajoute un message `user` là où il
+n'y en avait pas : l'historique relu au tour suivant porte donc **deux `user` consécutifs**.
+Le dépôt a ce précédent — un tour clos par `ask_clarification` se termine sur ses
+`tool_result`, et le message client suivant est un second `user` — mais un précédent n'est
+pas une vérification. `test_le_tour_suivant_repart_dun_historique_valide_apres_un_repli`
+rejoue un second tour **sur l'historique produit par le premier** et fige la suite de rôles
+exacte : `["assistant", "user", "assistant", "user", "user"]`.
+
+**Conséquence assumée, et elle était déjà écrite.** Après le correctif, un tour clos par un
+repli réapparaît au rechargement comme un message client **sans aucune réponse**. Ce n'est
+pas une régression : c'est ce que la ligne du §7 annonce depuis l'étape 10, et l'interface
+dit déjà que la conversation reprise est incomplète. **Le correctif fait coïncider le
+comportement avec la documentation ; il ne crée pas un trou, il cesse de le combler avec du
+faux.**
+
+**Mesure : 720 tests purs (+7), 84 d'intégration — inchangés.** Trois des cinq tests de
+`tests/agent/` échouent si l'on retire le correctif ; c'est vérifié, pas supposé.
+
+#### Ce que le correctif a appris, et qui n'est plus un accident
+
+**Deux tests verts, en deux étapes, ont affirmé leur conclusion dans leur nom. C'est un
+mode d'échec du dépôt, pas deux accidents.**
+
+| étape | test | ce que son nom affirmait | ce qui était faux |
+|---|---|---|---|
+| 11 | `test_le_texte_refuse_reste_dans_la_prose_parce_quil_reste_dans_lhistorique` | rester dans l'historique ⇒ partir au client | la conclusion ne suit pas de la prémisse |
+| 11 bis | `test_un_message_assistant_sans_reprise_derriere_lui_revient_normalement` | pas de reprise derrière ⇒ il revient | la règle était trop large : le dernier refusé n'en avait pas non plus |
+
+Le mécanisme est le même dans les deux cas, et il est plus insidieux qu'un test absent :
+**un test dont le nom énonce la règle rend cette règle évidente au lieu de la rendre
+vérifiable.** On relit le nom, on acquiesce, et on cherche le défaut ailleurs. Un test
+absent, lui, laisse un blanc qu'une revue de couverture peut voir.
+
+La discipline qui en sort, appliquée aux deux : **le nom d'un test décrit le cas, pas la
+conclusion**, et quand une conclusion est renversée, l'ancien raisonnement est gardé dans la
+docstring plutôt qu'effacé. C'est la même règle que celle qui gouverne les arbitrages
+barrés de ce document — une décision renversée sans sa trace laisse le code
+incompréhensible, et la prochaine relecture recommence.
+
+⚠️ **Ce que cela ne dit pas** : rien ici n'automatise la détection. Aucun outil ne signale
+qu'un nom de test contient sa conclusion, et la nommer « discipline » est exactement le
+genre d'atténuation déclarée que le §7 range parmi les intentions bien rédigées. À
+surveiller à l'étape 12, où le harnais ajoutera une nouvelle famille de tests.
+
 ---
 
 ### Étape 12 — Harnais d'éval
@@ -2956,7 +3061,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **La détection d'un nom de produit réécrit est floue** | Faible, mais c'est la seule règle du validateur qui peut se tromper **contre** le modèle | La règle 3 ne peut pas se contenter d'une égalité : elle doit constater qu'un nom apparaît **de travers**, ce qui est le cas de la francisation que §3.4ter interdit (« l'Odyssée de Samsung »). Elle retire d'abord du texte les noms cités verbatim, puis cherche dans ce qui reste une ressemblance de jetons (`difflib`, seuil 0,8 par jeton et 0,6 sur le nom), avec deux garde-fous : la marque seule ne suffit jamais à accuser, et une liste de mots français courants (« modèle », « écran », « gamme »…) est exclue du rapprochement. **Ces trois nombres sont des seuils, pas une théorie.** Un catalogue dont un produit s'appellerait « Modèle X » les mettrait en défaut. Atténuation : `tests/validateur/test_faux_positifs.py` existe pour ça, et il est aussi bloquant que `test_pieges.py` |
 | ~~**La question d'`ask_clarification` n'est pas validée**~~ | **Éteint** par le correctif de l'étape 9 | La question était un **argument d'appel**, pas un bloc `text` : elle traversait le répartiteur et partait au client sans qu'aucune règle ne la lise — sur le chemin le plus fréquent d'une conversation, qui contient beaucoup plus de questions que de recommandations. Elle est désormais relue dans `boucle.py` par les **mêmes** cinq règles, contre le **même** instantané de contexte que le texte, avec le **même** budget de régénération. La ligne est barrée plutôt qu'effacée : c'est le seul trou que l'étape 9 avait signalé elle-même et refermé sans qu'on le lui demande |
 | **Une déconnexion client perd le tour en entier, et l'appel API avec** | Faible — c'est un choix, pas un défaut | Starlette cesse d'itérer, le générateur reçoit un `GeneratorExit`, et `session.tour()` n'atteint jamais son `commit()` : rien n'est persisté, **pas même le message du client**, alors que l'appel à Anthropic a été payé. C'est exactement la sémantique d'un redémarrage en milieu de tour, et c'est l'atomicité de `session.py` prise au mot — « sans rien perdre » signifie « sans rien écrire de faux ». Il n'y a **aucune reprise de flux** : un client qui recharge renvoie son message. Ce qui est traité, en revanche, c'est la propreté — un `finally` qui `rollback()` puis `close()`, sans quoi la connexion revient au pool en transaction avortée et fait échouer la requête *suivante* avec une erreur qui ne désigne pas la vraie cause. L'éviter demanderait le drainage par file d'attente que l'arbitrage C de l'étape 10 écarte |
-| **Les messages de repli ne sont pas persistés : une conversation rechargée les perd** | Faible aujourd'hui, visible à l'étape 11 | `Repli` est émis par la boucle mais n'entre pas dans `IssueDuTour.tours` — c'est du texte écrit en Python, que le modèle n'a jamais produit. `GET /sessions/{id}` relit la prose depuis les blocs (étape 10, arbitrage J) : un tour clos par un repli réapparaît donc **sans sa réponse** après un F5. Le correctif serait de persister ce message comme un tour assistant — mais il l'injecterait alors dans l'historique relu, donc dans ce que le modèle voit au tour suivant, et le modèle se lirait affirmer une phrase qu'il n'a pas écrite. C'est une décision de l'étape 11 si elle en a besoin, pas un effet de bord à prendre au passage |
+| **Les messages de repli ne sont pas persistés : un tour clos par un repli revient sans aucune réponse** | Faible, et c'est désormais le comportement **voulu** | `Repli` est émis par la boucle mais n'entre pas dans `IssueDuTour.tours` — c'est du texte écrit en Python, que le modèle n'a jamais produit. `GET /sessions/{id}` relit la prose depuis les blocs (étape 10, arbitrage J) : un tour clos par un repli réapparaît donc **sans sa réponse** après un F5. **Conséquence complète, écrite depuis le correctif de l'étape 11 :** le message refusé qui a précédé ce repli ne revient plus non plus, puisqu'il est désormais suivi d'une reprise. Un tel tour revient donc comme un message client **seul**. C'est laid, et c'est juste — avant, le rechargement montrait exactement l'inverse de ce qui s'était passé : la phrase refusée deux fois, et rien du template que le client avait lu. L'interface de l'étape 11 annonce déjà la conversation reprise comme incomplète. Le correctif ne crée pas ce trou : **il cesse de le combler avec du faux.** Le correctif restant serait de persister le message de repli comme un tour assistant — mais il l'injecterait dans l'historique relu, donc dans ce que le modèle voit au tour suivant, et le modèle se lirait affirmer une phrase qu'il n'a pas écrite. Reste écarté pour ce motif, qui n'a pas bougé |
 | **Aucun heartbeat sur le flux SSE** | Nulle en local, certaine derrière un proxy | Un générateur synchrone bloqué dans `messages.create()` ne peut rien intercaler : ni `: ping`, ni détection de déconnexion (étape 10, arbitrage C). Le silence réel est celui d'un tour sans appel d'outil — les événements d'outils tiennent la connexion vivante le reste du temps — et en démo locale comme en `curl`, l'effet est nul. **À rouvrir le jour d'un déploiement derrière un proxy qui coupe à 60 s d'inactivité** : la parade est nommée et chiffrée, un endpoint `async` drainant le générateur sync par une `queue.Queue`, soit une quarantaine de lignes de plomberie thread↔asyncio. Elle n'est pas écrite parce qu'aucun proxy n'est en jeu, et qu'elle ne protégerait de rien aujourd'hui |
 | **Le garde-fou de l'arbitrage F favorise légèrement les produits à données manquantes** | Faible, mais réelle et constatée | Un critère indisponible sort du calcul et les poids sont renormalisés : un produit incomplet a donc moins d'occasions de perdre des points. Atténuation : à score égal, celui dont **plus de critères ont été évalués** passe devant, et la trace expose `criteres_evalues` / `criteres_indisponibles`. L'atténuation ne supprime pas le biais — elle ne joue qu'à score **exactement** égal. Un écran sans `refresh_rate` déclaré peut donc devancer un écran à 120 Hz sur un souhait de 144 Hz, et c'est visible dans la démonstration de l'étape. Les deux alternatives (0, ou 0,5) sont pires : l'une punit l'absence, l'autre l'invente |
 | **Le verrou de tour reste tenu si le générateur SSE n'est jamais démarré** | Faible — fenêtre étroite, et le défaut s'auto-guérit | Le verrou est pris dans l'endpoint ; le `try/finally` qui le relâche vit dans le générateur. Or `_flux(...)` **construit** le générateur sans l'exécuter : tant que Starlette n'a pas appelé le premier `next()`, le `finally` n'existe pas. Si l'itération ne commence jamais — client déjà parti quand `http.response.start` est envoyé —, la `Session` reste ouverte, sa transaction non validée, et **le verrou tient jusqu'au ramasse-miettes**. Symptôme visible : un `409` « un tour est déjà en cours » sur une session où rien ne tourne, au renvoi d'une requête qui avait lâché. **La parade est nommée et non prise** : amorcer le générateur dans l'endpoint — un `next()` avant de rendre — pour entrer dans le `try` avant que Starlette n'itère. Elle coûte de rechaîner la première trame devant le reste du flux (`itertools.chain`), donc de compliquer le seul endroit du code qui doit rester lisible, et de déplacer le début du tour **avant** l'envoi des en-têtes — c'est-à-dire de rendre à nouveau possible une exception après la décision du code HTTP et avant le premier octet, exactement la ligne que l'arbitrage E trace. Le défaut, lui, se referme seul au GC, sa conséquence est un 409 qu'un renvoi résout, et aucun tour n'est perdu puisqu'aucun n'avait commencé |

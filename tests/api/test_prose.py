@@ -188,9 +188,125 @@ def test_un_message_refuse_par_le_validateur_ne_revient_pas():
     assert prose_de(historique) == ()
 
 
-def test_un_message_assistant_sans_reprise_derriere_lui_revient_normalement():
-    """Le pendant positif, et il compte autant : la règle ne doit pas avaler la prose
-    ordinaire. Seule la **séquence** message assistant → message de reprise l'écarte."""
+# --------------------------------------------------------------------------- #
+# Le dernier refus d'un tour — correctif de l'étape 11
+# --------------------------------------------------------------------------- #
+#
+# ⚠️ Ces trois historiques sont ceux que `boucle.py` produit **depuis le correctif** : les
+# deux branches de budget épuisé empilent la reprise avant de sortir, comme les deux qui
+# régénèrent. `tests/agent/test_validation.py` vérifie que la boucle les produit bien —
+# sans quoi ces tests-ci n'affirmeraient rien de plus que la forme de leur propre décor.
+
+
+def test_un_texte_refuse_deux_fois_et_clos_par_un_repli_ne_revient_pas_sans_tool_use():
+    """⚠️ **Le pire des trois chemins**, et c'est celui que l'étape 11 avait laissé ouvert.
+
+    Le texte a été refusé **deux fois** : la régénération n'a pas su le corriger, le budget
+    du tour est épuisé, et le client a reçu un message de repli écrit en Python. C'est donc
+    la sortie la plus fausse que le tour ait produite — pas la première.
+
+    Sans `tool_use`, `_ajouter_les_resultats()` sortait tôt et **rien n'était empilé** : le
+    message fautif était le dernier de l'historique, sans aucun suivant à reconnaître. Le
+    repli, lui, n'est pas persisté (§7). Le rechargement affichait donc **exactement
+    l'inverse de ce qui s'est passé** : la phrase que le client n'a jamais vue, et rien de
+    celle qu'il a lue.
+
+    Constaté avant le correctif, sur un tour réellement joué : le client lisait le template
+    « Voici ce que j'ai retenu, écran par écran… », le `F5` rendait « Pardon : il est à
+    512 $ en promotion. »
+    """
+    reprise = message_de_grief(("- **montant_non_fourni** — « 230 $ » : citer un prix fourni",))
+    encore = message_de_grief(("- **montant_non_fourni** — « 512 $ » : citer un prix fourni",))
+    historique = [
+        _client("c'est combien ?"),
+        _assistant(texte("Le premier est à 230 $, une affaire.")),
+        {"role": "user", "content": [texte(reprise)]},
+        _assistant(texte("Pardon : il est à 512 $ en promotion.")),
+        {"role": "user", "content": [texte(encore)]},
+    ]
+
+    assert prose_de(historique) == (Parole(Interlocuteur.CLIENT, "c'est combien ?"),)
+
+
+def test_un_texte_refuse_deux_fois_ne_revient_pas_non_plus_avec_des_tool_use():
+    """La seconde forme : le message fautif portait des `tool_use`, donc leurs résultats
+    passent devant le grief dans le même bloc `user` (l'API exige les `tool_result`
+    appairés avant tout autre contenu utilisateur).
+
+    Avant le correctif, ce bloc existait **sans** son grief : `_ajouter_les_resultats()`
+    posait les `tool_result` seuls, et la règle de `prose_de()` ne trouvait aucune reprise
+    à reconnaître.
+    """
+    reprise = message_de_grief(("- **id_inconnu** — « monitor-0000000000 » : citer un id",))
+    historique = [
+        _client("montre-moi"),
+        _assistant(
+            texte("Le monitor-0000000000 est le meilleur."),
+            appel_outil(NOM_RECHERCHER, id="tu_1"),
+        ),
+        {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "tu_1", "content": "{}", "is_error": False},
+                texte(reprise),
+            ],
+        },
+    ]
+
+    assert prose_de(historique) == (Parole(Interlocuteur.CLIENT, "montre-moi"),)
+
+
+def test_une_question_refusee_deux_fois_est_traitee_comme_un_texte_refuse_deux_fois():
+    """La seconde branche de budget épuisé, celle d'`ask_clarification`.
+
+    Elle emporte le texte du même message, comme la règle le dit depuis l'étape 11 et pour
+    la raison qui y est écrite : les deux origines de rejet laissent la même trace, et on
+    perd une phrase que le client avait vue plutôt que d'en afficher une qu'il n'aurait
+    jamais dû voir. **Elle n'en emporte pas davantage** — le message client qui précède et
+    le tour qui suit sont intacts.
+    """
+    reprise = message_de_grief(("- **montant_non_fourni** — « 230 $ » : citer un prix fourni",))
+    historique = [
+        _client("je cherche un écran"),
+        _assistant(
+            texte("Deux pistes, selon votre usage."),
+            appel_outil(NOM_PRECISION, {"question": "Vous montez jusqu'à 230 $ ?"}, id="tu_1"),
+        ),
+        {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "tu_1", "content": "{}", "is_error": False},
+                texte(reprise),
+            ],
+        },
+        _client("plutôt 400 $"),
+    ]
+
+    assert prose_de(historique) == (
+        Parole(Interlocuteur.CLIENT, "je cherche un écran"),
+        Parole(Interlocuteur.CLIENT, "plutôt 400 $"),
+    )
+
+
+def test_une_reponse_acceptee_au_milieu_dune_conversation_revient():
+    """Le pendant positif : la règle ne doit pas avaler la prose ordinaire. Seule la
+    séquence **message assistant → message de reprise** l'écarte.
+
+    ⚠️ **Ce test s'appelait `test_un_message_assistant_sans_reprise_derriere_lui_revient_
+    normalement`, et ce nom était le défaut.** Il énonçait la *conclusion* — « sans reprise
+    derrière lui ⇒ il revient » — au lieu de décrire le *cas*. Or la conclusion était trop
+    large : le dernier message refusé d'un tour n'avait pas de reprise derrière lui non
+    plus, et il revenait donc lui aussi. Le nom rendait la règle évidente au lieu de la
+    rendre vérifiable, et il a fallu chercher le chemin manquant ailleurs.
+
+    C'est la **deuxième fois en deux étapes** qu'un test vert du dépôt affirme sa propre
+    conclusion dans son nom — après `test_le_texte_refuse_reste_dans_la_prose_parce_quil_
+    reste_dans_lhistorique`, renversé à l'étape 11. Le raisonnement est gardé ici plutôt
+    qu'effacé : c'est la discipline que l'étape 11 avait appliquée au précédent.
+
+    Le cas décrit est donc, désormais : *une réponse acceptée, au milieu d'une
+    conversation, revient avec ce qui l'entoure.*
+    """
     historique = [
         _client("montre-moi"),
         _assistant(texte("Voici trois écrans du catalogue.")),

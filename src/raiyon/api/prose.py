@@ -53,9 +53,22 @@ lui avait précisément épargné**. Rien ne le signalait : la conversation en d
 juste, la même conversation rechargée ne l'était plus.
 
 La reconnaissance est exacte, pas heuristique, et elle se lit dans `boucle.py` : un rejet
-fait toujours suivre le message fautif d'un message `user` portant le message de reprise,
-puis `continue`. **Un message assistant immédiatement suivi d'une reprise est donc un
-message refusé**, et il ne rend aucune prose.
+fait toujours suivre le message fautif d'un message `user` portant le message de reprise.
+**Un message assistant immédiatement suivi d'une reprise est donc un message refusé**, et
+il ne rend aucune prose.
+
+⚠️ **Un chemin manquait, et c'était le pire des trois — correctif de l'étape 11.** La
+boucle n'écrivait la reprise que là où une régénération était demandée. Sur les deux
+branches de **budget épuisé**, elle sortait sans rien empiler : le dernier texte refusé du
+tour — celui qui a échoué **deux fois**, et pour lequel le client a reçu un template —
+n'avait donc aucune reprise derrière lui, et il revenait. Comme le message de repli, lui,
+n'est pas persisté (§7), le rechargement affichait **exactement l'inverse de ce qui s'est
+passé** : la phrase que le client n'a jamais vue, et rien de celle qu'il a lue.
+
+Le correctif vit dans `boucle.py`, pas ici : il ne rend pas la détection plus fine, il rend
+la **trace uniforme**. Élargir la règle à « dernier message assistant du tour » aurait été
+ambigu — c'est aussi la forme d'un tour légitimement clos par `ask_clarification`, dont le
+texte a bel et bien été affiché — donc heuristique, ce que ce module refuse.
 
 ⚠️ **Le message entier est écarté, pas seulement son texte, et c'est délibéré.** Sur le
 chemin où c'est la *question* d'`ask_clarification` qui est refusée (correctif de l'étape
@@ -158,15 +171,34 @@ def _parole_du_bloc(bloc: Mapping[str, Any], *, du_client: bool) -> Parole | Non
 def _a_ete_refuse(historique: Sequence[Mapping[str, Any]], rang: int) -> bool:
     """Ce message assistant est-il suivi d'un message de reprise ? **Alors il a été refusé.**
 
-    La propriété vient de `boucle.py` et non d'une supposition : sur un verdict à griefs,
-    la boucle empile le message fautif, puis un message `user` qui porte le grief — seul,
-    ou derrière les `tool_result` du même message — puis `continue`. Aucun autre chemin ne
-    produit cette séquence.
+    ⚠️ **Cette règle n'est exacte que parce que `boucle.py` la tient, et il a fallu un
+    correctif pour qu'il la tienne partout.** La docstring affirmait ici « aucun autre
+    chemin ne produit cette séquence » — c'était vrai, et ce n'était pas la propriété dont
+    on avait besoin. Celle-là est la réciproque : **aucun refus ne se produit sans cette
+    séquence.** Elle, elle était fausse.
 
-    ⚠️ Le grief est cherché dans **tous** les blocs `text` du message suivant, pas
-    seulement dans le premier : quand le message refusé portait des `tool_use`, leurs
-    résultats passent devant (l'API exige les `tool_result` appairés avant tout autre
-    contenu utilisateur) et le grief les suit.
+    Un refus fait empiler par `boucle.py` le message fautif, puis un message `user` portant
+    le grief — seul, ou derrière les `tool_result` du même message. **Quatre chemins**
+    doivent l'écrire, et le correctif de l'étape 11 en a ajouté deux :
+
+    | branche de `repondre()` | ce qu'elle fait ensuite |
+    |---|---|
+    | `verdict.griefs`, budget restant | `continue` — le modèle relit le grief |
+    | `verdict_question.griefs`, budget restant | `continue` — idem |
+    | **`verdict.griefs` + budget épuisé** | `yield Repli(...)` puis `return` |
+    | **`verdict_question.griefs` + budget épuisé** | `yield Repli(...)` puis `return` |
+
+    Les deux dernières n'empilaient rien : sur ces chemins la reprise n'a **aucune utilité
+    pour le modèle** — le tour se termine, plus personne ne relira `messages` — et elle
+    ressemblait donc à du code inutile. Le dernier texte refusé du tour, celui que la
+    régénération n'a pas su corriger, revenait par ici au rechargement. C'est là qu'un
+    futur `return` anticipé rouvrirait le trou sans bruit ; `_empiler_la_reprise()` porte
+    l'avertissement du côté où il se lit.
+
+    Le grief est cherché dans **tous** les blocs `text` du message suivant, pas seulement
+    dans le premier : quand le message refusé portait des `tool_use`, leurs résultats
+    passent devant (l'API exige les `tool_result` appairés avant tout autre contenu
+    utilisateur) et le grief les suit.
     """
     suivant = historique[rang + 1] if rang + 1 < len(historique) else None
     if suivant is None or suivant.get("role") != ROLE_API_CLIENT:

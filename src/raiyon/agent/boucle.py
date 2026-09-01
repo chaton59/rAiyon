@@ -316,7 +316,15 @@ def repondre(
             if regenerations > max_regenerations:
                 # Repli sur template (§3.11 niveau 3). Les `tool_result` partent avant de
                 # sortir : sans eux, c'est le tour **suivant** que l'API refuserait.
-                _ajouter_les_resultats(messages, tours, executions.resultats)
+                #
+                # ⚠️ La reprise est empilée **pour la trace, pas pour le modèle** : ce tour
+                # se termine ici, plus personne ne relira `messages`. Elle sert à ce que
+                # `raiyon.api.prose` reconnaisse ce message comme refusé au rechargement —
+                # sa règle est « un message assistant suivi d'une reprise ». Sans elle, le
+                # dernier texte refusé du tour, celui que la régénération n'a **pas** su
+                # corriger, réapparaîtrait au client après un F5. Ce n'est donc pas du code
+                # mort : c'est l'invariant dont `prose.py` dépend (correctif de l'étape 11).
+                _empiler_la_reprise(messages, tours, executions.resultats, verdict)
                 yield Repli(
                     rediger(derniere_recherche, OrigineRejet.TEXTE),
                     iteration,
@@ -328,9 +336,7 @@ def repondre(
             # Le grief part **après** les `tool_result`, dans le même bloc `user` :
             # l'API exige les résultats appairés avant tout autre contenu utilisateur.
             # Quand le message ne portait que du texte, le bloc ne contient que le grief.
-            reprise = [*executions.resultats, _bloc_de_grief(verdict)]
-            messages.append({"role": ROLE_CLIENT, "content": reprise})
-            tours.append(TourProduit(ROLE_CLIENT, reprise))
+            _empiler_la_reprise(messages, tours, executions.resultats, verdict)
             continue
 
         if message.texte:
@@ -376,7 +382,12 @@ def repondre(
             )
 
             if regenerations > max_regenerations:
-                _ajouter_les_resultats(messages, tours, executions.resultats)
+                # ⚠️ Même geste, et pour la même raison que la branche du texte : la
+                # reprise est empilée **pour la trace**, pas pour le modèle. Ici, c'est la
+                # question d'`ask_clarification` qui a été refusée deux fois — elle non
+                # plus n'a jamais atteint le client, et elle ne doit pas l'atteindre par la
+                # porte du rechargement. `raiyon.api.prose` en dépend.
+                _empiler_la_reprise(messages, tours, executions.resultats, verdict_question)
                 yield Repli(
                     # Jamais le template : on ne répond pas par un classement de produits
                     # à quelqu'un qu'on était en train d'interroger.
@@ -390,9 +401,7 @@ def repondre(
             # Le tour **ne se clôt pas** : `ask_clarification` est terminal pour l'outil,
             # pas pour la boucle quand sa question est refusée. Son `tool_result` est bien
             # présent — l'outil s'est exécuté — et le grief le suit dans le même bloc.
-            reprise = [*executions.resultats, _bloc_de_grief(verdict_question)]
-            messages.append({"role": ROLE_CLIENT, "content": reprise})
-            tours.append(TourProduit(ROLE_CLIENT, reprise))
+            _empiler_la_reprise(messages, tours, executions.resultats, verdict_question)
             continue
 
         # Un seul bloc `user` porte **tous** les `tool_result`, dans l'ordre des
@@ -431,6 +440,33 @@ def _ajouter_les_resultats(
         return
     messages.append({"role": ROLE_CLIENT, "content": resultats})
     tours.append(TourProduit(ROLE_CLIENT, resultats))
+
+
+def _empiler_la_reprise(
+    messages: list[dict[str, Any]],
+    tours: list[TourProduit],
+    resultats: list[dict[str, Any]],
+    verdict: Verdict,
+) -> None:
+    """Le bloc `user` qui suit **tout** message refusé : les `tool_result`, puis le grief.
+
+    ⚠️ **C'est l'invariant dont `raiyon.api.prose` dépend**, et il est tenu ici et nulle
+    part ailleurs : *un message assistant refusé est toujours suivi d'un message portant une
+    reprise.* Quatre chemins l'appellent — les deux qui régénèrent, et les deux qui
+    abandonnent faute de budget —, et c'est précisément parce que les deux derniers l'ont
+    oublié que le correctif de l'étape 11 a dû être écrit.
+
+    Sur les chemins qui abandonnent, ce bloc n'est **jamais relu par le modèle** : le tour
+    se termine juste après. Il n'existe donc que pour la trace persistée, et c'est ce qui le
+    rend fragile — il ressemble à du code mort à qui ne lit pas `prose.py`.
+
+    L'ordre n'est pas négociable : l'API exige les `tool_result` appairés **avant** tout
+    autre contenu utilisateur. Quand le message fautif ne portait que du texte, `resultats`
+    est vide et le bloc ne contient que le grief.
+    """
+    reprise = [*resultats, _bloc_de_grief(verdict)]
+    messages.append({"role": ROLE_CLIENT, "content": reprise})
+    tours.append(TourProduit(ROLE_CLIENT, reprise))
 
 
 def _bloc_de_grief(verdict: Verdict) -> dict[str, Any]:

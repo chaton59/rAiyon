@@ -11,8 +11,9 @@ l'étape décorative.
 
 import structlog
 from faux_client import FauxClient, appel_outil, message, texte, verifier_appairage
-from scenarios import ECRAN_144, etat_ecran, jouer
+from scenarios import ECRAN_144, SYSTEME, etat_ecran, jouer
 
+from raiyon.agent.boucle import repondre
 from raiyon.agent.evenements import (
     MotifDeRepli,
     ProduitsTrouves,
@@ -379,3 +380,144 @@ def test_le_budget_de_regeneration_est_partage_entre_le_texte_et_la_question(con
     assert [rejet.tentative for rejet in rejets] == [1, 2]
     assert isinstance(evenements[-1], Repli)
     verifier_appairage(issue.tours)
+
+
+# --------------------------------------------------------------------------- #
+# 8 — La trace d'un tour clos par un repli (correctif de l'étape 11)
+# --------------------------------------------------------------------------- #
+#
+# ⚠️ **L'invariant que ces tests tiennent est lu par `raiyon.api.prose`**, pas par la
+# boucle : *un message assistant refusé est toujours suivi d'un message portant une
+# reprise.* Les deux branches de régénération l'ont toujours respecté ; les deux branches
+# de budget épuisé l'oubliaient, et le dernier texte refusé du tour — celui que la
+# régénération n'a **pas** su corriger — réapparaissait donc au client après un F5.
+#
+# Ces tests échouent si un futur `return` anticipé retire la reprise. Ils sont ici et pas
+# dans `tests/api/` parce que c'est ici que la trace est **produite** : côté API, on ne
+# peut qu'affirmer la forme d'un décor écrit à la main.
+
+
+def _dernier_bloc_de_reprise(issue) -> str:
+    """Le texte de la reprise qui clôt l'historique produit, ou `""` s'il n'y en a pas."""
+    dernier = issue.tours[-1]
+    if dernier.role != "user" or not dernier.blocs:
+        return ""
+    bloc = dernier.blocs[-1]
+    return str(bloc["text"]) if bloc.get("type") == "text" else ""
+
+
+def test_un_tour_clos_par_un_repli_laisse_la_reprise_du_dernier_texte_refuse(contexte, outils):
+    """**Le message le plus faux du tour ne doit pas revenir par la porte du rechargement.**
+
+    Sans `tool_use`, l'ancien code n'empilait **rien** après le second refus : le message
+    fautif était le dernier de l'historique, sans suivant à reconnaître. Comme le repli
+    n'est pas persisté (§7), le rechargement rendait exactement l'inverse de ce qui s'est
+    passé — la phrase refusée deux fois, et rien du template que le client a lu.
+    """
+    client = FauxClient([message(texte(INVENTE))])
+
+    evenements, issue = jouer(client, contexte, outils)
+
+    assert isinstance(evenements[-1], Repli)
+    assert [tour.role for tour in issue.tours] == ["assistant", "user", "assistant", "user"]
+    assert "monitor-00000000ff" in _dernier_bloc_de_reprise(issue)
+
+
+def test_un_tour_clos_par_un_repli_pose_la_reprise_apres_les_tool_result(contexte, outils):
+    """La seconde forme : le message fautif portait des `tool_use`.
+
+    L'ordre n'est pas cosmétique — l'API exige les `tool_result` appairés **avant** tout
+    autre contenu utilisateur. Avant le correctif, ce bloc existait mais ne portait que les
+    résultats : il n'y avait aucune reprise à reconnaître.
+    """
+    client = FauxClient(
+        [
+            message(appel_outil(NOM_ENREGISTRER, ECRAN_144, id="tu_1")),
+            message(texte(INVENTE), appel_outil(NOM_RECHERCHER, id="tu_2")),
+            message(texte(INVENTE), appel_outil(NOM_RECHERCHER, id="tu_3")),
+        ]
+    )
+
+    evenements, issue = jouer(client, contexte, outils)
+
+    assert isinstance(evenements[-1], Repli)
+    dernier = issue.tours[-1]
+    assert dernier.role == "user"
+    assert [bloc["type"] for bloc in dernier.blocs] == ["tool_result", "text"]
+    assert "monitor-00000000ff" in dernier.blocs[-1]["text"]
+    verifier_appairage(issue.tours)
+
+
+def test_un_tour_clos_par_un_repli_de_question_laisse_aussi_sa_reprise(contexte, outils):
+    """La seconde branche de budget épuisé, celle d'`ask_clarification`.
+
+    Le budget est consommé par le texte du premier message, puis la question du second est
+    refusée : on sort par la branche `QUESTION`. Elle empile la même reprise, pour la même
+    raison — cette question n'a jamais atteint le client.
+    """
+    client = FauxClient(
+        [
+            message(texte(INVENTE)),
+            message(question(QUESTION_INVENTEE)),
+        ]
+    )
+
+    evenements, issue = jouer(client, contexte, outils, etat=etat_ecran())
+
+    assert isinstance(evenements[-1], Repli)
+    dernier = issue.tours[-1]
+    assert dernier.role == "user"
+    assert [bloc["type"] for bloc in dernier.blocs] == ["tool_result", "text"]
+    assert "monitor-00000000ff" in dernier.blocs[-1]["text"]
+    verifier_appairage(issue.tours)
+
+
+def test_le_tour_suivant_repart_dun_historique_valide_apres_un_repli(contexte, outils):
+    """⚠️ **Ce que l'argument de précédent ne suffit pas à établir, et qu'il fallait
+    vérifier.**
+
+    La reprise ajoute un message `user` là où il n'y en avait pas, donc l'historique relu au
+    tour suivant porte désormais **deux `user` consécutifs** : la reprise, puis le message
+    du client. Le dépôt a ce précédent — un tour clos par `ask_clarification` se termine sur
+    ses `tool_result`, et le message client suivant est un second `user` — mais un
+    précédent n'est pas une vérification.
+
+    Ce test rejoue donc un second tour **sur l'historique produit par le premier**, et
+    constate qu'il se déroule normalement, appairage intact.
+    """
+    premier = FauxClient([message(texte(INVENTE), appel_outil(NOM_RECHERCHER, id="tu_1"))])
+    _, issue = jouer(premier, contexte, outils, etat=etat_ecran())
+
+    historique = [{"role": tour.role, "content": list(tour.blocs)} for tour in issue.tours]
+    second = FauxClient([message(texte(HONNETE))])
+    evenements = []
+    generateur = repondre(
+        client=second,
+        systeme=SYSTEME,
+        outils=outils,
+        historique=historique,
+        message_client="et sinon ?",
+        etat=issue.etat,
+        contexte=contexte,
+        max_iterations=8,
+        max_regenerations=1,
+    )
+    while True:
+        try:
+            evenements.append(next(generateur))
+        except StopIteration as arret:
+            suite = arret.value
+            break
+
+    assert second.nombre_dappels == 1
+    assert evenements == [Texte(HONNETE)]
+    # Les rôles exacts envoyés au modèle au second appel. Les **deux derniers** sont la
+    # reprise du premier tour puis le message du client : deux `user` consécutifs, ce que
+    # le correctif introduit sur ce chemin et que l'API accepte.
+    roles = [message["role"] for message in second.appels[0].messages]
+    assert roles == ["assistant", "user", "assistant", "user", "user"]
+    # Et la reprise est bien celle qui précède le message du client : c'est elle qui rend
+    # le premier tour relisible par `prose.py`, et sa présence ici est ce qui distingue un
+    # historique valide d'un historique valide **et** honnête.
+    assert "monitor-00000000ff" in _dernier_bloc_de_reprise(issue)
+    verifier_appairage([*issue.tours, *suite.tours])

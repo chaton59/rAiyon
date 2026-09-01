@@ -38,7 +38,7 @@ message qui dit quoi faire, jamais en échec silencieux.
 
 | suite | tests | ce qu'elle exige |
 | --- | --- | --- |
-| `make check` — la totalité de la part pure | **713** en 5,9 s | rien : ni base, ni conteneur, ni clé API |
+| `make check` — la totalité de la part pure | **720** en 6,0 s | rien : ni base, ni conteneur, ni clé API |
 | `make test-int` | **84** | un Postgres joignable |
 
 ## Lancer une conversation
@@ -281,12 +281,19 @@ tour clos par un repli réapparaît sans sa réponse.
 L'interface l'écrit en toutes lettres au lieu de faire semblant. Fabriquer une carte
 produit à partir de rien serait exactement ce que ce projet interdit au modèle.
 
-⚠️ **Un texte refusé par le validateur ne revient pas non plus**, et c'est un correctif de
-cette étape. Le message fautif reste dans l'historique — il le faut, le grief qui suit le
-désigne — mais il était relu comme n'importe quelle prose : un `F5` affichait donc au
-client la phrase que le validateur lui avait précisément épargnée. La reconnaissance est
-exacte et non heuristique : un message assistant suivi d'un message de reprise est un
-message refusé.
+⚠️ **Un texte refusé par le validateur ne revient pas non plus.** Le message fautif reste
+dans l'historique — il le faut, le grief qui suit le désigne — mais il était relu comme
+n'importe quelle prose : un `F5` affichait donc au client la phrase que le validateur lui
+avait précisément épargnée. La reconnaissance est exacte et non heuristique : un message
+assistant suivi d'un message de reprise est un message refusé, et `boucle.py` garantit
+qu'un message refusé est **toujours** suivi d'une reprise — sur les quatre chemins, y
+compris les deux qui abandonnent faute de budget de régénération.
+
+**Ce que cela donne sur un tour clos par un repli** : le client a lu un texte écrit en
+Python, qui n'est pas persisté ; les tentatives du modèle ont toutes été refusées, et
+aucune ne revient. Un tel tour réapparaît donc comme un message client **seul**. C'est
+laid, et c'est juste — avant, le rechargement montrait exactement l'inverse de ce qui
+s'était passé.
 
 ### La saisie est verrouillée pendant un tour
 
