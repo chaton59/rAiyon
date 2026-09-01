@@ -46,6 +46,23 @@ class SessionCreee(BaseModel):
     id: uuid.UUID
 
 
+class ErreurExposee(BaseModel):
+    """Un échec porteur d'un `CodeErreur`, **à plat** — la même forme que l'événement
+    `error` du fil.
+
+    Elle n'existe que pour être la même des deux côtés de la ligne de partage de
+    l'arbitrage E : avant le premier octet, c'est le corps d'un **409** ; après, c'est la
+    charge utile d'un `error`. `HTTPException` emballe son `detail`, donc sans elle le
+    front porterait **deux** lecteurs d'erreur pour un seul vocabulaire — et la promesse
+    écrite dans la docstring de `CodeErreur` serait fausse.
+
+    Le 404 et le 422 gardent la forme de FastAPI : ils ne portent pas de `CodeErreur`.
+    """
+
+    code: str
+    message: str
+
+
 class EtatExpose(BaseModel):
     """Ce que le code a compris du besoin, lu par `depuis_jsonb()` et **pas reconstruit**.
 
@@ -60,6 +77,10 @@ class EtatExpose(BaseModel):
     """Chaîne, comme partout : un flottant JSON perdrait des décimales sur un montant."""
 
     optimisation: str
+    libelle_optimisation: str
+    """Le français du jeton, pour la même raison que `libelle_categorie` : le front ne
+    doit pas avoir de table de traduction à lui (arbitrage H). Les deux voyagent
+    ensemble — le jeton se compare, le libellé s'affiche."""
 
 
 class ParoleExposee(BaseModel):

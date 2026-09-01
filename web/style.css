@@ -1,0 +1,558 @@
+/*
+ * Tout le style de l'interface. **Aucune classe n'est inventée par le JavaScript qui
+ * n'existe pas ici** — `rendu.js` ne pose que les classes déclarées dans ce fichier.
+ *
+ * Deux colonnes : la conversation à gauche, le panneau « ce que le code a compris » à
+ * droite. Sous 900 px, elles s'empilent — le panneau passe alors en premier, parce que
+ * c'est lui qui rend l'architecture visible et qu'il ne doit pas se retrouver sous cinq
+ * écrans de conversation.
+ */
+
+:root {
+    --fond: #101418;
+    --fond-2: #161c22;
+    --fond-3: #1c2228;
+    --trait: #262e36;
+    --texte: #e6e9ec;
+    --doux: #97a2ac;
+    --accent: #6fb3e0;
+    --alerte: #e0a34a;
+    --refus: #e07a5f;
+    --rayon: 8px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--fond);
+    color: var(--texte);
+    font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.invisible {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+/* --------------------------------------------------------------------------- */
+/* L'en-tête                                                                    */
+/* --------------------------------------------------------------------------- */
+
+.entete {
+    padding: 1rem 1.5rem 0.75rem;
+    border-bottom: 1px solid var(--trait);
+}
+
+.entete h1 {
+    margin: 0;
+    font-size: 1.15rem;
+    letter-spacing: 0.02em;
+}
+
+.promesse {
+    margin: 0.35rem 0 0;
+    max-width: 62ch;
+    color: var(--doux);
+    font-size: 0.87rem;
+}
+
+.promesse strong {
+    color: var(--texte);
+}
+
+.session {
+    margin: 0.5rem 0 0;
+    font-size: 0.78rem;
+    color: var(--doux);
+}
+
+.session code {
+    background: var(--fond-3);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.4rem;
+    user-select: all;
+}
+
+/* --------------------------------------------------------------------------- */
+/* La grille                                                                    */
+/* --------------------------------------------------------------------------- */
+
+main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 22rem;
+    gap: 0;
+}
+
+.conversation {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--trait);
+}
+
+.panneau {
+    overflow-y: auto;
+    padding: 1rem 1.25rem 2rem;
+    background: var(--fond-2);
+}
+
+@media (max-width: 900px) {
+    main {
+        grid-template-columns: 1fr;
+    }
+
+    .panneau {
+        order: -1;
+        border-bottom: 1px solid var(--trait);
+    }
+
+    .conversation {
+        border-right: none;
+    }
+
+    .fil {
+        max-height: 60vh;
+    }
+}
+
+/* --------------------------------------------------------------------------- */
+/* Le fil de conversation                                                       */
+/* --------------------------------------------------------------------------- */
+
+.fil {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.fil:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.vide {
+    margin: 0;
+    color: var(--doux);
+    font-size: 0.87rem;
+    max-width: 46ch;
+}
+
+.parole {
+    max-width: 46rem;
+}
+
+.parole .qui {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--doux);
+    margin-bottom: 0.2rem;
+}
+
+.parole .texte {
+    margin: 0;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--rayon);
+    background: var(--fond-3);
+    white-space: normal;
+}
+
+.parole.client {
+    align-self: flex-end;
+    text-align: right;
+}
+
+.parole.client .texte {
+    background: #223140;
+}
+
+.parole.repli .texte {
+    border-left: 3px solid var(--alerte);
+}
+
+.parole .mention {
+    margin: 0.25rem 0 0;
+    font-size: 0.72rem;
+    color: var(--alerte);
+}
+
+.incident {
+    margin: 0;
+    padding: 0.6rem 0.9rem;
+    border-radius: var(--rayon);
+    border: 1px solid var(--refus);
+    color: var(--refus);
+    font-size: 0.87rem;
+}
+
+.avis {
+    margin: 0;
+    padding: 0.6rem 1.5rem;
+    border-top: 1px solid var(--trait);
+    background: var(--fond-2);
+    color: var(--doux);
+    font-size: 0.8rem;
+}
+
+.avis p {
+    margin: 0.25rem 0;
+    max-width: 80ch;
+}
+
+/* --------------------------------------------------------------------------- */
+/* Les cartes produits — dans le fil, pas dans le panneau (arbitrage C)         */
+/* --------------------------------------------------------------------------- */
+
+.resultats {
+    border-left: 2px solid var(--accent);
+    padding-left: 0.9rem;
+}
+
+.resultats .compte {
+    margin: 0 0 0.6rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--doux);
+}
+
+.grille {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.7rem;
+    margin-bottom: 0.8rem;
+}
+
+.carte {
+    background: var(--fond-3);
+    border: 1px solid var(--trait);
+    border-radius: var(--rayon);
+    padding: 0.7rem 0.8rem;
+}
+
+.carte.hors-budget {
+    border-color: var(--alerte);
+}
+
+.carte header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.6rem;
+}
+
+.carte h3 {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.carte .prix {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--accent);
+}
+
+.carte .ecart {
+    margin: 0.25rem 0 0;
+    font-size: 0.75rem;
+    color: var(--alerte);
+}
+
+.carte .specs {
+    margin: 0.5rem 0 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.1rem 0.6rem;
+    font-size: 0.76rem;
+}
+
+.carte .specs dt {
+    color: var(--doux);
+}
+
+.carte .specs dd {
+    margin: 0;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.carte .identifiant {
+    margin: 0.55rem 0 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.68rem;
+    color: var(--doux);
+}
+
+/* Le zéro résultat — critère d'acceptation nº6 */
+.diagnostic {
+    border: 1px solid var(--alerte);
+    border-radius: var(--rayon);
+    padding: 0.6rem 0.8rem;
+    font-size: 0.83rem;
+}
+
+.diagnostic .motif {
+    margin: 0 0 0.4rem;
+    color: var(--alerte);
+}
+
+.diagnostic ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--doux);
+}
+
+/* --------------------------------------------------------------------------- */
+/* Le mode coulisses — un texte refusé par le validateur                        */
+/* --------------------------------------------------------------------------- */
+
+.rejet {
+    border: 1px dashed var(--refus);
+    border-radius: var(--rayon);
+    padding: 0.6rem 0.8rem;
+    font-size: 0.8rem;
+}
+
+.rejet .tete {
+    margin: 0 0 0.5rem;
+    color: var(--refus);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.7rem;
+}
+
+.grief + .grief {
+    margin-top: 0.6rem;
+    border-top: 1px solid var(--trait);
+    padding-top: 0.6rem;
+}
+
+.grief .code {
+    display: inline-block;
+    background: var(--fond-3);
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+    color: var(--refus);
+    font-size: 0.75rem;
+}
+
+.grief .extrait {
+    display: inline-block;
+    margin-left: 0.4rem;
+    color: var(--texte);
+}
+
+.grief .correction {
+    margin: 0.25rem 0 0;
+    color: var(--doux);
+}
+
+/* --------------------------------------------------------------------------- */
+/* L'attente et la saisie                                                       */
+/* --------------------------------------------------------------------------- */
+
+.activite {
+    margin: 0;
+    padding: 0.5rem 1.5rem;
+    border-top: 1px solid var(--trait);
+    color: var(--accent);
+    font-size: 0.8rem;
+}
+
+.saisie {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.85rem 1.5rem 1.1rem;
+    border-top: 1px solid var(--trait);
+}
+
+.saisie input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--rayon);
+    border: 1px solid var(--trait);
+    background: var(--fond-3);
+    color: var(--texte);
+    font: inherit;
+}
+
+.saisie input:focus-visible {
+    outline: 1px solid var(--accent);
+}
+
+.saisie button {
+    padding: 0.6rem 1.1rem;
+    border-radius: var(--rayon);
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+}
+
+.saisie button:hover:not(:disabled) {
+    background: rgba(111, 179, 224, 0.12);
+}
+
+.saisie input:disabled,
+.saisie button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------- */
+/* Le panneau                                                                   */
+/* --------------------------------------------------------------------------- */
+
+.bloc + .bloc {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--trait);
+}
+
+.bloc h2 {
+    margin: 0 0 0.7rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--doux);
+    font-weight: 600;
+}
+
+.categorie {
+    margin: 0 0 0.6rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.criteres,
+.chiffres {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.83rem;
+}
+
+.criteres li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid var(--trait);
+}
+
+.criteres .valeur {
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+.criteres .libelle {
+    flex: 1;
+    min-width: 0;
+}
+
+.importance {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+    border: 1px solid var(--trait);
+    color: var(--doux);
+}
+
+.importance.bloquant {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.chiffres {
+    margin-top: 0.6rem;
+    color: var(--doux);
+}
+
+.chiffres li {
+    padding: 0.12rem 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.refus {
+    margin: 0.7rem 0 0;
+    padding: 0.4rem 0.55rem;
+    border-left: 2px solid var(--alerte);
+    background: var(--fond-3);
+    font-size: 0.78rem;
+    color: var(--alerte);
+}
+
+.distribution,
+.suggestion {
+    margin-top: 0.9rem;
+    font-size: 0.78rem;
+}
+
+.distribution .tete,
+.suggestion .tete {
+    margin: 0 0 0.3rem;
+    color: var(--texte);
+}
+
+.distribution ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    color: var(--doux);
+    font-variant-numeric: tabular-nums;
+}
+
+.distribution .tronque {
+    color: var(--accent);
+}
+
+.suggestion .mention {
+    margin: 0.2rem 0 0;
+    color: var(--doux);
+}
+
+/* L'interrupteur — fermé au chargement, et il ne se persiste pas */
+.interrupteur label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.interrupteur input {
+    accent-color: var(--accent);
+    width: 1rem;
+    height: 1rem;
+}
+
+.aide {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    color: var(--doux);
+}

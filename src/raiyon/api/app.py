@@ -49,6 +49,12 @@ ci-dessous.
 → `409`. Ces trois cas sont décidés dans le corps de l'endpoint, donc avant que
 `StreamingResponse` n'ait écrit quoi que ce soit.
 
+⚠️ **Le 409 sort à plat, comme l'événement `error`** : `{"code", "message"}`, et non le
+`{"detail": {...}}` qu'`HTTPException` produit seul. `ErreurDeLApi` et son gestionnaire
+existent pour cela et pour rien d'autre — sans eux, le front porterait deux lecteurs
+d'erreur pour un vocabulaire unique. Le 404 et le 422 gardent leur forme FastAPI : ils ne
+portent pas de `CodeErreur`.
+
 **Après** — il n'existe plus de code HTTP à changer. Toute exception devient un événement
 `error`, suivi de la fermeture du flux.
 
@@ -115,7 +121,7 @@ from typing import Annotated, Any, cast
 
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -134,6 +140,7 @@ from raiyon.agent.session import (
 )
 from raiyon.api.prose import prose_de
 from raiyon.api.schemas import (
+    ErreurExposee,
     EtatExpose,
     MessageEntrant,
     ParoleExposee,
@@ -144,7 +151,9 @@ from raiyon.api.schemas import (
 )
 from raiyon.api.serialisation import (
     CodeErreur,
+    charge_derreur,
     criteres_serialises,
+    optimisation_serialisee,
     trame_de,
     trame_de_fin,
     trame_derreur,
@@ -184,6 +193,29 @@ MESSAGE_INTERNE = (
 """⚠️ Écrit **pour le client**, en français, et sans le `str()` de l'exception : une trace
 SQLAlchemy sur une page web est une fuite (arbitrage E). Il dit aussi ce que l'atomicité
 garantit — rien n'a été écrit — donc que renvoyer le message est sans risque."""
+
+
+class ErreurDeLApi(HTTPException):
+    """Une erreur **porteuse d'un `CodeErreur`**, rendue à plat par son gestionnaire.
+
+    `HTTPException` emballe son `detail` : lever `HTTPException(409, {"code", "message"})`
+    produit `{"detail": {"code", "message"}}` alors que l'événement `error` du fil rend
+    `{"code", "message"}`. Le front porterait donc **deux lecteurs d'erreur** pour un seul
+    vocabulaire, et la promesse de `CodeErreur` — « le même message quel que soit le chemin
+    par lequel l'échec arrive » — serait fausse au premier 409 affiché.
+
+    Le `detail` est renseigné quand même : c'est lui que lisent les outils qui ne
+    connaissent pas ce type — Starlette, un log, un `raise` re-attrapé ailleurs.
+
+    ⚠️ **Le 404 et le 422 ne passent pas par ici**, et c'est délibéré : ils ne portent pas
+    de `CodeErreur`, et leur en inventer un pour uniformiser une clé ajouterait au
+    vocabulaire fermé deux valeurs qui ne diraient rien de plus que le code HTTP.
+    """
+
+    def __init__(self, status_code: int, code: CodeErreur, message: str) -> None:
+        super().__init__(status_code, charge_derreur(code, message))
+        self.code = code
+        self.message = message
 
 
 # --------------------------------------------------------------------------- #
@@ -237,6 +269,19 @@ app = FastAPI(
 )
 
 
+@app.exception_handler(ErreurDeLApi)
+async def rendre_a_plat(_: Request, erreur: ErreurDeLApi) -> JSONResponse:
+    """La même charge utile que l'événement `error` : `{code, message}`, sans `detail`.
+
+    Starlette cherche un gestionnaire en remontant le `__mro__` de l'exception : celui-ci
+    l'emporte sur celui d'`HTTPException`, qui continue de servir le 404.
+    """
+    return JSONResponse(
+        status_code=erreur.status_code,
+        content=charge_derreur(erreur.code, erreur.message),
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Les dépendances — trois portes, pour que les tests n'aient qu'à en pousser deux
 # --------------------------------------------------------------------------- #
@@ -286,7 +331,10 @@ def ouvrir_une_session(fabrique: Fabrique) -> SessionCreee:
     return SessionCreee(id=identifiant)
 
 
-@app.post("/sessions/{identifiant}/messages")
+@app.post(
+    "/sessions/{identifiant}/messages",
+    responses={status.HTTP_409_CONFLICT: {"model": ErreurExposee}},
+)
 def poster_un_message(
     identifiant: uuid.UUID,
     corps: MessageEntrant,
@@ -330,9 +378,8 @@ def poster_un_message(
     if not verrouiller_le_tour(base, identifiant):
         base.rollback()
         base.close()
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            {"code": CodeErreur.TOUR_EN_COURS.value, "message": MESSAGE_TOUR_EN_COURS},
+        raise ErreurDeLApi(
+            status.HTTP_409_CONFLICT, CodeErreur.TOUR_EN_COURS, MESSAGE_TOUR_EN_COURS
         )
 
     return StreamingResponse(
@@ -376,7 +423,7 @@ def relire_une_session(identifiant: uuid.UUID, fabrique: Fabrique) -> SessionExp
                 else criteres_serialises(categorie, etat.criteres_de(categorie))
             ),
             budget_usd=None if etat.budget_usd is None else str(etat.budget_usd),
-            optimisation=etat.optimisation.value,
+            **optimisation_serialisee(etat.optimisation),
         ),
         prose=[
             ParoleExposee(interlocuteur=parole.interlocuteur.value, texte=parole.texte)

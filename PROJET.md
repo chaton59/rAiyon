@@ -689,6 +689,38 @@ redémarrage, autorise le multi-worker, coûte une trentaine de lignes.
 > **Tout `Decimal` voyage en chaîne**, comme dans `en_tool_result()` : un flottant JSON
 > perdrait des décimales sur un prix, et §2 se joue au caractère près.
 
+> **Amendement de l'étape 11 — l'arbitrage H ne couvrait que les champs, et il fallait un
+> consommateur qui affiche tout pour s'en apercevoir.**
+>
+> « Le français du fil est dérivé du registre » avait été appliqué aux **champs** :
+> `libelle_fr` et `unite` à côté de chacun. Il ne l'avait pas été aux **valeurs
+> d'énumération**, parce qu'aucun consommateur n'en affichait au client — la console n'en
+> montre aucune. La première conversation menée dans le navigateur a mis
+> `optimisation : rapport_qualite_prix` dans un panneau, et le zéro résultat aurait affiché
+> `critere_trop_strict`, là où le critère d'acceptation nº6 demande « le cas zéro résultat
+> **rendu lisible** ».
+>
+> Trois tables `LIBELLES_*` rejoignent donc leurs énumérations, du côté Python — même geste
+> que `LIBELLES_CATEGORIE`, et pour la même raison :
+>
+> | valeur | où vit son français | ce que le fil ajoute |
+> |---|---|---|
+> | `Optimisation` | `matching/criteres.py` | `libelle_optimisation` |
+> | `Motif` (zéro résultat) | `matching/relachement.py` | `libelle_motif` |
+> | `MotifDeRepli` | `agent/evenements.py` | `libelle_motif` |
+>
+> **Le jeton reste à côté du libellé** : le front compare le premier (`!== "aucune"`) et
+> affiche le second. Rendre l'un sans l'autre l'obligerait soit à comparer une phrase
+> française, soit à la fabriquer. Un test vérifie l'**exhaustivité** de chaque table — un
+> membre sans libellé lèverait un `KeyError` au milieu d'un flux, c'est-à-dire un tour
+> perdu, appel API compris, pour un mot d'affichage.
+>
+> **Trois valeurs n'ont délibérément pas de libellé.** `importance` (« souhait »,
+> « important », « bloquant ») est déjà du français ; le `code` d'un grief et l'`origine`
+> d'un rejet sont des identifiants qui ne s'affichent qu'en mode coulisses, où c'est
+> précisément le jeton qu'on vient lire. `operateur` est rendu par un **symbole** (`≥`, `≤`)
+> et non par du français — `scripts/console.py` fait le même geste depuis l'étape 8.
+
 ### 3.13 — Modèles
 
 | Usage | Modèle | Raison |
@@ -2584,18 +2616,227 @@ tracer s'effondre.
 
 ---
 
-### Étape 11 — Interface web
+### Étape 11 — Interface web ✅
 
-Chat, panneau latéral « ce que j'ai compris » alimenté par `criteria_updated`,
-cartes produits alimentées par `products_found`, indicateur d'activité sur
-`catalog_probe`.
+Chat, panneau latéral « ce que j'ai compris » alimenté par `criteria_updated`, cartes
+produits alimentées par `products_found`, indicateur d'activité, et un **mode coulisses**
+qui montre les textes refusés par le validateur.
 
-**Porte de sortie :** une conversation complète dans le navigateur, où l'on voit
-les critères se remplir au fil du dialogue.
+**Porte de sortie franchie :** une conversation de quatre tours menée dans le navigateur
+sur le catalogue réel. Les critères se remplissent au fil du dialogue ; un rejet du
+validateur (`nom_reecrit` — le modèle avait écrit « MAG 274CQF » là où le catalogue dit
+« MSI MAG 274CQF ») est apparu **spontanément** au premier tour et s'est affiché en mode
+coulisses avec son grief ; un zéro résultat (360 Hz + IPS + 4K sous 400 $) a rendu son
+diagnostic et sa proposition de relâchement ; deux mouvements de desserrage refusés se
+sont affichés au panneau ; un `F5` a retrouvé la session par son fragment d'URL en disant
+ce qu'il ne rejouait pas ; un second onglet sur la même URL a reçu son `409` en français,
+saisie réactivée.
 
-C'est le moment où le projet devient démontrable. C'est aussi, en portfolio, ce
-qui fait le plus d'effet pour le moins d'effort : le panneau latéral rend
-l'architecture visible.
+**Mesure : 713 tests purs en 5,9 s, 84 d'intégration** — 36 purs écrits ici, **aucun
+d'intégration**. Le ratio pur/intégration remonte de 8,1:1 à **8,5:1**, ce qui n'était pas
+prévu : voir « ce que l'étape a appris ».
+
+#### Ce que l'étape a livré
+
+```
+web/
+    index.html   # la structure, deux colonnes, aucun script en ligne
+    style.css    # tout le style
+    flux.js      # fetch + ReadableStream -> événements typés — jamais de DOM
+    etat.js      # le réducteur : un événement, un état — jamais de DOM
+    rendu.js     # état -> DOM, textContent uniquement — jamais de réseau
+    app.js       # câblage : saisie, fragment d'URL, verrouillage, coulisses
+tests/api/
+    test_cadrage_sse.py   # le contrat du producteur — purs
+```
+
+`flux.js` et `etat.js` ne touchent jamais au DOM ; `rendu.js` ne parle jamais au réseau.
+C'est la même séparation que `serialisation.py` / `app.py` côté serveur, et elle sert la
+même chose : **ce qui peut casser en silence vit dans un module qu'on peut lire seul.**
+
+Et le jalon 0, qui n'est pas du front : le corps du `409` **aplati** (`ErreurDeLApi` +
+son gestionnaire), et la ligne de §7 sur le verrou tenu jusqu'au GC.
+
+#### Les neuf arbitrages
+
+**A — Vanilla, modules ES, aucun build.** Du JavaScript natif en `<script type="module">`,
+servi tel quel par `StaticFiles`. Pas de `package.json`, pas de `node_modules`, pas
+d'étape de compilation, pas de second serveur : `make api` reste la seule commande.
+*Alternative écartée — Vite + React* : un point de plus sur un CV, et un coût réel — un
+build à lancer avant `make api`, un serveur de développement séparé qui **rouvre le CORS
+que l'étape 10 venait de fermer** (arbitrage L), et un dépôt bilingue. L'étape 11 est la
+plus courte du plan ; ce choix en aurait fait la plus longue. *Alternative écartée —
+Preact + htm vendorés* : le rendu déclaratif sans build, écartée pour deux dépendances
+JavaScript à justifier dans un projet qui n'en a aucune. **Conséquence assumée** : le
+rendu s'écrit à la main — le fil est ajouté entrée par entrée sur une clé stable, le
+panneau est refait en entier. Un rendu par événement, ciblé, suffit ; il n'y a pas de
+micro-framework ici, et c'était la tentation à laquelle il ne fallait pas céder.
+
+**B — `textContent`, jamais `innerHTML`.** *On ne fait pas confiance au modèle pour les
+faits ; on ne lui fait pas davantage confiance pour le HTML.* Toute chaîne venue du fil —
+prose, question, nom de produit, extrait de grief — entre dans le DOM par `textContent` ou
+`createTextNode`, sans exception, y compris pour un nom de produit qui « ne peut pas »
+contenir de balise. Le modèle produit du markdown ; le front en interprète **deux formes
+et pas une de plus** — le gras `**…**` et les sauts de ligne — construites en **nœuds
+DOM**, jamais en chaîne de HTML assemblée puis injectée. Trente lignes qui ne peuvent
+structurellement pas ouvrir d'injection. Le reste du markdown s'affiche tel quel : **c'est
+le prompt qu'on corrigera à l'étape 13, pas le front qu'on armera d'un parseur.** Reporté
+au §7.
+
+**C — Les cartes produits vivent dans le fil, pas dans le panneau.** `products_found`
+arrive **avant** la prose qui le commente. Poser les cartes dans le flux de conversation, à
+l'endroit où elles arrivent, rend visible l'ordre réel : le code a trouvé, puis le modèle a
+écrit à propos de ce qu'on lui a donné. C'est §2 rendu observable sans une ligne
+d'explication. *Alternative écartée — les cartes dans le panneau* : le panneau resterait le
+seul endroit « technique » et le chat le seul endroit « produit », ce qui casse la
+chronologie — précisément ce qu'on veut montrer. Le panneau porte donc **ce que le code a
+compris** et l'activité, jamais les résultats.
+
+**D — L'attente est affichée, pas masquée.** Entre le dernier événement d'outil et le
+`message`, le validateur relit la réponse ; mesuré en démonstration, l'écart est de
+**douze secondes** sur un tour de vingt-deux. Le front dit ce qu'il attend — « vérification
+de la réponse… » — plutôt qu'un sablier générique. C'est la seule chose qui bouge à ce
+moment-là, et c'est ce que l'arbitrage A de l'étape 9 a acheté. ⚠️ **L'indicateur reflète
+le dernier événement reçu, et rien d'autre** : pas d'étape « connexion », pas de barre de
+progression. Inventer une progression que le fil ne dit pas serait, à l'échelle de
+l'interface, exactement ce que le projet interdit au modèle.
+
+**E — Le mode coulisses, interrupteur dans le panneau.** Fermé : l'interface d'un produit —
+`text_rejected`, `suggested_question` et le détail des distributions n'y sont pas, un
+client n'ayant rien à faire des reprises internes. Ouvert : c'est le `--trace` de la
+console porté au navigateur, et c'est la démonstration qu'on montre en entretien.
+L'interrupteur **ne se persiste pas** : une page rechargée repart en mode produit, celui
+qu'un visiteur doit voir en premier. ⚠️ **Les événements masqués sont reçus et conservés,
+pas jetés** — le réducteur les range, c'est le rendu qui décide. Basculer au milieu d'une
+conversation affiche ce qui s'est déjà passé ; un mode qui ne montrerait que la suite
+obligerait à refaire la conversation pour voir le rejet qu'on vient de rater.
+
+**F — L'identifiant de session vit dans le fragment d'URL.** `#<uuid>` : un rechargement
+retrouve la conversation, l'URL se copie et se recolle, et l'identifiant est **visible** —
+un atout de démonstration, pas un détail. *Alternative écartée — `localStorage`* :
+invisible, non partageable, et elle rend la seconde conversation impossible sans vider le
+stockage. Au chargement, fragment présent → `GET /sessions/{id}` ; absent → **aucun appel**,
+la session n'est créée qu'au premier message. ⚠️ Un `GET` sur une session inconnue rend
+404 : le front repart sur une conversation neuve **en le disant**, plutôt qu'une page vide
+dont personne ne comprendrait la cause.
+
+**G — Ce que la réhydratation perd doit se voir.** `GET /sessions/{id}` rend l'état et la
+prose, jamais les événements (arbitrage J de l'étape 10) : une conversation rechargée n'a
+ni cartes produits ni panneau d'activité. Elle perd davantage — les messages de repli ne
+sont pas persistés (§7) — donc un tour clos par un `fallback` réapparaît **sans sa
+réponse**. L'interface ne fait pas semblant : la conversation reprise est marquée comme
+telle. Inventer une carte produit à partir de rien serait exactement ce que ce projet
+interdit au modèle.
+
+**H — La saisie est verrouillée pendant un tour.** Un seul tour à la fois par session
+(arbitrage D de l'étape 10) : champ et bouton désactivés dès l'envoi, réactivés sur `done`,
+sur `error`, ou sur un échec réseau. `done` est émis **après** que le tour a été persisté —
+la boucle `for` du générateur épuise `session.tour()`, qui commite avant de rendre la
+main — donc il signifie « enregistré » et non seulement « fini », et rouvrir la saisie à ce
+moment-là est sans réserve. Le 409 reste traité : il arrive quand **deux onglets** partagent
+la même URL, ce que le verrouillage local ne peut pas empêcher.
+
+**I — Rien n'est testé en JavaScript, et le contrat l'est en Python.** Aucune dépendance
+nouvelle, `make check` inchangé. `test_cadrage_sse.py` vérifie les trois propriétés du
+producteur dont dépend le parseur, et rejoue un tour complet sous quatre découpages
+d'octets. *Alternative écartée — Playwright de bout en bout* : une dépendance, des
+navigateurs à installer, un serveur à lancer en test, et surtout `make check` perdrait la
+propriété qui fait sa valeur — tourner sans base, sans conteneur et sans clé. Ce que cela
+laisse à découvert est écrit au §7 plutôt que masqué.
+
+#### Ce que l'étape a appris, et qui n'était pas prévu
+
+**1 — Un texte refusé par le validateur revenait au client par la porte du rechargement.
+C'est une brèche dans §2, et il a fallu une interface pour la voir.** Le message fautif est
+persisté — il le faut, le grief qui suit le désigne, et l'en retirer casserait l'appairage
+des `tool_result`. Mais `prose_de()` le relisait comme n'importe quelle prose : en direct
+le validateur tenait §2, **après un `F5` il ne le tenait plus**. La même conversation, relue,
+affichait la phrase que le code avait justement empêchée.
+
+Pire : un test l'affirmait explicitement, et son nom disait sa conclusion —
+`test_le_texte_refuse_reste_dans_la_prose_parce_quil_reste_dans_lhistorique`. Sa prémisse
+était juste (le message doit rester dans l'historique), sa conclusion ne suivait pas
+(rester dans l'historique n'est pas partir au client). **Un test vert qui documente un
+défaut est plus difficile à voir qu'un test absent.**
+
+Le correctif est exact et non heuristique : `boucle.py` fait toujours suivre un message
+refusé d'un message de reprise, donc un message assistant suivi d'une reprise est un
+message refusé. Le message **entier** est écarté, texte compris, et le sens de l'erreur est
+choisi : sur le chemin où c'est la *question* d'`ask_clarification` qui est refusée, le
+texte du même message avait été validé et affiché, et les deux chemins laissent la même
+trace. **On perd une phrase que le client avait vue plutôt que d'en afficher une qu'il
+n'aurait jamais dû voir.**
+
+**2 — Le fil portait des jetons d'énumération là où il fallait du français, et personne ne
+l'avait vu parce que personne ne les affichait.** L'arbitrage H de l'étape 10 — « le
+français du fil est dérivé du registre, jamais inventé par le front » — avait été appliqué
+aux **champs** : `libelle_fr` et `unite` partout. Il n'avait pas été appliqué aux **valeurs
+d'énumération**, parce que la console n'en affiche aucune au client. La première
+conversation dans le navigateur a mis `optimisation : rapport_qualite_prix` dans un panneau,
+et le zéro résultat aurait affiché `critere_trop_strict` — c'est-à-dire un identifiant
+montré faute de mieux, là où le critère d'acceptation nº6 demande « le cas zéro résultat
+rendu lisible ».
+
+Les deux issues étaient : une table de traduction dans le JavaScript, ou trois tables
+`LIBELLES_*` à côté de leurs énumérations. La première rendait fausse §3.4ter au moment
+précis où elle devenait visible. Le fil porte donc désormais `libelle_optimisation` et
+`libelle_motif` à côté de leurs jetons — le jeton se compare, le libellé s'affiche — et un
+test vérifie l'**exhaustivité** de chaque table, un membre sans libellé levant un
+`KeyError` au milieu d'un flux, c'est-à-dire un tour perdu pour un mot d'affichage.
+
+**Ce que ça dit du geste de l'étape 10** : une règle appliquée à ce qu'on affichait déjà
+n'est pas une règle appliquée. Il aura fallu le premier consommateur qui affiche *tout*
+pour découvrir où elle s'arrêtait.
+
+**3 — Le ratio pur/intégration remonte, et c'est la première étape où il remonte.** De
+8,1:1 à 8,5:1, avec **36 tests purs et zéro test d'intégration**. La raison est exactement
+inverse de celle de l'étape 10 : là-bas, trois propriétés (verrou inter-connexion, commit
+qui relâche, transaction avortée) ne se voyaient pas sans un vrai Postgres ; ici, ce qui
+pouvait casser en silence est un **format** — le cadrage d'une trame, sa recomposition sous
+un découpage arbitraire — et un format se teste sans rien brancher.
+
+**4 — L'attente que l'arbitrage A de l'étape 9 avait achetée est mesurable, et elle est
+longue.** Sur le premier tour observé : événements d'outils à 6,2 s et 9,8 s, prose à
+21,7 s. **Douze secondes** pendant lesquelles le panneau et les cartes sont déjà remplis et
+la prose ne l'est pas. Ce n'est pas un défaut à masquer — c'est l'architecture qui se voit :
+si le texte était streamé, il n'y aurait rien à montrer dans cet intervalle *et* la
+vérification n'aurait pas eu lieu.
+
+**5 — Le validateur s'est déclenché tout seul, au premier tour, pour la seconde étape
+consécutive.** À l'étape 10 c'était `montant_non_fourni` (« 230 $ ») ; ici c'est
+`nom_reecrit` — le modèle a écrit « MAG 274CQF » et « le LG » en reprenant des noms qu'il
+venait de citer correctement. Deux codes de grief différents, sur deux conversations de
+recette de quelques tours chacune. **La règle 3 n'est donc pas une précaution théorique**,
+et c'est aussi la première fois qu'on voit son grief avec sa correction dans une interface
+plutôt que dans un log.
+
+**6 — Le §3.12 disait vrai, et voici ce que ça a coûté.** « L'interface peut alors afficher
+un panneau *voici ce que j'ai compris de ton besoin* — c'est le meilleur rapport
+effet/effort du projet. » Mesuré en lignes de code (hors commentaires et lignes vides,
+comptées sur le dépôt) :
+
+| | lignes de code | total avec la documentation |
+|---|---|---|
+| `flux.js` — le parseur SSE | **95** | 211 |
+| `etat.js` — le réducteur | **81** | 170 |
+| `rendu.js` — tout le rendu | **304** | 507 |
+| `app.js` — le câblage | **94** | 180 |
+| dont **le panneau seul**, dans `rendu.js` | **106** | 140 |
+| `tests/api/test_cadrage_sse.py` | — | 455 |
+
+**Le panneau entier coûte 106 lignes** — critères avec leur libellé, leur unité et leur
+importance, budget, optimisation, mouvements refusés, activité du catalogue, distributions
+dépliées en coulisses. C'est donc vrai, et il faut ajouter ce que la phrase de cadrage ne
+disait pas : **il ne coûte 106 lignes que parce que trois étapes l'avaient payé d'avance.**
+L'événement `criteria_updated` existe depuis l'étape 8, ses libellés depuis l'étape 10, et
+l'étape 11 n'a eu qu'à les poser dans des `<li>`. Un panneau équivalent branché sur une API
+qui rendrait du texte libre aurait demandé de reparser la réponse du modèle — c'est-à-dire
+tout ce que §2 interdit.
+
+Ce qui a réellement coûté cher n'est pas le panneau : c'est le parseur SSE **avec sa
+spécification testée** (95 lignes de JavaScript pour 455 lignes de test Python), et les
+deux défauts que la démonstration a révélés. Le rapport effet/effort du panneau est réel ;
+il n'est pas celui de l'étape.
 
 ---
 
@@ -2718,6 +2959,9 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Les messages de repli ne sont pas persistés : une conversation rechargée les perd** | Faible aujourd'hui, visible à l'étape 11 | `Repli` est émis par la boucle mais n'entre pas dans `IssueDuTour.tours` — c'est du texte écrit en Python, que le modèle n'a jamais produit. `GET /sessions/{id}` relit la prose depuis les blocs (étape 10, arbitrage J) : un tour clos par un repli réapparaît donc **sans sa réponse** après un F5. Le correctif serait de persister ce message comme un tour assistant — mais il l'injecterait alors dans l'historique relu, donc dans ce que le modèle voit au tour suivant, et le modèle se lirait affirmer une phrase qu'il n'a pas écrite. C'est une décision de l'étape 11 si elle en a besoin, pas un effet de bord à prendre au passage |
 | **Aucun heartbeat sur le flux SSE** | Nulle en local, certaine derrière un proxy | Un générateur synchrone bloqué dans `messages.create()` ne peut rien intercaler : ni `: ping`, ni détection de déconnexion (étape 10, arbitrage C). Le silence réel est celui d'un tour sans appel d'outil — les événements d'outils tiennent la connexion vivante le reste du temps — et en démo locale comme en `curl`, l'effet est nul. **À rouvrir le jour d'un déploiement derrière un proxy qui coupe à 60 s d'inactivité** : la parade est nommée et chiffrée, un endpoint `async` drainant le générateur sync par une `queue.Queue`, soit une quarantaine de lignes de plomberie thread↔asyncio. Elle n'est pas écrite parce qu'aucun proxy n'est en jeu, et qu'elle ne protégerait de rien aujourd'hui |
 | **Le garde-fou de l'arbitrage F favorise légèrement les produits à données manquantes** | Faible, mais réelle et constatée | Un critère indisponible sort du calcul et les poids sont renormalisés : un produit incomplet a donc moins d'occasions de perdre des points. Atténuation : à score égal, celui dont **plus de critères ont été évalués** passe devant, et la trace expose `criteres_evalues` / `criteres_indisponibles`. L'atténuation ne supprime pas le biais — elle ne joue qu'à score **exactement** égal. Un écran sans `refresh_rate` déclaré peut donc devancer un écran à 120 Hz sur un souhait de 144 Hz, et c'est visible dans la démonstration de l'étape. Les deux alternatives (0, ou 0,5) sont pires : l'une punit l'absence, l'autre l'invente |
+| **Le verrou de tour reste tenu si le générateur SSE n'est jamais démarré** | Faible — fenêtre étroite, et le défaut s'auto-guérit | Le verrou est pris dans l'endpoint ; le `try/finally` qui le relâche vit dans le générateur. Or `_flux(...)` **construit** le générateur sans l'exécuter : tant que Starlette n'a pas appelé le premier `next()`, le `finally` n'existe pas. Si l'itération ne commence jamais — client déjà parti quand `http.response.start` est envoyé —, la `Session` reste ouverte, sa transaction non validée, et **le verrou tient jusqu'au ramasse-miettes**. Symptôme visible : un `409` « un tour est déjà en cours » sur une session où rien ne tourne, au renvoi d'une requête qui avait lâché. **La parade est nommée et non prise** : amorcer le générateur dans l'endpoint — un `next()` avant de rendre — pour entrer dans le `try` avant que Starlette n'itère. Elle coûte de rechaîner la première trame devant le reste du flux (`itertools.chain`), donc de compliquer le seul endroit du code qui doit rester lisible, et de déplacer le début du tour **avant** l'envoi des en-têtes — c'est-à-dire de rendre à nouveau possible une exception après la décision du code HTTP et avant le premier octet, exactement la ligne que l'arbitrage E trace. Le défaut, lui, se referme seul au GC, sa conséquence est un 409 qu'un renvoi résout, et aucun tour n'est perdu puisqu'aucun n'avait commencé |
+| **Le parseur SSE et le réducteur du front ne sont vérifiés par aucun test** | Moyenne — c'est le seul code du projet dans ce cas | `tests/api/test_cadrage_sse.py` prouve que **le serveur émet** des trames bien formées, sans saut de ligne brut, et recomposables sous un découpage arbitraire des octets (1, 7, 64, 4096). Il ne prouve **pas** que `flux.js` les recompose : un parseur JavaScript qui oublierait sa queue passerait toute cette suite au vert, et son symptôme — un événement perdu de temps en temps, donc **une carte produit qui manque une fois sur dix** — ne se verrait qu'en démonstration. L'atténuation est la **concentration, pas la couverture** : la logique tient dans deux modules nommés et sans DOM (`flux.js`, 95 lignes de code ; `etat.js`, 81), dont l'un **transcrit** un algorithme écrit et testé en Python. C'est une atténuation et non une preuve, et le dire ainsi vaut mieux que la fausse assurance qu'on aurait achetée autrement. *Alternative écartée — Playwright de bout en bout* : une dépendance, des navigateurs à installer, un serveur à lancer en test, et surtout `make check` perdrait la propriété qui fait sa valeur — tourner **sans base, sans conteneur, sans clé**. La porte de sortie serait littéralement automatisée, et elle cesserait de tourner |
+| **La prose du modèle contient du markdown que le front n'interprète qu'à moitié** | Faible — c'est de l'affichage, et le correctif est daté | Le modèle écrit `**gras**`, des listes numérotées, et des identifiants entre `` ` `` (« le `monitor-ee31fe1bb3` »). Le front rend **deux formes et pas une de plus** — le gras et les sauts de ligne — construites en nœuds DOM par une trentaine de lignes qui ne peuvent structurellement pas ouvrir d'injection (arbitrage B). Le reste s'affiche tel quel : les backticks sont visibles à l'écran, constaté en démonstration. **C'est le prompt qu'on corrigera à l'étape 13, pas le front qu'on armera d'un parseur.** Ajouter ici une dépendance markdown ferait porter au front la mise en forme d'un texte dont on maîtrise la production — et écrire un parseur markdown à la main rouvrirait exactement la surface d'injection que l'arbitrage B ferme. Le sens du correctif est donc : demander au prompt de ne produire que ce que le front rend, plutôt que de faire courir le front derrière ce que le prompt produit |
 
 ---
 

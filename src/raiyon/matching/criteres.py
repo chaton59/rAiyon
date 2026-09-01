@@ -92,6 +92,23 @@ class Optimisation(StrEnum):
     RAPPORT_QUALITE_PRIX = "rapport_qualite_prix"
 
 
+LIBELLES_OPTIMISATION: dict[Optimisation, str] = {
+    Optimisation.AUCUNE: "aucune",
+    Optimisation.MOINS_CHER: "le moins cher",
+    Optimisation.RAPPORT_QUALITE_PRIX: "le meilleur rapport qualité/prix",
+}
+"""Le français d'une valeur d'énumération, **du même côté que la valeur**.
+
+Même geste que `LIBELLES_CATEGORIE` : le fil porte le jeton *et* son libellé, et le front
+n'a aucune table de traduction à tenir (§3.4ter). Sans cela, l'étape 11 afficherait
+`rapport_qualite_prix` à un client, ou coderait « le meilleur rapport qualité/prix » dans
+du JavaScript — c'est-à-dire une seconde source de français, hors du dépôt Python.
+
+C'est de la **donnée** : aucune majuscule, aucun article superflu. La mise en forme est
+l'affaire du front.
+"""
+
+
 OPERATEURS_ADMIS: dict[Genre, frozenset[Operateur]] = {
     Genre.NUMERIQUE: frozenset(Operateur),
     Genre.ENUMERE: frozenset({Operateur.EGAL}),

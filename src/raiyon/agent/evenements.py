@@ -183,6 +183,18 @@ class MotifDeRepli(StrEnum):
     """Le texte a été refusé par le validateur, régénération comprise (étape 9)."""
 
 
+LIBELLES_MOTIF_DE_REPLI: dict[MotifDeRepli, str] = {
+    MotifDeRepli.MAX_ITERATIONS: "l'agent a atteint sa garde d'itérations",
+    MotifDeRepli.VALIDATION: "la réponse du modèle a été refusée par le validateur",
+}
+"""Le français d'un motif de repli, **du même côté que le motif**.
+
+Un repli est du texte écrit en Python, et l'interface le marque comme tel plutôt que de le
+faire passer pour une réponse du modèle. Dire pourquoi demande une phrase, et cette phrase
+vit ici — pas dans du JavaScript, qui en ferait une seconde source de français.
+"""
+
+
 @dataclass(frozen=True, slots=True)
 class Repli:
     """Le tour est clos par une phrase écrite en Python, et `motif` dit laquelle.

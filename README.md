@@ -38,7 +38,7 @@ message qui dit quoi faire, jamais en échec silencieux.
 
 | suite | tests | ce qu'elle exige |
 | --- | --- | --- |
-| `make check` — la totalité de la part pure | **677** en 5,2 s | rien : ni base, ni conteneur, ni clé API |
+| `make check` — la totalité de la part pure | **713** en 5,9 s | rien : ni base, ni conteneur, ni clé API |
 | `make test-int` | **84** | un Postgres joignable |
 
 ## Lancer une conversation
@@ -89,8 +89,9 @@ make api                               # http://127.0.0.1:8000 — Ctrl-C pour s
 ```
 
 Un seul processus sert l'API **et** l'interface web : pas de CORS à configurer, pas de
-second serveur de développement à lancer. `web/` porte pour l'instant un placeholder —
-l'interface est l'étape 11.
+second serveur de développement à lancer, **aucun `node_modules`**. `http://127.0.0.1:8000`
+ouvre l'interface ; le reste de cette section décrit le fil qu'elle consomme, et qui se lit
+aussi bien en `curl`.
 
 ```
 POST /sessions                    -> 201 {"id": "<uuid>"}
@@ -157,11 +158,12 @@ appartiennent à l'API.
 
 Trois choses qui ne se devinent pas en lisant cette table :
 
-- **Le français vient du registre d'attributs, pas du front.** Chaque champ voyage avec
-  son `libelle_fr` et son `unite`. Sans cela, l'interface coderait « fréquence de
-  rafraîchissement » en dur dans du JavaScript, et la règle « le français est du
-  vocabulaire dérivé, jamais recopié » cesserait d'être vraie au moment précis où elle
-  devient visible.
+- **Le français vient du code Python, pas du front.** Chaque champ voyage avec son
+  `libelle_fr` et son `unite` ; chaque valeur d'énumération que le client verra —
+  `optimisation`, le motif d'un zéro résultat, celui d'un repli — voyage avec son
+  `libelle_*`. Sans cela, l'interface coderait « fréquence de rafraîchissement » en dur
+  dans du JavaScript, et la règle « le français est du vocabulaire dérivé, jamais
+  recopié » cesserait d'être vraie au moment précis où elle devient visible.
 - **Tout montant est une chaîne** (`"129.99"`), jamais un nombre JSON : un flottant
   perdrait des décimales sur un prix, et ce projet compare des prix au caractère près.
 - **`done` est obligatoire.** Sans lui, l'interface ne pourrait pas distinguer « tour
@@ -194,6 +196,12 @@ transaction, pris sur la connexion qui écrira : un second tour concurrent reço
 `409` **avant le premier octet**, et le verrou tombe avec le commit de fin de tour. En
 mémoire, il aurait cessé de protéger dès `uvicorn --workers 2`, en silence.
 
+**Un échec se lit de la même façon des deux côtés du premier octet.** Le corps du `409`
+est `{"code", "message"}` — la charge utile exacte de l'événement `error` — et non le
+`{"detail": {…}}` qu'`HTTPException` produit seul : l'interface n'a qu'un lecteur
+d'erreur pour un seul vocabulaire. Le `404` et le `422` gardent la forme de FastAPI ; ils
+ne portent pas de code d'erreur, et leur en inventer un n'ajouterait rien au code HTTP.
+
 **Un tour est entier, ou il n'a pas eu lieu.** La session est écrite en une fois, à la
 fin. Une exception, une déconnexion ou un redémarrage n'écrivent **rien** — pas même le
 message du client. C'est assumé : un message client persisté sans sa réponse produirait,
@@ -205,6 +213,110 @@ et le tour suivant repart de là.
 
 **Aucun heartbeat.** Un générateur synchrone bloqué dans un appel au modèle ne peut rien
 intercaler. Sans effet en local ; à rouvrir derrière un proxy qui coupe sur inactivité.
+
+## L'interface
+
+`make api` puis `http://127.0.0.1:8000`. **Aucune commande de plus, aucune dépendance
+JavaScript, aucun build** : `web/` est du HTML, du CSS et quatre modules ES servis tels
+quels par le même processus que l'API.
+
+```
+web/
+    index.html   # la structure, deux colonnes, aucun script en ligne
+    style.css    # tout le style
+    flux.js      # fetch + ReadableStream -> événements typés — jamais de DOM
+    etat.js      # le réducteur : un événement, un état — jamais de DOM
+    rendu.js     # état -> DOM, textContent uniquement — jamais de réseau
+    app.js       # câblage : saisie, fragment d'URL, verrouillage, coulisses
+```
+
+### Ce que montre le panneau
+
+Le panneau de droite porte **ce que le code a compris**, jamais les résultats : la
+catégorie, les critères avec leur libellé et leur unité, le budget, l'optimisation, et
+les **mouvements refusés** — « je garde 144 Hz » plutôt que de laisser croire au client
+qu'il a été entendu. Il porte aussi l'activité du catalogue : les comptes du sondage et
+sa fourchette de prix, remis à zéro **à chaque message**, parce qu'une lecture du
+catalogue est l'observation d'un instant et non l'état de la session.
+
+Les **cartes produits vivent dans le fil de conversation**, à l'endroit où elles
+arrivent — c'est-à-dire *avant* la prose qui les commente. C'est l'ordre réel, et il rend
+l'architecture visible sans une ligne d'explication : le code a trouvé, puis le modèle a
+écrit à propos de ce qu'on lui avait donné.
+
+Entre le dernier événement d'outil et le message, le validateur relit la réponse. Le
+front **dit** ce qu'il attend — « vérification de la réponse… » — plutôt que d'afficher un
+sablier. L'indicateur reflète le **dernier événement reçu**, et rien d'autre : il
+n'invente aucune étape que le fil n'aurait pas dite.
+
+### Ce que montre le mode coulisses
+
+Fermé — l'état par défaut, y compris après un rechargement — c'est l'interface d'un
+produit. Ouvert, c'est le `--trace` de la console porté au navigateur :
+
+- chaque **texte refusé par le validateur**, avec son origine, sa tentative et ses griefs
+  (code, extrait fautif, correction demandée) ;
+- les **distributions** entières du sondage, valeur par valeur ;
+- la **question suggérée** par le code et son score — que le modèle est libre de ne pas
+  poser, et l'écart entre les deux est précisément ce qu'on vient lire.
+
+⚠️ **Les événements masqués sont reçus et conservés, pas jetés.** Basculer l'interrupteur
+au milieu d'une conversation affiche ce qui s'est déjà passé — sans quoi il faudrait
+refaire la conversation pour voir le rejet qu'on vient de rater.
+
+### L'identifiant de session est dans l'URL
+
+`#<uuid>`. Un rechargement retrouve la conversation, l'URL se copie et se recolle, et
+l'identifiant est **visible**. Un fragment périmé — base réinitialisée — rend un `404` :
+le front repart alors sur une conversation neuve **en le disant**, plutôt que d'afficher
+une page vide dont personne ne comprendrait la cause.
+
+### Ce que la réhydratation ne rejoue pas, et qui est affiché comme tel
+
+`GET /sessions/{id}` rend l'état et la prose, **jamais les événements**. Une conversation
+rechargée n'a donc **ni cartes produits, ni panneau d'activité** : seulement les critères
+et les paroles. Elle perd aussi les **messages de repli**, qui ne sont pas persistés — un
+tour clos par un repli réapparaît sans sa réponse.
+
+L'interface l'écrit en toutes lettres au lieu de faire semblant. Fabriquer une carte
+produit à partir de rien serait exactement ce que ce projet interdit au modèle.
+
+⚠️ **Un texte refusé par le validateur ne revient pas non plus**, et c'est un correctif de
+cette étape. Le message fautif reste dans l'historique — il le faut, le grief qui suit le
+désigne — mais il était relu comme n'importe quelle prose : un `F5` affichait donc au
+client la phrase que le validateur lui avait précisément épargnée. La reconnaissance est
+exacte et non heuristique : un message assistant suivi d'un message de reprise est un
+message refusé.
+
+### La saisie est verrouillée pendant un tour
+
+Champ et bouton désactivés dès l'envoi, réactivés sur `done`, sur `error` ou sur un échec
+réseau. `done` est émis **après** que le tour a été persisté, donc rouvrir la saisie à ce
+moment-là est sans réserve. Le `409` reste traité : il arrive quand **deux onglets**
+partagent la même URL, ce que le verrouillage local ne peut pas empêcher.
+
+### Ce que le front n'interprète pas
+
+Le modèle produit du markdown ; le front en rend **deux formes et pas une de plus** — le
+gras `**…**` et les sauts de ligne — construites en nœuds DOM, jamais en HTML assemblé.
+Toute chaîne venue du fil entre par `textContent` : **on ne fait pas confiance au modèle
+pour les faits, on ne lui fait pas davantage confiance pour le HTML.** Le reste du
+markdown s'affiche tel quel, et c'est le **prompt** qui sera corrigé à l'étape 13 — pas le
+front qu'on armerait d'un parseur.
+
+### Ce qui n'est vérifié par aucun test, et pourquoi
+
+`tests/api/test_cadrage_sse.py` prouve que **le serveur émet** des trames bien formées et
+recomposables sous un découpage arbitraire des octets. Il ne prouve **pas** que `flux.js`
+les recompose : un parseur JavaScript qui oublierait sa queue passerait toute la suite au
+vert, et son symptôme — une carte produit qui manque une fois sur dix — ne se verrait
+qu'en démonstration.
+
+L'atténuation est la **concentration**, pas la couverture : l'algorithme est écrit une
+fois, en Python testé, et `flux.js` le transcrit dans un module sans DOM. C'est une
+atténuation et non une preuve, et le dire ainsi vaut mieux qu'un test de bout en bout qui
+donnerait l'illusion de la couverture pour le prix d'un `make check` qui cesserait de
+tourner sans base, sans conteneur et sans clé.
 
 ## Le catalogue
 

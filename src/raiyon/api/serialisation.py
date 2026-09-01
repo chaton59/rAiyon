@@ -78,6 +78,7 @@ from enum import StrEnum
 from typing import Any, assert_never
 
 from raiyon.agent.evenements import (
+    LIBELLES_MOTIF_DE_REPLI,
     CriteresMisAJour,
     Evenement,
     ProduitsTrouves,
@@ -90,9 +91,9 @@ from raiyon.agent.evenements import (
 )
 from raiyon.catalogue.schemas import LIBELLES_CATEGORIE, Categorie, ProduitEnBase
 from raiyon.matching.attributs import ATTRIBUTS, valeur_du_produit
-from raiyon.matching.criteres import Critere
+from raiyon.matching.criteres import LIBELLES_OPTIMISATION, Critere, Optimisation
 from raiyon.matching.depot import BornesPrix
-from raiyon.matching.relachement import Diagnostic, Proposition
+from raiyon.matching.relachement import LIBELLES_MOTIF, Diagnostic, Motif, Proposition
 from raiyon.matching.sondage import ChampDiscriminant, Distribution
 from raiyon.tools.etat import MouvementRefuse, valeur_en_texte
 from raiyon.tools.outils import BesoinDeBudget
@@ -168,10 +169,26 @@ def trame_de(evenement: Evenement) -> str:
     return trame(nom, donnees)
 
 
+def charge_derreur(code: CodeErreur, message: str) -> Donnees:
+    """`{code, message}` — **la seule forme d'un échec porteur de `CodeErreur`**.
+
+    Partagée par les deux portes de l'arbitrage E : l'événement `error`, après le premier
+    octet, et le corps du **409**, avant. C'est ce qui rend vraie la promesse de
+    `CodeErreur` — « le front affiche le même message quel que soit le chemin par lequel
+    l'échec lui arrive » — au lieu de la laisser à la charge d'un lecteur qui saurait
+    déballer le `detail` de `HTTPException` d'un côté et pas de l'autre.
+
+    Le 404 et le 422 gardent leur forme FastAPI : ils ne portent **pas** de `CodeErreur`,
+    et leur en inventer un pour uniformiser une clé donnerait un vocabulaire d'erreurs
+    dont deux valeurs sur quatre ne voudraient rien dire.
+    """
+    return {"code": code.value, "message": message}
+
+
 def trame_derreur(code: CodeErreur, message: str) -> str:
     """⚠️ `message` est écrit **pour le client, en français**, jamais le `str()` d'une
     exception : une trace SQLAlchemy sur une page web est une fuite (arbitrage E)."""
-    return trame(NomEvenement.ERREUR, {"code": code.value, "message": message})
+    return trame(NomEvenement.ERREUR, charge_derreur(code, message))
 
 
 def trame_de_fin() -> str:
@@ -214,6 +231,7 @@ def nom_et_donnees(evenement: Evenement) -> tuple[NomEvenement, Donnees]:
         return NomEvenement.REPLI, {
             "message": evenement.message,
             "motif": evenement.motif.value,
+            "libelle_motif": LIBELLES_MOTIF_DE_REPLI[evenement.motif],
         }
     assert_never(evenement)
 
@@ -231,7 +249,7 @@ def _criteres_mis_a_jour(evenement: CriteresMisAJour) -> Donnees:
         "libelle_categorie": LIBELLES_CATEGORIE[evenement.categorie],
         "criteres": criteres_serialises(evenement.categorie, evenement.criteres),
         "budget_usd": _montant(evenement.budget_usd),
-        "optimisation": evenement.optimisation.value,
+        **optimisation_serialisee(evenement.optimisation),
         "mouvements_refuses": [
             {**_champ(evenement.categorie, refuse.champ), **_mouvement(refuse)}
             for refuse in evenement.mouvements_refuses
@@ -328,6 +346,33 @@ def _texte_rejete(evenement: TexteRejete) -> Donnees:
 # --------------------------------------------------------------------------- #
 
 
+def optimisation_serialisee(optimisation: Optimisation) -> Donnees:
+    """`{optimisation, libelle_optimisation}` — le jeton **et** son français (arbitrage H).
+
+    Partagé avec `GET /sessions/{id}`, qui rend le même état sous la même forme, pour la
+    même raison que `criteres_serialises()` : deux écritures de la même structure finiraient
+    par diverger, et le front devrait alors savoir laquelle il lit.
+
+    Le jeton reste : c'est un identifiant fermé, que le front compare (`!== "aucune"`) et
+    n'affiche pas. Le libellé est ce qu'il affiche. Rendre l'un sans l'autre obligerait le
+    front soit à comparer une phrase française, soit à la fabriquer lui-même.
+    """
+    return {
+        "optimisation": optimisation.value,
+        "libelle_optimisation": LIBELLES_OPTIMISATION[optimisation],
+    }
+
+
+def _motif(motif: Motif) -> Donnees:
+    """`{motif, libelle_motif}` — le motif de zéro résultat et sa phrase.
+
+    C'est le **critère d'acceptation nº6** qui se joue ici : `critere_trop_strict` affiché
+    tel quel à un client ne serait pas « le cas zéro résultat rendu lisible ». Le libellé
+    vient de `LIBELLES_MOTIF`, à côté de l'énumération, jamais d'une table du front.
+    """
+    return {"motif": motif.value, "libelle_motif": LIBELLES_MOTIF[motif]}
+
+
 def _champ(categorie: Categorie, champ: str) -> Donnees:
     """`{champ, libelle_fr, unite}` — le français vient du **registre** (arbitrage H).
 
@@ -394,7 +439,7 @@ def _diagnostic(diagnostic: Diagnostic | None) -> Donnees | None:
     if diagnostic is None:
         return None
     return {
-        "motif": diagnostic.motif.value,
+        **_motif(diagnostic.motif),
         "propositions": [_proposition(proposition) for proposition in diagnostic.propositions],
     }
 
@@ -411,7 +456,7 @@ def _proposition(proposition: Proposition) -> Donnees:
         "unite": proposition.unite,
         "valeur_atteignable": _montant(proposition.valeur_atteignable),
         "produits_rouverts": proposition.produits_rouverts,
-        "motif": proposition.motif.value,
+        **_motif(proposition.motif),
         "dernier_recours": proposition.dernier_recours,
     }
 

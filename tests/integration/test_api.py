@@ -39,7 +39,7 @@ from scenarios import ECRAN_144
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from raiyon.api.app import app, client_llm, fabrique_de_sessions
+from raiyon.api.app import MESSAGE_TOUR_EN_COURS, app, client_llm, fabrique_de_sessions
 from raiyon.api.verrou import verrouiller_le_tour
 from raiyon.db.models import SessionConversation, TourConversation
 from raiyon.tools.schema_outils import NOM_ENREGISTRER, NOM_PRECISION, NOM_RECHERCHER
@@ -219,6 +219,10 @@ def test_une_session_inconnue_rend_404_et_aucun_octet_de_flux(api):
     assert reponse.status_code == 404
     assert "event:" not in reponse.text
     assert not reponse.headers["content-type"].startswith("text/event-stream")
+    # **Le pendant négatif du 409 aplati** : le 404 ne porte pas de `CodeErreur`, donc il
+    # garde la forme de FastAPI. Un aplatissement gourmand aurait aussi pris le 422, qui
+    # porte la liste d'erreurs de Pydantic et n'a pas de « message » unique à rendre.
+    assert reponse.json().keys() == {"detail"}
 
 
 def test_un_corps_vide_rend_422(api):
@@ -280,7 +284,9 @@ def test_deux_tours_concurrents_le_second_recoit_409(api, fabrique):
         fil.join(DELAI)
 
     assert concurrent.status_code == 409
-    assert concurrent.json()["detail"]["code"] == "tour_en_cours"
+    # ⚠️ **À plat**, comme l'événement `error` — pas `{"detail": {...}}`. Le front lit un
+    # seul vocabulaire d'erreur ; il ne doit pas porter deux lecteurs pour le lire.
+    assert concurrent.json() == {"code": "tour_en_cours", "message": MESSAGE_TOUR_EN_COURS}
     assert "event:" not in concurrent.text
     assert premier["reponse"].status_code == 200
 

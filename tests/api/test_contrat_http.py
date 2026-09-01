@@ -11,12 +11,15 @@ permet de vérifier ici l'ordre du montage `/`, dont le défaut est silencieux �
 `/health`.
 """
 
+import asyncio
+import json
 import uuid
 
 import pytest
 from pydantic import ValidationError
 
-from raiyon.api.schemas import LONGUEUR_MAX_MESSAGE, MessageEntrant
+from raiyon.api.schemas import LONGUEUR_MAX_MESSAGE, ErreurExposee, MessageEntrant
+from raiyon.api.serialisation import CodeErreur, trame_derreur
 from raiyon.api.verrou import cle_de
 
 # --------------------------------------------------------------------------- #
@@ -85,6 +88,50 @@ def test_la_cle_tient_dans_un_bigint_postgres():
     for _ in range(2000):
         cle = cle_de(uuid.uuid4())
         assert -borne <= cle < borne
+
+
+# --------------------------------------------------------------------------- #
+# Le corps d'erreur — la même forme des deux côtés du premier octet
+# --------------------------------------------------------------------------- #
+
+
+def _charge_de(trame: str) -> dict:
+    """La charge utile d'une trame SSE. Le cadrage est celui du producteur, pas le SSE
+    générique — c'est `tests/api/test_cadrage_sse.py` qui en tient la spécification."""
+    entete, donnees, fin = trame.split("\n", 2)
+    assert entete.startswith("event: ")
+    assert fin == "\n", "une trame se termine par une ligne vide"
+    return json.loads(donnees.removeprefix("data: "))
+
+
+def test_le_409_et_levenement_error_ont_la_meme_forme():
+    """**C'est la promesse écrite dans la docstring de `CodeErreur`**, et elle était fausse
+    jusqu'ici : `HTTPException` emballe son `detail`, donc le 409 rendait
+    `{"detail": {...}}` là où le fil rend `{"code", "message"}` à plat.
+
+    Le front lit un seul vocabulaire d'erreur ; ce test constate qu'il n'a besoin que d'un
+    seul lecteur pour le lire.
+    """
+    from raiyon.api.app import ErreurDeLApi, rendre_a_plat
+
+    erreur = ErreurDeLApi(409, CodeErreur.TOUR_EN_COURS, "Un tour est déjà en cours.")
+    reponse = asyncio.run(rendre_a_plat(None, erreur))  # type: ignore[arg-type]
+
+    corps = json.loads(reponse.body)
+    assert reponse.status_code == 409
+    assert corps == {"code": "tour_en_cours", "message": "Un tour est déjà en cours."}
+    assert corps.keys() == _charge_de(trame_derreur(CodeErreur.INTERNE, "peu importe")).keys()
+    assert ErreurExposee(**corps).code == CodeErreur.TOUR_EN_COURS.value
+
+
+def test_le_gestionnaire_est_enregistre_sur_lapplication():
+    """Sans enregistrement, `ErreurDeLApi` retomberait sur le gestionnaire d'`HTTPException`
+    et le corps redeviendrait `{"detail": {...}}` — **sans qu'aucune erreur ne le signale**.
+    Starlette choisit en remontant le `__mro__` : c'est l'entrée la plus dérivée qui gagne.
+    """
+    from raiyon.api.app import ErreurDeLApi, app, rendre_a_plat
+
+    assert app.exception_handlers.get(ErreurDeLApi) is rendre_a_plat
 
 
 # --------------------------------------------------------------------------- #

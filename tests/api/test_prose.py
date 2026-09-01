@@ -126,9 +126,10 @@ def test_le_message_de_reprise_seul_nest_pas_rendu_comme_une_parole_du_client():
         _assistant(texte("Voici trois écrans du catalogue.")),
     ]
 
+    # Le message fautif ne revient pas non plus : il a été refusé, et c'est la reprise qui
+    # suit qui le dit. Voir `test_un_message_refuse_par_le_validateur_ne_revient_pas`.
     assert prose_de(historique) == (
         Parole(Interlocuteur.CLIENT, "montre-moi"),
-        Parole(Interlocuteur.ASSISTANT, "Je vous propose le monitor-0000000000 à 108 $."),
         Parole(Interlocuteur.ASSISTANT, "Voici trois écrans du catalogue."),
     )
 
@@ -153,17 +154,30 @@ def test_le_message_de_reprise_qui_suit_des_tool_result_nest_pas_rendu_non_plus(
         },
     ]
 
-    assert prose_de(historique) == (Parole(Interlocuteur.ASSISTANT, "Le monitor-1 est à 42 $."),)
+    # Et le message fautif qui la précède ne revient pas davantage : « 42 $ » est
+    # exactement le montant que le validateur a refusé de laisser passer.
+    assert prose_de(historique) == ()
 
 
-def test_le_texte_refuse_reste_dans_la_prose_parce_quil_reste_dans_lhistorique():
-    """**À dire plutôt qu'à masquer.** Le message fautif n'est pas retiré de
-    l'historique — le retirer casserait l'appairage des `tool_result` et rendrait le
-    grief incompréhensible (étape 9). Il est donc relu, comme le modèle le relit.
+def test_un_message_refuse_par_le_validateur_ne_revient_pas():
+    """⚠️ **Ce test disait l'inverse, et il avait tort. Le renversement est daté :
+    étape 11.**
 
-    Ce n'est pas un défaut de cet endpoint : c'est la conséquence visible d'une décision
-    de la boucle. Ce qui **n'est jamais parti au client** est le texte de la reprise ; le
-    texte refusé, lui, a bien été écrit par l'assistant.
+    Il s'appelait `test_le_texte_refuse_reste_dans_la_prose_parce_quil_reste_dans_l'historique`
+    et il argumentait ainsi : « ce qui n'est jamais parti au client est le texte de la
+    reprise ; le texte refusé, lui, a bien été écrit par l'assistant. » La prémisse est
+    exacte — le message fautif **doit** rester dans l'historique, l'en retirer casserait
+    l'appairage des `tool_result` et rendrait le grief incompréhensible — mais la
+    conclusion ne suit pas : rester dans l'historique n'est pas partir au client.
+
+    Le défaut ne s'est vu qu'à l'étape 11, parce qu'il fallait une interface pour le voir.
+    En direct, le validateur tient §2 : le texte refusé n'atteint jamais l'écran. **Après
+    un F5, il l'atteignait** — la même conversation, relue, montrait la phrase que le code
+    avait justement empêchée. Un défaut qui n'apparaît qu'au rechargement, sur le seul
+    invariant que ce projet dit non négociable.
+
+    La reconnaissance est exacte, pas heuristique : `boucle.py` fait toujours suivre un
+    message refusé d'un message de reprise.
     """
     reprise = message_de_grief(("- **id_inconnu** — « x » : citer un id fourni",))
     historique = [
@@ -171,7 +185,52 @@ def test_le_texte_refuse_reste_dans_la_prose_parce_quil_reste_dans_lhistorique()
         {"role": "user", "content": [texte(reprise)]},
     ]
 
-    assert prose_de(historique) == (Parole(Interlocuteur.ASSISTANT, "Une affirmation fausse."),)
+    assert prose_de(historique) == ()
+
+
+def test_un_message_assistant_sans_reprise_derriere_lui_revient_normalement():
+    """Le pendant positif, et il compte autant : la règle ne doit pas avaler la prose
+    ordinaire. Seule la **séquence** message assistant → message de reprise l'écarte."""
+    historique = [
+        _client("montre-moi"),
+        _assistant(texte("Voici trois écrans du catalogue.")),
+        _client("merci"),
+    ]
+
+    assert prose_de(historique) == (
+        Parole(Interlocuteur.CLIENT, "montre-moi"),
+        Parole(Interlocuteur.ASSISTANT, "Voici trois écrans du catalogue."),
+        Parole(Interlocuteur.CLIENT, "merci"),
+    )
+
+
+def test_une_question_refusee_emporte_le_texte_du_meme_message_et_cest_assume():
+    """⚠️ **Le sens de l'erreur est choisi**, et il est écrit dans la docstring du module.
+
+    Quand c'est la *question* d'`ask_clarification` qui est refusée (correctif de l'étape
+    9), le texte du même message avait été validé et affiché. Les deux chemins de rejet
+    laissent la même trace — un message assistant, puis une reprise — et l'origine du rejet
+    n'est pas persistée.
+
+    On perd donc une phrase que le client avait vue, plutôt que d'en afficher une qu'il
+    n'aurait jamais dû voir. L'inverse serait une régression de §2.
+    """
+    reprise = message_de_grief(("- **montant_non_fourni** — « 230 $ » : citer un prix fourni",))
+    historique = [
+        _assistant(
+            texte("Trois écrans conviennent."),
+            appel_outil(NOM_PRECISION, {"question": "Vous visez plutôt 230 $ ?"}, id="tu_1"),
+        ),
+        {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "tu_1", "content": "{}", "is_error": False},
+                texte(reprise),
+            ],
+        },
+    ]
+
+    assert prose_de(historique) == ()
 
 
 # --------------------------------------------------------------------------- #

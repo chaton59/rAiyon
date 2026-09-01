@@ -19,6 +19,7 @@ import pytest
 
 from produits_de_test import fabriquer
 from raiyon.agent.evenements import (
+    LIBELLES_MOTIF_DE_REPLI,
     CriteresMisAJour,
     MotifDeRepli,
     ProduitsTrouves,
@@ -40,10 +41,16 @@ from raiyon.api.serialisation import (
     trame_derreur,
 )
 from raiyon.matching.attributs import Role
-from raiyon.matching.criteres import Critere, Importance, Operateur, Optimisation
+from raiyon.matching.criteres import (
+    LIBELLES_OPTIMISATION,
+    Critere,
+    Importance,
+    Operateur,
+    Optimisation,
+)
 from raiyon.matching.depot import BornesPrix
 from raiyon.matching.moteur import ProduitHorsBudget, ResultatMatching
-from raiyon.matching.relachement import Diagnostic, Motif, Proposition
+from raiyon.matching.relachement import LIBELLES_MOTIF, Diagnostic, Motif, Proposition
 from raiyon.matching.sondage import ChampDiscriminant, Distribution, ValeurComptee
 from raiyon.matching.trace import LigneTrace, Statut, TraceProduit
 from raiyon.tools.etat import MouvementRefuse
@@ -117,6 +124,7 @@ def test_criteria_updated_porte_le_libelle_de_categorie_et_les_criteres():
         ],
         "budget_usd": "400.00",
         "optimisation": "moins_cher",
+        "libelle_optimisation": "le moins cher",
         "mouvements_refuses": [
             {
                 "champ": "prix_usd",
@@ -256,8 +264,12 @@ def test_products_found_porte_le_diagnostic_du_zero_resultat():
 
     _, donnees = nom_et_donnees(evenement)
 
+    # ⚠️ Le motif voyage avec sa phrase : `critere_trop_strict` affiché tel quel à un
+    # client ne serait pas « le cas zéro résultat rendu lisible » (critère nº6), et le
+    # front n'a pas le droit de fabriquer ce français lui-même (arbitrage H).
     assert donnees["diagnostic"] == {
         "motif": "critere_trop_strict",
+        "libelle_motif": "un critère est trop strict pour le catalogue",
         "propositions": [
             {
                 "champ": "refresh_rate",
@@ -266,6 +278,7 @@ def test_products_found_porte_le_diagnostic_du_zero_resultat():
                 "valeur_atteignable": "165",
                 "produits_rouverts": 9,
                 "motif": "critere_trop_strict",
+                "libelle_motif": "un critère est trop strict pour le catalogue",
                 "dernier_recours": False,
             }
         ],
@@ -316,7 +329,11 @@ def test_fallback_porte_le_message_et_le_motif_mais_pas_les_compteurs():
     nom, donnees = nom_et_donnees(evenement)
 
     assert nom is NomEvenement.REPLI
-    assert donnees == {"message": "Je m'y perds un peu.", "motif": "max_iterations"}
+    assert donnees == {
+        "message": "Je m'y perds un peu.",
+        "motif": "max_iterations",
+        "libelle_motif": "l'agent a atteint sa garde d'itérations",
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -551,6 +568,33 @@ def test_une_spec_absente_ne_produit_pas_de_ligne():
     assert "panel_type" not in champs
     assert "response_time" not in champs
     assert "refresh_rate" in champs
+
+
+@pytest.mark.parametrize(
+    ("enumeration", "libelles"),
+    [
+        (Optimisation, LIBELLES_OPTIMISATION),
+        (Motif, LIBELLES_MOTIF),
+        (MotifDeRepli, LIBELLES_MOTIF_DE_REPLI),
+    ],
+    ids=["optimisation", "motif_de_zero_resultat", "motif_de_repli"],
+)
+def test_chaque_valeur_denumeration_affichee_a_son_libelle(enumeration, libelles):
+    """⚠️ **Un membre ajouté sans libellé lèverait un `KeyError` au milieu d'un flux.**
+
+    C'est-à-dire un tour perdu, appel API compris, pour un mot d'affichage — le mode
+    d'échec que `_champ()` évite par un repli et que ces trois tables évitent par
+    l'exhaustivité. Le repli n'est pas possible ici : le nom technique d'un motif de zéro
+    résultat n'a rien à faire sous les yeux d'un client, et le rendre reviendrait à ne pas
+    avoir fait l'étape.
+
+    L'exhaustivité de ces trois tables n'est pas tenue par `mypy` — un `dict` peut être
+    partiel — donc elle l'est ici.
+    """
+    assert set(libelles) == set(enumeration)
+    assert all(libelle and libelle == libelle.lower() for libelle in libelles.values()), (
+        "c'est de la donnée, pas du rendu : la mise en forme appartient au front"
+    )
 
 
 def test_aucun_francais_nest_ecrit_en_dur_dans_le_serialiseur():

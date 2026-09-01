@@ -86,6 +86,27 @@ class Motif(StrEnum):
     explorer les combinaisons de degré 2 est hors périmètre."""
 
 
+LIBELLES_MOTIF: dict[Motif, str] = {
+    Motif.BUDGET_TROP_BAS: "tout le reste convient, mais au-dessus du budget",
+    Motif.DONNEE_ABSENTE: "les produits écartés ne déclarent pas cette valeur",
+    Motif.ABSENCE_STRUCTURELLE: "cet attribut ne s'applique pas à ce type de produit",
+    Motif.CRITERE_TROP_STRICT: "un critère est trop strict pour le catalogue",
+    Motif.AUCUN_RETRAIT_SIMPLE: "aucun assouplissement d'un seul critère ne rouvre le catalogue",
+}
+"""Le français d'un motif de zéro résultat, **du même côté que le motif**.
+
+Même geste que `LIBELLES_CATEGORIE` et `LIBELLES_OPTIMISATION`. Il compte plus que les
+deux autres : le zéro résultat est le **critère d'acceptation nº6**, et c'est à l'étape 11
+qu'il devient visible. `critere_trop_strict` affiché tel quel à un client ne serait pas
+« le cas zéro résultat rendu lisible » — ce serait un identifiant montré faute de mieux.
+
+⚠️ **Ces phrases ne remplacent pas celles de l'agent.** Le moteur ne rédige pas (§3.7) :
+le modèle écrit la vraie réponse, en tenant compte du reste de la conversation. Ce libellé
+est ce que le **panneau** affiche à côté des propositions, c'est-à-dire ce que le code a
+constaté — au même titre que les critères et les comptes.
+"""
+
+
 @dataclass(frozen=True, slots=True)
 class Proposition:
     """Un assouplissement possible. Formulé, jamais appliqué."""
