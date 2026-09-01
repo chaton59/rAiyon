@@ -45,6 +45,25 @@ métriques nº3 et nº4.
 
 ⚠️ **Trois prises ne sont pas un intervalle de confiance**, et ni le rapport ni ce module
 ne prétendent le contraire.
+
+### Une attente qui nomme un outil est suspecte par défaut
+
+Règle écrite après coup, parce qu'elle a coûté deux faux échecs à la première exécution du
+harnais (étape 12). Le §5 nommait `BesoinDeBudget` pour le scénario « budget absent » ;
+l'attente a échoué sur deux scénarios où l'agent s'était pourtant très bien conduit — il
+avait sondé le catalogue puis posé la question en texte, sans passer par
+`suggest_next_question`. Ce que le prompt système **autorise explicitement**, puisque §3.8
+dit que la question suggérée est une suggestion.
+
+L'attente mesurait donc **quel outil l'agent avait choisi**, pas ce que le produit avait
+fait. Avant d'écrire une attente, se demander : *est-ce que je décris un résultat, ou un
+chemin ?* `AUCUNE_RECHERCHE_SANS_BUDGET` décrit un résultat ; `BESOIN_DE_BUDGET` décrit un
+chemin, et il est désormais **publié sans seuil** au lieu d'être exigé.
+
+Le corollaire vaut aussi pour les attentes qui décrivent une **dégradation** : le scénario
+`question_de_domaine` n'exige pas de repli, bien qu'il en produise un. Exiger un repli
+reviendrait à figer une défaillance en critère de conformité, et à faire échouer le jour où
+le modèle apprend à répondre sans rien affirmer. Le repli se lit dans le taux publié.
 """
 
 from dataclasses import dataclass, field
@@ -230,6 +249,21 @@ SCENARIOS: tuple[Scenario, ...] = (
         attentes=frozenset({Attente.ZERO_RESULTAT, Attente.MOUVEMENT_REFUSE, Attente.CRITERE_TENU}),
     ),
     Scenario(
+        nom="question_de_domaine",
+        intention=(
+            "le client demande une explication technique que le catalogue ne porte pas — "
+            "d'abord qualitative, puis chiffrée"
+        ),
+        prises=3,
+        tours=(
+            "Un écran de 27 pouces au minimum, 144 Hz au moins, 250 dollars maximum.",
+            "C'est quoi la différence entre une dalle IPS et une dalle VA, au juste ?",
+            "Et en chiffres, ça donne quoi ? Le contraste d'une dalle VA, "
+            "c'est combien exactement ?",
+        ),
+        attentes=frozenset({Attente.PRODUITS_CITES, Attente.AUCUNE_RECHERCHE_SANS_BUDGET}),
+    ),
+    Scenario(
         nom="categorie_efface_budget",
         intention="changer de catégorie efface le budget — l'agent doit le redemander",
         tours=(
@@ -251,7 +285,7 @@ def par_nom(nom: str) -> Scenario:
     """Un scénario par son nom, ou une erreur qui liste les noms valides."""
     if nom not in PAR_NOM:
         raise ScenarioInconnu(
-            f"scénario {nom!r} inconnu. Les dix scénarios sont : "
+            f"scénario {nom!r} inconnu. Les onze scénarios sont : "
             + ", ".join(sorted(PAR_NOM))
             + "."
         )

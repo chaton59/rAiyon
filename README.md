@@ -15,12 +15,12 @@ depuis l'étape 12. Le tableau ci-dessous est celui de `docs/eval/rapport.md`, q
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation | ✅ |
-| 3 | Délai avant première valeur | médiane ≤ 2 | 0,0 sur 11 prises | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1,0 tour sur 14 prises | ✅ |
 | 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 6/6 prises à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | `tests/matching/` tourne dans `make check` | ✅ |
 | 6 | Cas zéro résultat traité proprement | binaire | 6/6 traités | ✅ |
 
-*Sur 16 prises, 10 scénarios, 35 tours client. `make eval` sort en code non nul si l'un
+*Sur 19 prises, 11 scénarios, 44 tours client. `make eval` sort en code non nul si l'un
 des critères bloquants — 1, 2 et 6 — est violé.*
 
 ### ⚠️ Comment lire ce tableau, et pourquoi il ne dit pas ce qu'il a l'air de dire
@@ -34,36 +34,39 @@ signifierait que **le validateur a un trou** — c'est là toute l'information.
 C'est pourquoi le rapport publie **trois couches**, et pourquoi les deux suivantes sont les
 plus intéressantes :
 
-| Couche | Première exécution |
+| Couche | Dernière exécution |
 |---|---|
 | Ce qui est **livré** | 0 grief, 0 violation budget — les deux critères ci-dessus |
-| Ce que le modèle a **tenté** | **11 griefs refusés sur 35 tours**, soit 0,31 par tour : 7 `montant_non_fourni`, 3 `valeur_non_fournie`, 1 `ecart_non_dit` |
-| Ce qui a fini en **repli** | 0 tour sur 35 — mais voir ci-dessous, ce zéro est un artefact |
+| Ce que le modèle a **tenté** | **11 griefs refusés sur 44 tours**, soit 0,25 par tour : 7 `montant_non_fourni`, 3 `valeur_non_fournie`, 1 `ecart_non_dit` |
+| Ce qui a fini en **repli** | **2 tours sur 44 (5 %)**, tous deux `reponse_vide` — le client a lu une phrase écrite en Python |
 
 > **Un tableau où le critère nº1 vaut 0 et le taux de repli vaut 30 % décrit un produit qui
 > échoue.**
 
-Trois choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.md` :
+Quatre choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.md` :
 
-- **le taux de repli de 0 % est un artefact du jeu de scénarios.** Les dix scénarios posent
-  des questions *sur le catalogue* ; un vrai client en pose *sur le domaine*. La première
-  conversation de `make eval-live` a produit un repli, au moment où le client a demandé la
-  différence entre une dalle IPS et une dalle VA ;
-- **la métrique nº3 est au plancher** : l'agent ne pose jamais de question avant de montrer
-  quelque chose. C'est la règle « donner avant de demander » qui produit son effet, mais la
-  métrique n'a plus de marge de progression pour l'étape 13 ;
+- **trois codes de grief sur six ne se déclenchent jamais** sur cette suite —
+  `id_inconnu`, `prix_etranger_au_produit`, `nom_reecrit`. Le rapport le publie, parce
+  qu'une règle qui ne tire jamais est indistinguable d'une règle absente. Elles sont
+  exercées par `tests/validateur/test_pieges.py`, pas par les scénarios ;
 - **le critère nº1 ne détecte pas une règle manquante.** Le harnais mesure le validateur
   avec le validateur ; retirer une règle rend les deux aveugles. Ce qui détecte une règle
-  manquante, c'est l'effondrement du taux de rejet — vérifié en la retirant pour de bon.
+  manquante, c'est l'effondrement du taux de rejet — vérifié en la retirant pour de bon ;
+- **une affirmation de domaine chiffrée passe** dès que le chiffre ne porte pas d'unité
+  connue. Mesuré : « le contraste d'une VA, c'est 3000:1 » est livré sans qu'aucune règle
+  ne le voie. Deux prises sur trois refusent pourtant le chiffre d'elles-mêmes ;
+- **le taux de repli est passé de 0 % à 5 % sans qu'une cassette change.** Le produit ne
+  s'est pas dégradé : le correctif de l'étape 12 lui a donné un motif pour compter deux
+  tours où le client ne recevait **rien**.
 
 ### Le harnais
 
 ```bash
-make eval                                  # rejoue 16 cassettes, écrit docs/eval/rapport.md
-                                           # base requise, clé API NON requise
-make eval-enregistrer                      # (ré)enregistre — consomme la clé et des jetons
+make eval                                    # rejoue 19 cassettes, écrit docs/eval/rapport.md
+                                             # base requise, clé API NON requise
+make eval-enregistrer                        # (ré)enregistre — consomme la clé et des jetons
 make eval-enregistrer SCENARIO=budget_serre  # n'en refaire qu'un
-make eval-live                             # 2-3 conversations avec le client simulé
+make eval-live                               # 2-3 conversations avec le client simulé
 ```
 
 Une cassette n'enregistre **que les réponses du modèle**. Les `tool_result` sont recalculés
@@ -76,6 +79,11 @@ rejeu a besoin de Postgres et du seed, et que `make eval` reste une commande à 
 Chaque cassette porte l'empreinte du prompt système **et celle du schéma d'outils**. Un
 écart fait échouer le rejeu en nommant la cassette et en donnant la commande à taper : la
 régénération n'est plus une discipline à tenir, c'est une erreur qui se voit.
+
+⚠️ **`make eval-live` n'enregistre rien** et n'est lancé par aucune commande automatique.
+Ces conversations ne sont pas reproductibles — les deux côtés sont non déterministes.
+Elles servent à *lire* un dialogue que des scénarios scriptés ne produisent pas, et c'est
+l'une d'elles qui a trouvé le seul défaut de silence du projet.
 
 ## Prérequis
 

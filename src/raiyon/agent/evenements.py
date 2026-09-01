@@ -168,12 +168,16 @@ class QuestionPosee:
 
 
 class MotifDeRepli(StrEnum):
-    """Pourquoi le tour a été clos par du texte écrit en Python. **Deux causes.**
+    """Pourquoi le tour a été clos par du texte écrit en Python. **Trois causes.**
 
     Les distinguer n'est pas du confort : l'étape 12 mesure un taux d'hallucination et
     un taux de bouclage, et un `Repli` sans motif l'empêcherait de les séparer. Ce sont
-    aussi deux défauts différents — l'un se corrige dans le prompt, l'autre dans les
-    outils.
+    aussi trois défauts différents, qui se corrigent à trois endroits — le prompt, les
+    outils, et la boucle elle-même.
+
+    ⚠️ **Il y en avait deux jusqu'au correctif de l'étape 12**, et la troisième est venue
+    d'une conversation réelle : un motif qu'on n'a pas nommé est un tour qu'on ne compte
+    pas, et un tour qu'on ne compte pas est un silence que personne ne voit.
     """
 
     MAX_ITERATIONS = "max_iterations"
@@ -182,10 +186,26 @@ class MotifDeRepli(StrEnum):
     VALIDATION = "validation"
     """Le texte a été refusé par le validateur, régénération comprise (étape 9)."""
 
+    REPONSE_VIDE = "reponse_vide"
+    """Le message du modèle ne portait **ni texte ni appel d'outil** (correctif étape 12).
+
+    `_depouiller()` ignore les types de blocs qu'il ne connaît pas, et c'est voulu : un
+    bloc inattendu ne doit pas clore une conversation par une exception. Mais quand le
+    message n'en porte **que** un — un `thinking` seul —, il ne reste rien à émettre, et
+    la boucle rendait son issue **sans avoir produit un seul événement**. Le client
+    recevait `done` et rien d'autre.
+
+    Observé en vrai à `make eval-live`, juste après un repli de validation. Le client
+    simulé a répondu « Euh… vous êtes là ? ».
+
+    C'est un défaut **de la boucle**, pas du prompt ni des outils : d'où un motif à lui.
+    """
+
 
 LIBELLES_MOTIF_DE_REPLI: dict[MotifDeRepli, str] = {
     MotifDeRepli.MAX_ITERATIONS: "l'agent a atteint sa garde d'itérations",
     MotifDeRepli.VALIDATION: "la réponse du modèle a été refusée par le validateur",
+    MotifDeRepli.REPONSE_VIDE: "le modèle n'a rien répondu",
 }
 """Le français d'un motif de repli, **du même côté que le motif**.
 

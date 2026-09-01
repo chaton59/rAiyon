@@ -172,6 +172,46 @@ def test_les_attentes_non_tenues_sont_nommees():
     assert "| hors_catalogue | 1 | attente `aucun_produit_cite` |" in texte
 
 
+def test_le_rapport_nomme_les_regles_jamais_declenchees():
+    """Sans cette ligne, « 0,31 grief/tour » se lit comme une couverture.
+
+    Sur ces mesures inventées, seule `montant_non_fourni` a tiré : les cinq autres codes
+    doivent être nommés, et le renvoi vers `test_pieges.py` doit figurer.
+    """
+    texte = rendre(mesures_inventees())
+    assert "Règles du validateur jamais déclenchées" in texte
+    assert "`id_inconnu`" in texte
+    assert "`nom_reecrit`" in texte
+    assert "`montant_non_fourni`" not in texte.split("Règles du validateur")[1].split("|")[2]
+    assert "tests/validateur/test_pieges.py" in texte
+
+
+def test_le_rapport_dit_quand_tous_les_codes_ont_tire():
+    """Le cas vert doit se lire aussi, sinon la ligne n'a de sens que dans l'échec.
+
+    ⚠️ **Six codes pour cinq règles** : `regle_montants` en lève deux. La ligne compte
+    les codes, qui sont les gestes de correction demandés au modèle.
+    """
+    from raiyon.validateur.regles import CodeGrief
+
+    mesuree = mesurer(
+        prise(
+            "essai",
+            1,
+            *[TexteRejete((Grief(code, "x", "y"),), 1, OrigineRejet.TEXTE) for code in CodeGrief],
+        )
+    )
+    assert "aucun — les six codes ont été levés au moins une fois" in rendre(agreger([mesuree]))
+
+
+def test_le_critere_3_est_libelle_en_tours_client():
+    """Le seuil n'a pas changé de valeur, il a changé de sens — le tableau doit le dire."""
+    texte = rendre(mesures_inventees())
+    assert "Délai avant première valeur — en **tours client**" in texte
+    assert "tour(s) sur" in texte
+    assert "Questions posées avant la première valeur" in texte
+
+
 def test_le_critere_5_est_marque_hors_de_ce_rapport():
     """« Moteur testable sans API » se constate dans `make check`, pas ici. L'afficher à
     zéro laisserait croire qu'il est mesuré."""

@@ -33,8 +33,8 @@ import statistics
 from collections.abc import Sequence
 
 from raiyon.eval.metriques import (
-    SEUIL_QUESTIONS,
     SEUIL_TOP3,
+    SEUIL_TOURS,
     Attente,
     Mesures,
     MesuresDunePrise,
@@ -132,8 +132,8 @@ def _tableau_des_criteres(mesures: Mesures) -> list[str]:
             ),
             (
                 "3",
-                "Délai avant première valeur",
-                f"médiane ≤ {SEUIL_QUESTIONS}",
+                "Délai avant première valeur — en **tours client**",
+                f"médiane ≤ {SEUIL_TOURS}",
                 _mediane(mesures),
                 _verdict(mesures.critere_3),
             ),
@@ -191,6 +191,16 @@ def _tableau_des_couches(mesures: Mesures) -> list[str]:
                 "publié",
             ),
             (
+                "Questions posées avant la première valeur",
+                _mediane_des_questions(mesures),
+                "publié — mesure la règle « donner avant de demander », pas le critère nº3",
+            ),
+            (
+                "Règles du validateur jamais déclenchées",
+                _regles_muettes(mesures),
+                "publié — voir `tests/validateur/test_pieges.py`",
+            ),
+            (
                 "Prises où `suggest_next_question` a signalé le budget manquant",
                 f"{mesures.prises_ou_loutil_a_signale_le_budget} sur {len(mesures.prises)}",
                 "publié — **observation, pas exigence**",
@@ -238,6 +248,7 @@ def _tableau_des_prises(mesures: Mesures) -> list[str]:
             "Scénario",
             "Prise",
             "Tours",
+            "Tours avant valeur",
             "Questions avant valeur",
             "Attendu top 3",
             "Rejets",
@@ -250,6 +261,7 @@ def _tableau_des_prises(mesures: Mesures) -> list[str]:
                 prise.scenario,
                 str(prise.prise),
                 str(prise.tours),
+                _entier(prise.tours_avant_valeur),
                 _entier(prise.questions_avant_valeur),
                 _booleen(prise.attendu_en_top3),
                 str(len(prise.rejets)),
@@ -283,12 +295,12 @@ def _ecarts(mesures: Mesures) -> list[str]:
     return [
         *lignes,
         *_tableau(
-            ("Scénario", "Prises", "Questions avant valeur", "Attendu top 3"),
+            ("Scénario", "Prises", "Tours avant valeur", "Attendu top 3"),
             [
                 (
                     nom,
                     str(len(prises)),
-                    _fourchette([prise.questions_avant_valeur for prise in prises]),
+                    _fourchette([prise.tours_avant_valeur for prise in prises]),
                     _fourchette_booleenne([prise.attendu_en_top3 for prise in prises]),
                 )
                 for nom, prises in multiples
@@ -335,10 +347,18 @@ def _entier(valeur: int | None) -> str:
 
 
 def _mediane(mesures: Mesures) -> str:
-    mediane = mesures.mediane_des_questions
+    """Le critère nº3 compte des **tours client** depuis le correctif de l'étape 12."""
+    mediane = mesures.mediane_des_tours
     if mediane is None:
         return "aucune prise n'a livré de valeur"
-    return f"{mediane:.1f} sur {len(mesures.questions_par_prise)} prise(s)"
+    return f"{mediane:.1f} tour(s) sur {len(mesures.tours_par_prise)} prise(s)"
+
+
+def _mediane_des_questions(mesures: Mesures) -> str:
+    mediane = mesures.mediane_des_questions
+    if mediane is None:
+        return SANS_OBJET
+    return f"médiane {mediane:.1f} sur {len(mesures.questions_par_prise)} prise(s)"
 
 
 def _part_top3(mesures: Mesures) -> str:
@@ -350,6 +370,26 @@ def _part_top3(mesures: Mesures) -> str:
         f"{part:.0%} ".replace("%", " %")
         + f"— {mesures.attendus_en_top3}/{mesures.prises_avec_attendu} prise(s) "
         "à réponse de référence"
+    )
+
+
+def _regles_muettes(mesures: Mesures) -> str:
+    """Les codes de grief qu'aucun texte n'a levés. **Dérivé de `CodeGrief`.**
+
+    ⚠️ **Six codes pour cinq règles** : `regle_montants` en lève deux —
+    `prix_etranger_au_produit` quand la phrase nomme un produit,
+    `montant_non_fourni` sinon. On compte donc les codes, qui sont les gestes de
+    correction demandés au modèle, et pas les fonctions qui les produisent.
+
+    Sans cette ligne, « 0,31 grief/tour » se lit comme une couverture. Avec elle, on sait
+    sur quoi le chiffre porte — et à l'étape 13, un taux qui descend cesse d'être ambigu :
+    on saura **quelles** règles ont cessé de tirer.
+    """
+    muets = mesures.codes_jamais_declenches
+    if not muets:
+        return "aucun — les six codes ont été levés au moins une fois"
+    return f"{len(muets)} sur {len(muets) + len(mesures.codes_declenches)} : " + ", ".join(
+        f"`{code.value}`" for code in muets
     )
 
 

@@ -54,6 +54,27 @@ En pratique :
 - Un validateur programmatique vérifie chaque réponse avant qu'elle atteigne le
   client.
 
+### ⚠️ Le périmètre de cette règle — écrit au correctif de l'étape 12
+
+**« Un fait » veut dire ici un fait *sur le catalogue*.** Cette phrase n'avait jamais été
+bornée, et le bord n'est apparu qu'en conversation réelle : le persona `joueur_serre` a
+demandé « c'est quoi la différence entre une dalle IPS et une dalle VA ? ». Ce n'est pas
+une question sur le catalogue, et **rien dans le catalogue n'y répond**.
+
+La conséquence est assumée, et il vaut mieux l'écrire que la découvrir : **cet assistant
+conseille à partir du catalogue, il n'enseigne pas la technologie d'affichage.** Il sait
+dire ce que le catalogue contient — « 32 de ces écrans sont en VA, 13 en IPS » est un fait
+fourni ; il ne sait pas dire ce qu'une dalle VA vaut, et il ne doit pas faire semblant.
+
+Deux choses en découlent, toutes deux mesurées à l'étape 12 :
+
+* **le validateur ne contrôle pas ce qu'il ne peut pas fonder.** Une affirmation de domaine
+  qui ne porte ni chiffre à unité connue, ni montant, ni nom de produit ne déclenche aucune
+  des cinq règles — et c'est le comportement voulu : une règle qui ne sait pas trancher ne
+  doit pas faire semblant. Le prix de cette position est au §7 ;
+* **le repli d'une telle réponse ne renvoie pas la question au client** (`PHRASE_DE_DOMAINE`) :
+  il dit ce que l'assistant ne fera pas, puis bascule sur ce que le catalogue contient.
+
 ---
 
 ## 3. Décisions d'architecture
@@ -921,7 +942,7 @@ Mesurés par le harnais d'éval, publiés en tableau dans le README.
 |---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé | **0**, strict | Validateur, sur tous les scénarios |
 | 2 | Budget jamais dépassé sans présentation explicite | **0** violation | Assertion sur les produits cités hors `au_dessus_du_budget` |
-| 3 | Délai avant première valeur | ≤ 2 questions médian | Métrique d'éval, suivie dans le temps |
+| 3 | Délai avant première valeur | **≤ 2 tours client**, médian | Métrique d'éval, suivie dans le temps. ⚠️ **Le seuil comptait des questions jusqu'au correctif de l'étape 12** ; il valait alors 0 partout, parce que l'agent n'appelle jamais `ask_clarification` avant de montrer quelque chose. §3.9 disait déjà quoi compter — « le bon indicateur est le délai avant première valeur, pas le compte de questions » — et on compte donc **combien de fois le client a dû parler**. Le nombre n'a pas changé, son sens si : « au deuxième message, le client a vu quelque chose ». Le compte de questions reste publié **sans seuil** : il mesure la règle de dialogue, pas le délai |
 | 4 | Pertinence : le produit attendu est dans le top 3 | ≥ 80 % | Scénarios à réponse de référence |
 | 5 | Moteur de matching testable sans API | binaire | La suite `tests/matching/` tourne hors ligne |
 | 6 | Cas zéro résultat traité proprement | binaire | Scénario dédié : dire pourquoi + proposer l'assouplissement du critère le plus coûteux |
@@ -3183,6 +3204,146 @@ avec sa `signature`. Sans effet sur le rejeu — rien n'est renvoyé à l'API �
 « pas de thinking en v1 » décrit ce qu'on demande, pas ce qu'on reçoit. C'est aussi la
 cause de la ligne 5.
 
+#### Correctif — ce que `eval-live` a montré ✅
+
+L'étape 12 a fait ce qu'on attendait d'elle. Elle a surtout montré **trois choses que
+trente-cinq tours scriptés ne montraient pas**, et ce correctif les traite. Aucun prompt
+n'a changé — ni `systeme.v1.md`, ni `grief.v1.md`, ni `client_simule.v1.md` : l'étape 13
+doit partir d'une base comparable à celle que le rapport décrit.
+
+**Mesure : 853 tests purs en 7,4 s (+30), 86 d'intégration (inchangé).** Dix-neuf prises
+sur onze scénarios, 44 tours client.
+
+---
+
+##### Point 1 — un message vide clôtait le tour sans rien livrer
+
+`_depouiller()` ignore les types de blocs inconnus, et **c'est voulu** : un bloc inattendu
+ne doit pas clore une conversation par une exception. Mais quand le message n'en portait
+**que** un — un `thinking` seul —, `message.texte` était vide et `message.appels` aussi :
+la boucle prenait la branche « aucun `tool_use`, que du texte », loguait `fin_de_tour` en
+`INFO`, et rendait son `IssueDuTour` **sans avoir émis un seul événement**. Le client
+recevait `done` et rien d'autre.
+
+**Correctif : `MotifDeRepli.REPONSE_VIDE`**, une troisième phrase écrite en Python
+(`PHRASE_REPONSE_VIDE`), et un `WARNING` qui nomme les types de blocs reçus. Un motif
+distinct, donc **comptable par le rapport** — même raison qu'à l'étape 9 : deux causes qui
+se corrigent à deux endroits différents ne partagent pas un compteur.
+
+*Alternative écartée — traiter le message vide comme une itération sans progrès et
+reboucler.* Plus généreuse pour le produit : le modèle a une seconde chance, et
+`max_iterations` borne déjà le pire cas. Écartée pour une raison mécanique qu'il vaut mieux
+ne pas découvrir en production — reboucler laisse `messages` se terminer par un message
+**assistant**, et l'appel suivant devient une continuation de ce message plutôt qu'un tour
+neuf. Avec un bloc `thinking` en dernière position, ce que l'API en fait n'est écrit nulle
+part, et le dépôt a trois précédents de capacités supposées sans être mesurées (§3.13). On
+replie, ce qui est sûr, et on **compte**.
+
+**Et le correctif a immédiatement montré que le défaut n'était pas anecdotique.** `make
+eval` relancé sur les **seize cassettes existantes**, sans en réenregistrer une seule, fait
+passer le taux de repli de **0 % à 5 %** : deux prises — `desserrage_refuse.1` et
+`sur_specifie.1` — contenaient déjà un tour où le client n'avait **rien** reçu. Elles
+étaient vertes, et elles décrivaient un produit muet.
+
+##### Point 2 — l'assistant et son domaine, et le résultat n'est pas celui qu'on attendait
+
+Persona `joueur_serre`, tour 4 : « c'est quoi la différence entre une dalle IPS et une
+dalle VA ? ». Le modèle avait répondu, le validateur avait refusé deux fois, et le client
+avait lu `PHRASE_GENERIQUE` — c'est-à-dire une demande de répéter une question posée
+clairement, dans un produit qui s'appelle « assistant conseil ».
+
+**Ce qui ne se corrige pas : la règle 5.** Une explication de domaine chiffrée est une
+affirmation que le code ne peut pas vérifier, et le validateur n'a aucun moyen honnête de
+distinguer « les dalles VA ont un meilleur contraste » d'un « les écrans de cette gamme
+montent à 240 Hz » que rien n'a rendu. Une règle qui ne sait pas trancher ne doit pas faire
+semblant.
+
+**Ce qui se corrige : la réponse.** `PHRASE_DE_DOMAINE` dit ce que l'assistant peut et ne
+peut pas, puis **bascule sur ce que le catalogue contient** quand un sondage a eu lieu dans
+le tour — les distributions que `probe_catalog` a rendues, qui sont des faits fournis. La
+boucle réduit le `ResultatSondage` en `EtatDuCatalogue` avant de le passer : le
+`ResultatSondage` porte un `EtatSession`, et le faire entrer dans le rédacteur d'une
+réponse au client rouvrirait ce qu'`evenements.py` ferme.
+
+⚠️ **Le onzième scénario n'a pas produit le repli qu'il devait produire, et c'est le
+résultat le plus intéressant du correctif.** `question_de_domaine`, trois prises, deux
+tours de question de domaine — dont un qui demande explicitement un chiffre. **Zéro rejet,
+zéro repli, sur les trois prises.** Ce que les cassettes montrent :
+
+* le modèle explique très bien IPS contre VA, **qualitativement** — « meilleur contraste,
+  noirs plus profonds, angles de vision » —, et **aucune des cinq règles ne tire**, parce
+  qu'il n'y a ni chiffre à unité connue, ni nom de produit, ni montant ;
+* sur la demande de chiffre, deux prises sur trois **refusent d'elles-mêmes** : « je ne
+  peux pas vous donner un ratio exact sans l'inventer, et je ne le ferai pas ». La
+  section 2 du prompt fait son travail sans que le validateur ait à intervenir ;
+* la troisième **donne les chiffres** — « VA : environ 3000:1 à 6000:1, IPS : 1000:1 à
+  1200:1 » — et **le validateur les laisse passer**. Voir §7 : c'est le trou de l'entier
+  nu, pris en flagrant délit sur une affirmation de domaine.
+
+La prémisse « l'assistant ne sait pas expliquer son domaine » était donc **trop forte**. Il
+l'explique, et il refuse le plus souvent les chiffres tout seul. `PHRASE_DE_DOMAINE` reste
+juste et reste nécessaire — la conversation live l'a bien déclenchée —, mais elle est
+exercée par les tests unitaires et par aucune cassette. C'est écrit plutôt que masqué, et
+**aucune cassette n'a été réenregistrée jusqu'à obtenir le repli attendu** : ce serait
+exactement la faute que ce dépôt cherche à ne plus commettre.
+
+##### Point 3 — le critère nº3, et deux lignes de rapport
+
+**3a. Le critère nº3 compte désormais des tours client.** Il valait 0 sur les onze prises
+qui livraient une valeur : la règle « donner avant de demander » fonctionne, l'agent
+n'appelle jamais `ask_clarification` avant de montrer quelque chose. Une bonne nouvelle,
+mais une métrique collée à son plancher ne détecte plus qu'une régression, alors que §5
+étape 13 dit de la **viser en priorité**.
+
+§3.9 disait déjà quoi compter : *« le bon indicateur est le délai avant première valeur,
+pas le compte de questions »*. On compte donc **combien de fois le client a dû parler**
+avant de voir des produits. **Le seuil reste à 2** — il ne veut plus dire la même chose :
+« au deuxième message, le client a vu quelque chose ». Un agent qui interrogerait trois
+tours d'affilée le ferait tomber, ce que l'ancienne formulation ne voyait pas, ces
+questions-là passant par du texte et non par `ask_clarification`.
+
+Effet immédiat : la médiane passe de 0,0 à **1,0**, et la dispersion de `besoin_flou`
+devient lisible — 2 à 3 tours selon la prise, là où les questions donnaient 0 partout.
+`questions_avant_premiere_valeur` **reste calculée et publiée sans seuil** : elle mesure
+désormais la règle de dialogue, pas le délai.
+
+**3b. Les règles qui ne se déclenchent jamais.** Une règle qui ne tire jamais est
+indistinguable d'une règle absente — et l'étape 12 avait montré que le critère nº1 ne
+détecte pas une règle manquante. Le rapport porte donc une ligne **« règles du validateur
+jamais déclenchées »**, dérivée de `CodeGrief` et jamais d'une liste écrite à la main :
+un code ajouté demain y apparaît sans qu'on touche à rien, et un test le vérifie par
+introspection.
+
+Sur cette exécution : **3 codes sur 6** ne tirent jamais — `id_inconnu`,
+`prix_etranger_au_produit`, `nom_reecrit`. Sans cette ligne, « 0,25 grief/tour » se lisait
+comme une couverture. *(Six codes pour cinq règles : `regle_montants` en lève deux.)*
+
+**3c. Ce qui ne bouge pas**, et qui devient une règle écrite dans `scenario.py` :
+*une attente qui nomme un outil est suspecte par défaut.* Avant d'en écrire une, se
+demander si elle décrit un **résultat** ou un **chemin**. Le corollaire vaut pour les
+attentes qui décrivent une dégradation : `question_de_domaine` n'exige pas de repli, bien
+qu'il ait été écrit pour en provoquer un — figer une défaillance en critère de conformité
+la rendrait obligatoire.
+
+##### Ce que le correctif a appris
+
+**1. Un correctif de silence se paie en visibilité, et le chiffre bouge dans le mauvais
+sens — c'est normal.** Le taux de repli passe de 0 % à 5 % **sans qu'une seule cassette
+change**. Le produit ne s'est pas dégradé : il a cessé de cacher deux tours muets. Un
+rapport dont un chiffre empire après un correctif est un rapport qui a commencé à dire la
+vérité, et c'est exactement la lecture que l'avertissement en tête du rapport demande.
+
+**2. La lecture du rapport ne change pas, elle se confirme.** Critère nº1 à zéro, taux de
+repli à 5 % : deux tours sur quarante-quatre ont servi au client une phrase écrite en
+Python. C'est peu, et ce n'est pas zéro — c'est précisément la phrase que le rapport porte
+en tête depuis l'étape 12.
+
+**3. Le trou du validateur n'est pas là où le correctif le cherchait.** On est parti
+corriger « l'assistant ne sait pas expliquer son domaine » ; les cassettes ont montré qu'il
+l'explique bien, et qu'il refuse les chiffres deux fois sur trois. Ce qu'elles ont montré
+en revanche, et que personne ne cherchait : **une affirmation de domaine chiffrée passe le
+validateur** dès que le chiffre ne porte pas d'unité connue. « 3000:1 » est livré au client
+sans qu'aucune règle ne le voie. Nouvelle ligne au §7.
 ---
 
 ### Étape 13 — Itération sur les prompts
@@ -3292,10 +3453,12 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Une cassette est un tirage, pas une espérance** | Moyenne — elle porte l'étape 13 tout entière | La température n'est pas fixée (étape 8, arbitrage 12), et on ne l'a pas fixée à l'étape 12 : une cassette enregistre **une** réponse du modèle parmi celles qu'il aurait pu donner. Trois prises ont donc été enregistrées sur `budget_serre`, `besoin_flou` et `zero_budget_trop_bas` pour avoir un ordre de grandeur du bruit. ⚠️ **Trois prises ne sont pas un intervalle de confiance**, et le rapport ne le prétend nulle part : c'est un ordre de grandeur, infiniment mieux que le plancher de bruit inconnu qu'on aurait sinon, et rien de plus. Conséquence directe pour l'étape 13 : un écart entre deux prompts inférieur à cet ordre de grandeur **n'est pas un signal**, et le conclure serait exactement la faute que le motif nº3 du parcours cherche à ne plus commettre. Fermeture possible et non retenue : fixer `temperature=0` — le dépôt s'est déjà fait prendre à supposer que cela donnait du déterminisme (étape 5), et on ne le suppose plus |
 | **La réponse de référence du critère nº4 est choisie à la main, et sa qualité n'est vérifiée par rien** | Moyenne — elle décide d'un critère d'acceptation | L'attendu ne vient pas du moteur (arbitrage F) : le déterminer en lançant le moteur ferait valoir la métrique 100 % par construction. Il vient donc d'une **lecture du catalogue**, et rien ne relit cette lecture. Une métrique nº4 qui chute peut donc accuser le moteur à tort. Atténuation réelle et partielle : quatre des six attendus sont adossés à une **unicité** constatée — un seul produit du catalogue satisfait les contraintes —, ce qui est le plus solide qu'on puisse faire sans jury humain, et un test pur vérifie que chaque identifiant existe bien dans le seed committé. Les deux autres (`changement_davis`, `comparaison`) reposent sur un argument, et leur `justification` le dit en toutes lettres dans `scenario.py`. **C'est cette phrase qu'il faut relire avant d'accuser le moteur**, et c'est pour ça qu'elle est une donnée et pas un commentaire |
 | **Le critère nº1 ne détecte pas une règle manquante — seulement un trou dans la réaction à une règle existante** | Moyenne, et **mesurée** à l'étape 12 | Le harnais mesure le validateur **avec le validateur** : `valider()` relit la prose livrée avec les mêmes cinq règles que la boucle. Amputer `REGLES` rend donc aveugles les deux à la fois, et le critère nº1 reste à zéro pendant que du texte fautif part au client — constaté, en retirant `regle_valeurs_unitaires` puis en rejouant `budget_serre`. L'alternative — une seconde lecture indépendante de la prose — est refusée par l'arbitrage E : ce serait un second validateur, plus faible que le premier, qui finirait par diverger de lui. **Ce qui détecte une règle manquante existe pourtant, et c'est la troisième couche du rapport :** le taux de rejet s'effondre (2 → 0 sur ce scénario), l'avertissement « prises consommées » sort, et sur un scénario où le rejet ne tombe pas au dernier tour le rejeu échoue carrément en `DivergenceDeRequete`. Le critère nº1, lui, détecte bien ce pour quoi il est fait : la boucle rendue insensible à un verdict fait passer le compte à 2 griefs et `make eval` sort en code non nul |
-| **Un message assistant qui ne porte qu'un bloc `thinking` clôt le tour sans rien livrer** | Moyenne — le client ne reçoit **rien**, et rien ne le signale | `_depouiller()` ignore les types de blocs inconnus, et c'est voulu : un bloc inattendu ne doit pas clore une conversation par une exception. Mais quand le message n'en porte **que** un, `message.texte` est vide et `message.appels` aussi : la boucle prend la branche « aucun `tool_use`, que du texte », loggue `boucle.fin_de_tour` en `INFO` et rend son `IssueDuTour` **sans avoir émis un seul événement**. Aucun `Texte`, aucun `Repli`, aucune erreur. Observé en conversation réelle à `make eval-live` — ligne 21 sur 27 d'une session persistée, juste après un repli de validation ; le client simulé a répondu « Euh… vous êtes là ? ». Ce n'était pas un cas théorique tant que le thinking était supposé absent (étape 8, arbitrage 12) ; les cassettes montrent que `claude-sonnet-5` en émet **sans qu'on le demande**. Correctif nommé et non pris à l'étape 12, qui ne change aucun comportement : traiter « aucun événement émis » comme une itération sans progrès plutôt que comme une fin de tour, ou émettre le repli de `MAX_ITERATIONS`. À trancher à l'étape 13, où l'on saura ce que le harnais en dit |
-| **La métrique nº3 est au plancher et n'a aucune marge de progression** | Faible, mais elle prive l'étape 13 de son indicateur principal | *Questions avant première valeur* vaut **0 sur les onze prises** qui livrent une valeur : sur ce jeu de scénarios, l'agent n'appelle jamais `ask_clarification` avant de montrer quelque chose. C'est la règle « donner avant de demander » (§3.9, section 5 du prompt) qui produit son effet — donc une bonne nouvelle — mais §5 étape 13 dit « viser en priorité la métrique nº3 », et il n'y a rien à viser. Deux lectures possibles et non départagées : les dix scénarios sont trop explicites (ils énoncent taille, fréquence et budget dès le premier tour), ou le délai avant première valeur se compte en **tours client** et non en questions. `besoin_flou` est le seul scénario écrit contre ce biais, et il livre lui aussi une valeur sans poser de question |
-| **Le taux de repli de 0 % est un artefact du jeu de scénarios** | Moyenne — c'est un chiffre publié qui flatte | Trente-cinq tours scriptés, **zéro repli**. La première conversation de `make eval-live` en a produit un, motif `validation`, au moment où le client a demandé « c'est quoi la différence entre IPS et VA ? ». La cause est nette : les dix scénarios posent des questions **sur le catalogue**, un vrai client en pose **sur le domaine** — et le catalogue ne contient pas de quoi expliquer une technologie de dalle. Le modèle répond alors depuis sa connaissance du monde, le validateur refuse, régénère, et se replie. Atténuation : le mode `live` existe précisément pour cela, et il est désormais une porte de sortie. Ce qui reste ouvert : rien n'oblige à le lancer, et une régression de ce type ne se verrait dans aucune commande automatique |
+| ~~**Un message assistant qui ne porte qu'un bloc `thinking` clôt le tour sans rien livrer**~~ | **Éteint** au correctif de l'étape 12 — `MotifDeRepli.REPONSE_VIDE`. La ligne est barrée plutôt qu'effacée : c'est le seul défaut du projet trouvé par une conversation avec un client simulé, et il était **déjà présent dans deux cassettes** que personne n'avait vues | `_depouiller()` ignore les types de blocs inconnus, et c'est voulu : un bloc inattendu ne doit pas clore une conversation par une exception. Mais quand le message n'en portait **que** un, il ne restait ni texte ni appel, et la boucle rendait son `IssueDuTour` sans avoir émis un seul événement — le client recevait `done` et rien d'autre. La boucle clôt désormais le tour par un `Repli(REPONSE_VIDE)`, phrase écrite en Python, avec un `WARNING` qui nomme les types de blocs reçus. **Ce que le motif dédié a immédiatement rendu visible** : `make eval` relancé sur les seize cassettes existantes, sans en réenregistrer une seule, fait passer le taux de repli de 0 % à 5 % — `desserrage_refuse.1` et `sur_specifie.1` contenaient déjà un tour muet. *Alternative écartée — reboucler en traitant le message vide comme une itération sans progrès* : elle laisse `messages` se terminer par un message **assistant**, donc l'appel suivant devient une continuation de ce message plutôt qu'un tour neuf ; avec un bloc `thinking` en dernière position, ce que l'API en fait n'est écrit nulle part, et le dépôt a trois précédents de capacités supposées sans être mesurées |
+| ~~**La métrique nº3 est au plancher et n'a aucune marge de progression**~~ | **Éteint** au correctif de l'étape 12 — le critère compte désormais des **tours client** | *Questions avant première valeur* valait **0 sur les onze prises** qui livraient une valeur : la règle « donner avant de demander » produit son effet, l'agent n'appelle jamais `ask_clarification` avant de montrer quelque chose. Bonne nouvelle, mais §5 étape 13 demande de viser la métrique nº3 en priorité et il n'y avait rien à viser. §3.9 disait déjà quoi compter — « le bon indicateur est le délai avant première valeur, pas le compte de questions » : on compte **combien de fois le client a dû parler**. La médiane passe de 0,0 à 1,0, et la dispersion de `besoin_flou` devient lisible (2 à 3 tours selon la prise, là où les questions donnaient 0 partout). Le seuil reste à 2 et change de sens : « au deuxième message, le client a vu quelque chose ». Le compte de questions reste publié **sans seuil** — il mesure la règle de dialogue, et l'étape 13 aura besoin de savoir laquelle des deux a bougé |
+| **Le taux de repli publié dépend du jeu de scénarios, et le correctif de l'étape 12 a montré comment** | Moyenne — **partiellement fermée**, et la cause n'était pas celle qu'on croyait | ~~Trente-cinq tours scriptés, zéro repli, alors que la première conversation de `make eval-live` en produisait un : les dix scénarios posent des questions **sur le catalogue**, un vrai client en pose **sur le domaine**.~~ **Le diagnostic était faux, et les cassettes l'ont dit.** Le zéro venait d'ailleurs : deux tours **muets** que personne ne comptait, faute d'un motif de repli pour eux. Le motif `REPONSE_VIDE` ajouté, les mêmes seize cassettes affichent **5 %** sans qu'une seule ait été réenregistrée. Quant à l'hypothèse des questions de domaine, le scénario `question_de_domaine` l'a testée sur trois prises et **ne l'a pas confirmée** : le modèle explique IPS contre VA sans citer un chiffre, aucune règle ne tire, aucun repli n'a lieu. Ce qui reste ouvert : le repli de domaine **existe** — la conversation live l'a déclenché — mais aucune cassette ne l'exerce, et rien n'oblige à lancer `eval-live`. Une régression sur ce chemin ne se verrait dans aucune commande automatique |
 | **Rien ne constate que l'agent *dit* au client qu'il a refusé un desserrage** | Moyenne — c'est la moitié non mesurée de la section 9 du prompt | Le scénario `desserrage_refuse` vérifie deux faits, tous deux lus sur les événements : le jeton de parole a bien refusé (`CriteresMisAJour.mouvements_refuses` non vide) et le critère n'a pas fini par bouger (`Attente.CRITERE_TENU`). **Ni l'un ni l'autre ne dit ce que la prose affirme.** Un agent qui refuserait le desserrage et écrirait « c'est noté, je passe à 144 Hz » tiendrait les deux attentes. La fermer demanderait de lire la prose autrement que par le validateur, ce que l'arbitrage E refuse — un second validateur, plus faible, qui diverge du premier. Ce n'est pas une limite du harnais mais de ce qu'un harnais programmatique sait faire, et c'est exactement le genre de chose que le client simulé donne à **lire** sans savoir la compter |
+| **Une affirmation de domaine chiffrée passe le validateur dès que le chiffre ne porte pas d'unité connue** | **Moyenne** — elle porte sur le critère nº1, et elle a été **mesurée**, pas déduite | C'est le trou de l'entier nu (ligne ci-dessus), pris en flagrant délit sur une affirmation qui n'est pas du tout sur le catalogue. Scénario `question_de_domaine`, prise 3 : le client demande le taux de contraste d'une dalle VA, et le modèle répond « VA : environ 3000:1 à 6000:1, IPS : 1000:1 à 1200:1 ». **Aucune des cinq règles ne tire** — « 3000:1 » n'est pas un montant, ne suit aucune unité connue, et la phrase ne nomme aucun produit fourni. Le chiffre est livré au client. ⚠️ **La nuance qui rend cette ligne moins noire qu'elle n'en a l'air** : deux prises sur trois refusent le chiffre **d'elles-mêmes** — « je ne peux pas vous donner un ratio exact sans l'inventer, et je ne le ferai pas ». La section 2 du prompt fait donc l'essentiel du travail, et le validateur n'est pas le filet qu'on croyait sur ce chemin-là. Fermeture possible et **non retenue** : exiger qu'un nombre appartienne aux agrégats fournis, ce qui rendrait « trois modèles » et « les deux premiers » invalides — un validateur qui crie sur du français correct finit par être débranché. Ce que ce risque coûte vraiment est borné par §2 : l'assistant conseille à partir du catalogue, il n'enseigne pas la technologie, et une affirmation de domaine fausse n'engage pas un achat |
+| **`PHRASE_DE_DOMAINE` n'est exercée par aucune cassette** | Faible — c'est une couverture, pas un défaut | Le repli de domaine a été écrit à partir d'une conversation réelle où il aurait dû se déclencher, et il est couvert par sept tests purs, dont un qui le relit avec les cinq règles du validateur. Mais le scénario `question_de_domaine`, **trois prises, deux tours de question de domaine**, n'a produit ni rejet ni repli : le modèle explique IPS contre VA sans citer un chiffre, et rien ne tire. Le chemin est donc vérifié en unitaire et **jamais en bout en bout**. ⚠️ **Ce qu'on n'a pas fait, et il faut le dire** : réenregistrer jusqu'à obtenir le repli attendu. Ce serait choisir le tirage qui arrange, sur un scénario dont §7 dit déjà qu'une cassette est un tirage — exactement la faute que ce dépôt cherche à ne plus commettre. La ligne reste ouverte, et l'étape 13 la refermera si elle trouve une formulation de client qui déclenche le cas de façon reproductible |
 | **La prose du modèle contient du markdown que le front n'interprète qu'à moitié** | Faible — c'est de l'affichage, et le correctif est daté | Le modèle écrit `**gras**`, des listes numérotées, et des identifiants entre `` ` `` (« le `monitor-ee31fe1bb3` »). Le front rend **deux formes et pas une de plus** — le gras et les sauts de ligne — construites en nœuds DOM par une trentaine de lignes qui ne peuvent structurellement pas ouvrir d'injection (arbitrage B). Le reste s'affiche tel quel : les backticks sont visibles à l'écran, constaté en démonstration. **C'est le prompt qu'on corrigera à l'étape 13, pas le front qu'on armera d'un parseur.** Ajouter ici une dépendance markdown ferait porter au front la mise en forme d'un texte dont on maîtrise la production — et écrire un parseur markdown à la main rouvrirait exactement la surface d'injection que l'arbitrage B ferme. Le sens du correctif est donc : demander au prompt de ne produire que ce que le front rend, plutôt que de faire courir le front derrière ce que le prompt produit |
 
 ---

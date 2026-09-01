@@ -170,7 +170,7 @@ from raiyon.tools.outils import (
 )
 from raiyon.tools.repartiteur import ContexteOutils, executer
 from raiyon.validateur.contexte import contexte_des_messages
-from raiyon.validateur.repli import rediger
+from raiyon.validateur.repli import EtatDuCatalogue, rediger
 from raiyon.validateur.validateur import (
     VERDICT_SANS_GRIEF,
     OrigineRejet,
@@ -187,6 +187,19 @@ PHRASE_DE_REPLI = (
 
 Celle du repli de validation vit dans `validateur/repli.py` : deux situations, donc deux
 phrases. Ici le modèle a tourné en rond ; là il a affirmé ce qu'il n'avait pas."""
+
+PHRASE_REPONSE_VIDE = (
+    "Je n'ai rien produit en réponse à votre message — c'est de mon côté, pas du vôtre. "
+    "Pouvez-vous me le redire ?"
+)
+"""Écrite en Python, jamais générée (correctif de l'étape 12). Troisième phrase du lot.
+
+Elle ne renvoie pas le client à sa formulation — le message était très bien — mais dit
+d'où vient la faute. C'est la seule des trois qui décrit un défaut **de la boucle**, et
+la seule où l'on peut le dire au client sans lui montrer de mécanique interne.
+
+⚠️ Elle ne cite aucun chiffre et aucun produit : elle n'a pas de contexte fourni à
+respecter, puisqu'elle est rendue quand le modèle n'a rien produit du tout."""
 
 SEPARATEUR_DE_BLOCS = "\n"
 """Ce qui recolle les blocs `text` d'un même message assistant avant validation.
@@ -240,12 +253,16 @@ class _Executions:
     `recherche` est le dernier `ResultatMatching` **typé** du tour : c'est ce dont le
     repli sur template a besoin, et il ne survit pas à la sérialisation en `tool_result`
     — le reconstruire depuis le JSON demanderait un second lecteur du protocole.
+
+    `sondage` suit la même logique depuis le correctif de l'étape 12 : la bascule vers le
+    catalogue du repli de domaine a besoin des distributions **typées**, pas de leur JSON.
     """
 
     etat: EtatSession
     resultats: list[dict[str, Any]]
     question: ResultatPrecision | None
     recherche: ResultatMatching | None
+    sondage: ResultatSondage | None
 
 
 def repondre(
@@ -280,6 +297,7 @@ def repondre(
     iteration = 0
     regenerations = 0
     derniere_recherche: ResultatMatching | None = None
+    dernier_sondage: ResultatSondage | None = None
 
     while iteration < max_iterations:
         iteration += 1
@@ -308,6 +326,7 @@ def repondre(
             executions = yield from _executer_les_appels(message.appels, etat, contexte)
             etat = executions.etat
             derniere_recherche = executions.recherche or derniere_recherche
+            dernier_sondage = executions.sondage or dernier_sondage
             outils_appeles.extend(str(appel.get("name")) for appel in message.appels)
 
             # ⚠️ La question du même message n'est **pas** validée ici : le budget du tour
@@ -326,7 +345,11 @@ def repondre(
                 # mort : c'est l'invariant dont `prose.py` dépend (correctif de l'étape 11).
                 _empiler_la_reprise(messages, tours, executions.resultats, verdict)
                 yield Repli(
-                    rediger(derniere_recherche, OrigineRejet.TEXTE),
+                    rediger(
+                        derniere_recherche,
+                        OrigineRejet.TEXTE,
+                        _catalogue_de(dernier_sondage),
+                    ),
                     iteration,
                     tuple(outils_appeles),
                     MotifDeRepli.VALIDATION,
@@ -338,6 +361,35 @@ def repondre(
             # Quand le message ne portait que du texte, le bloc ne contient que le grief.
             _empiler_la_reprise(messages, tours, executions.resultats, verdict)
             continue
+
+        if not message.texte and not message.appels:
+            # ⚠️ **Ni texte ni appel d'outil : le message ne porte que des blocs que
+            # `_depouiller()` ignore** — un `thinking` seul, observé en conversation réelle
+            # au correctif de l'étape 12. Sans cette branche, la boucle tombait dans le
+            # « fin de tour normale » ci-dessous et rendait son issue **sans avoir émis un
+            # seul événement** : le client recevait `done` et rien d'autre.
+            #
+            # *Alternative écartée — traiter le message vide comme une itération sans
+            # progrès et reboucler.* Plus généreuse pour le produit : le modèle a une
+            # seconde chance, et `max_iterations` borne déjà le pire cas. Écartée pour une
+            # raison mécanique qu'il vaut mieux ne pas découvrir en production — reboucler
+            # laisse `messages` se terminer par un message **assistant**, et l'appel suivant
+            # devient une continuation de ce message plutôt qu'un tour neuf. Avec un bloc
+            # `thinking` en dernière position, ce que l'API en fait n'est écrit nulle part,
+            # et le dépôt a trois précédents de capacités supposées sans être mesurées
+            # (§3.13). On replie, ce qui est sûr, et on **compte** — c'est ce que le motif
+            # dédié achète.
+            logueur.warning(
+                "boucle.reponse_vide",
+                iteration=iteration,
+                types_de_blocs=sorted({str(bloc.get("type")) for bloc in reponse.blocs}),
+                fin=reponse.fin,
+                consequence="tour clos par un message de repli écrit en Python",
+            )
+            yield Repli(
+                PHRASE_REPONSE_VIDE, iteration, tuple(outils_appeles), MotifDeRepli.REPONSE_VIDE
+            )
+            return IssueDuTour(etat, tuple(tours), iteration, tuple(outils_appeles))
 
         if message.texte:
             yield Texte(message.texte)
@@ -358,6 +410,7 @@ def repondre(
         executions = yield from _executer_les_appels(message.appels, etat, contexte)
         etat = executions.etat
         derniere_recherche = executions.recherche or derniere_recherche
+        dernier_sondage = executions.sondage or dernier_sondage
 
         # La question d'`ask_clarification` est **de la prose qui part au client**, et
         # elle échappait au validateur : c'est un argument d'outil, pas un bloc `text`.
@@ -520,6 +573,7 @@ def _executer_les_appels(
     resultats: list[dict[str, Any]] = []
     question: ResultatPrecision | None = None
     recherche: ResultatMatching | None = None
+    sondage: ResultatSondage | None = None
 
     for appel in appels:
         nom = str(appel.get("name", ""))
@@ -548,12 +602,31 @@ def _executer_les_appels(
 
         if isinstance(resultat, ResultatRecherche):
             recherche = resultat.resultat
+        elif isinstance(resultat, ResultatSondage):
+            sondage = resultat
 
         evenement = _evenement_de(resultat)
         if evenement is not None and question is None:
             yield evenement
 
-    return _Executions(etat, resultats, question, recherche)
+    return _Executions(etat, resultats, question, recherche, sondage)
+
+
+def _catalogue_de(sondage: ResultatSondage | None) -> EtatDuCatalogue | None:
+    """Le sondage réduit à ce que le repli de domaine a besoin de dire.
+
+    ⚠️ **La réduction est le point, pas une commodité.** `ResultatSondage` porte un
+    `EtatSession` ; le passer tel quel à `repli.py` ferait entrer l'état de session dans le
+    rédacteur de la réponse, ce que `evenements.py` interdit pour tout ce qui sort vers le
+    client — et ferait importer `raiyon.tools` par `raiyon.validateur`.
+    """
+    if sondage is None:
+        return None
+    return EtatDuCatalogue(
+        categorie=sondage.categorie,
+        candidats=sondage.dans_le_budget,
+        champs=sondage.champs,
+    )
 
 
 def _evenement_de(resultat: ResultatOutil) -> Evenement | None:
@@ -609,9 +682,19 @@ def _bloc_tool_result(identifiant: str, resultat: ResultatOutil | OutilRefuse) -
 def _depouiller(blocs: Sequence[dict[str, Any]]) -> _Message:
     """Sépare textes et appels d'outils. Tout autre type de bloc est ignoré.
 
-    Il n'y en a pas en v1 — le thinking étendu est écarté (arbitrage 12) — mais un bloc
+    ~~Il n'y en a pas en v1 — le thinking étendu est écarté (arbitrage 12)~~ — mais un bloc
     inconnu qui ferait lever ici clorait une conversation pour une raison qui n'a rien à
     voir avec le produit.
+
+    ⚠️ **La première moitié est fausse, et les cassettes de l'étape 12 le prouvent.**
+    L'arbitrage 12 décrit ce qu'on **demande** — aucun `thinking` n'est activé dans
+    `client_anthropic.py` — et non ce qu'on **reçoit** : `claude-sonnet-5` émet des blocs
+    `thinking`, avec leur `signature`, sans qu'on les sollicite. La décision n'est pas
+    renversée, sa portée l'est ; la ligne est barrée plutôt qu'effacée.
+
+    Conséquence directe, et c'est le correctif de l'étape 12 : un message qui ne porte
+    **que** de tels blocs n'est plus une hypothèse d'école. `repondre()` le clôt désormais
+    par un `Repli(REPONSE_VIDE)` au lieu de ne rien émettre.
     """
     message = _Message()
     for bloc in blocs:

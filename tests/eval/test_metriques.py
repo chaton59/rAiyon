@@ -28,6 +28,7 @@ from raiyon.eval.metriques import (
     agreger,
     mesurer,
     questions_avant_premiere_valeur,
+    tours_avant_premiere_valeur,
 )
 from raiyon.matching.criteres import Critere, Importance, Operateur, Optimisation
 from raiyon.matching.moteur import ProduitHorsBudget, ResultatMatching
@@ -139,6 +140,128 @@ def test_une_prise_sans_aucune_valeur_rend_none_et_sort_de_la_mediane():
     assert mesures.prises_sans_valeur == 1
     assert mesures.mediane_des_questions is None
     assert mesures.critere_3 is None
+
+
+# --------------------------------------------------------------------------- #
+# Critère nº3 — il compte des **tours client** depuis le correctif de l'étape 12
+# --------------------------------------------------------------------------- #
+
+
+def prise_multi(*tours_devenements, **reste):
+    """Une prise à plusieurs tours client, chacun portant sa liste d'événements."""
+    return PriseJouee(
+        scenario="essai",
+        prise=1,
+        tours=tuple(
+            TourJoue(f"message {rang}", tuple(evenements), 1)
+            for rang, evenements in enumerate(tours_devenements, start=1)
+        ),
+        messages=(),
+        **reste,
+    )
+
+
+def test_le_critere_3_compte_les_tours_client_pas_les_questions():
+    """Le client parle deux fois avant de voir des produits : la mesure vaut **2**.
+
+    Le nombre de questions posées dans ces tours n'y change rien — c'est justement le
+    point : un agent qui explique longuement sans rien montrer coûte un tour, exactement
+    comme un agent qui interroge.
+    """
+    tours = prise_multi(
+        [question(), question(), question()],
+        [trouves_avec(ECRAN)],
+    ).tours
+    assert tours_avant_premiere_valeur(tours) == 2
+
+
+def test_une_valeur_livree_au_premier_tour_vaut_un():
+    """1, pas 0 : le client a bien dû parler une fois. Le rang est 1-indexé."""
+    assert tours_avant_premiere_valeur(prise_multi([trouves_avec(ECRAN)]).tours) == 1
+
+
+def test_un_zero_resultat_ne_compte_pas_comme_une_valeur_livree():
+    """Le client n'a rien vu : le compteur continue au tour suivant."""
+    tours = prise_multi([trouves_avec()], [trouves_avec(ECRAN)]).tours
+    assert tours_avant_premiere_valeur(tours) == 2
+
+
+def test_une_prise_qui_ne_livre_jamais_de_valeur_reste_none_et_sort_de_la_mediane():
+    """Le comportement de l'étape 12, à ne pas casser : « zéro tour avant une valeur qui
+    n'est jamais venue » serait le meilleur score possible pour le pire comportement."""
+    assert tours_avant_premiere_valeur(prise_multi([question()], [question()]).tours) is None
+
+    mesures = agreger([mesurer(prise_multi([question()], [question()]))])
+    assert mesures.tours_par_prise == ()
+    assert mesures.prises_sans_valeur == 1
+    assert mesures.mediane_des_tours is None
+    assert mesures.critere_3 is None
+
+
+def test_trois_tours_avant_la_premiere_valeur_font_tomber_le_critere_3():
+    """Le seuil de 2 mord désormais : c'est l'interrogatoire que §3.9 nomme."""
+    mesures = agreger([mesurer(prise_multi([question()], [question()], [trouves_avec(ECRAN)]))])
+    assert mesures.mediane_des_tours == 3.0
+    assert mesures.critere_3 is False
+
+
+def test_les_questions_restent_calculees_et_publiees_sans_seuil():
+    """Elles ne mesurent plus le critère — elles mesurent « donner avant de demander »."""
+    mesuree = mesurer(prise_multi([question(), question()], [trouves_avec(ECRAN)]))
+    assert mesuree.tours_avant_valeur == 2
+    assert mesuree.questions_avant_valeur == 2
+    assert agreger([mesuree]).questions_par_prise == (2,)
+
+
+# --------------------------------------------------------------------------- #
+# Les règles jamais déclenchées — **dérivées de `CodeGrief`**
+# --------------------------------------------------------------------------- #
+
+
+def test_sans_aucun_rejet_toutes_les_regles_sont_declarees_muettes():
+    """⚠️ **Le test qui interdit une liste écrite à la main.**
+
+    Il est dérivé de `CodeGrief` par construction : un sixième code ajouté à l'énumération
+    apparaît ici sans qu'on touche à rien. Une liste codée en dur ferait échouer cette
+    assertion le jour de cet ajout, ce qui est exactement le service qu'on lui demande.
+    """
+    mesures = agreger([mesurer(prise(trouves_avec(ECRAN)))])
+    assert mesures.codes_declenches == frozenset()
+    assert mesures.codes_jamais_declenches == tuple(CodeGrief)
+    assert len(mesures.codes_jamais_declenches) == len(CodeGrief)
+
+
+def test_un_code_declenche_sort_de_la_liste_des_muettes():
+    mesuree = mesurer(
+        prise(
+            TexteRejete(
+                (Grief(CodeGrief.NOM_REECRIT, "l'Odyssée de Samsung", "recopier"),),
+                1,
+                OrigineRejet.TEXTE,
+            )
+        )
+    )
+    mesures = agreger([mesuree])
+    assert mesures.codes_declenches == frozenset({CodeGrief.NOM_REECRIT})
+    assert CodeGrief.NOM_REECRIT not in mesures.codes_jamais_declenches
+    assert set(mesures.codes_jamais_declenches) | mesures.codes_declenches == set(CodeGrief)
+
+
+def test_les_deux_ensembles_partitionnent_toujours_lenumeration():
+    """La propriété qui rend la ligne du rapport lisible : rien ne tombe entre les deux."""
+    mesures = agreger(
+        [
+            mesurer(
+                prise(
+                    TexteRejete((Grief(CodeGrief.ID_INCONNU, "x", "y"),), 1, OrigineRejet.QUESTION)
+                )
+            )
+        ]
+    )
+    declenches = mesures.codes_declenches
+    muets = set(mesures.codes_jamais_declenches)
+    assert declenches & muets == set()
+    assert declenches | muets == set(CodeGrief)
 
 
 # --------------------------------------------------------------------------- #

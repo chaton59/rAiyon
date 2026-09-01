@@ -1,4 +1,4 @@
-"""Les dix scénarios : ce que le §5 étape 12 exige, et ce que l'arbitrage F impose.
+"""Les onze scénarios : ce que le §5 étape 12 exige, et ce que l'arbitrage F impose.
 
 Ces tests ne mesurent rien — ils vérifient que la **définition** des scénarios tient ses
 promesses. Un attendu sans justification passerait toutes les autres suites au vert et
@@ -31,16 +31,33 @@ EXIGES_PAR_LE_PLAN = {
 """Les huit du §5 étape 12. Les deux autres visent des invariants que seuls des tests
 unitaires touchent aujourd'hui : le jeton de parole et le budget effacé."""
 
-A_TROIS_PRISES = {"budget_serre", "besoin_flou", "zero_budget_trop_bas"}
-"""Arbitrage D : les trois sur lesquels on veut un ordre de grandeur de la dispersion."""
+A_TROIS_PRISES = {
+    "budget_serre",
+    "besoin_flou",
+    "zero_budget_trop_bas",
+    "question_de_domaine",
+}
+"""Arbitrage D : ceux sur lesquels un tirage unique ne dit rien.
+
+Les trois premiers portent la dispersion des métriques nº3 et nº4. Le quatrième est venu
+au correctif de l'étape 12, et pour une **autre** raison : il mesure un événement rare —
+un repli sur une question de domaine — et la première prise n'en a produit aucun. Le
+modèle avait répondu sans citer un seul chiffre, donc aucune des cinq règles n'a tiré.
+
+⚠️ **Trois prises ne rendent pas ce scénario déterministe**, et ce n'est pas ce qu'on leur
+demande : elles disent si le repli est fréquent ou exceptionnel. Réenregistrer jusqu'à
+obtenir le repli qu'on attendait serait exactement la faute que ce dépôt cherche à ne plus
+commettre."""
 
 
 def test_les_huit_scenarios_du_plan_sont_tous_la():
     assert set(PAR_NOM) >= EXIGES_PAR_LE_PLAN
 
 
-def test_il_y_a_bien_dix_scenarios():
-    assert len(SCENARIOS) == 10
+def test_il_y_a_bien_onze_scenarios():
+    """Dix à l'étape 12, plus `question_de_domaine` au correctif — voir son intention."""
+    assert len(SCENARIOS) == 11
+    assert "question_de_domaine" in PAR_NOM
 
 
 def test_les_noms_sont_uniques():
@@ -56,7 +73,7 @@ def test_seuls_trois_scenarios_portent_trois_prises():
     multiples = {scenario.nom for scenario in SCENARIOS if scenario.prises > 1}
     assert multiples == A_TROIS_PRISES
     assert all(PAR_NOM[nom].prises == 3 for nom in A_TROIS_PRISES)
-    assert prises_attendues() == 16
+    assert prises_attendues() == 19
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.nom)
@@ -112,6 +129,7 @@ def test_les_scenarios_sans_attendu_sont_une_decision_pas_un_oubli():
     fabriquerait une métrique nº4 flatteuse."""
     sans = {scenario.nom for scenario in SCENARIOS if scenario.attendu is None}
     assert sans == {
+        "question_de_domaine",
         "besoin_flou",
         "sur_specifie",
         "hors_catalogue",
@@ -167,3 +185,4 @@ def test_un_scenario_inconnu_liste_les_noms_valides():
         par_nom("budget-serre")
     assert "budget_serre" in str(erreur.value)
     assert "categorie_efface_budget" in str(erreur.value)
+    assert "question_de_domaine" in str(erreur.value)

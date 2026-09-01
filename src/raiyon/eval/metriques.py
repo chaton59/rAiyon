@@ -76,9 +76,30 @@ from raiyon.validateur.validateur import Grief, OrigineRejet, valider
 CODE_DU_CRITERE_2 = CodeGrief.ECART_NON_DIT
 """Le seul code qui porte le critère nº2. Les cinq autres portent le critère nº1."""
 
+SEUIL_TOURS = 2
+"""Critère nº3 : médiane des **tours client** avant la première valeur.
+
+⚠️ **Le critère comptait des questions jusqu'au correctif de l'étape 12**, et le seuil de
+§4 valait « ≤ 2 questions ». Il valait 0 sur les onze prises qui livrent une valeur : la
+règle « donner avant de demander » fonctionne, l'agent n'interroge jamais avant de montrer
+quelque chose — mais une métrique collée à son plancher ne détecte plus qu'une régression,
+et §5 étape 13 demande de la **viser en priorité**.
+
+§3.9 disait déjà quoi compter : *« le bon indicateur est le délai avant première valeur,
+pas le compte de questions »*. On compte donc ce que le client vit — **combien de fois
+ai-je dû parler avant d'obtenir quelque chose** — et le seuil reste à 2, mais il ne veut
+plus dire la même chose : il dit maintenant « au deuxième message du client, il a vu des
+produits ». Un agent qui interrogerait trois tours d'affilée avant de montrer quoi que ce
+soit le ferait tomber, ce qui est exactement le mode d'échec de l'interrogatoire que §3.9
+nomme. L'ancien seuil ne l'aurait pas vu : ces questions-là passent par du texte, pas par
+`ask_clarification`."""
+
 SEUIL_QUESTIONS = 2
-"""Critère nº3 : médiane des questions avant première valeur. §3.9 en fait une métrique,
-pas un plafond — le seuil vit donc ici, dans la mesure, et pas dans la boucle."""
+"""L'ancien seuil du critère nº3, **conservé sans portée**.
+
+`questions_avant_premiere_valeur` reste calculée et **publiée sans seuil** : elle ne mesure
+plus le critère, elle mesure la règle de dialogue de la section 5 du prompt. Les deux
+méritent d'être suivies, et l'étape 13 aura besoin de savoir laquelle a bougé."""
 
 SEUIL_TOP3 = 0.80
 """Critère nº4 : part des scénarios à attendu dont le produit de référence est dans le
@@ -201,10 +222,17 @@ class MesuresDunePrise:
     violations_budget: tuple[Grief, ...]
     """Critère nº2. Les `ECART_NON_DIT` de la prose livrée."""
 
+    tours_avant_valeur: int | None
+    """**Critère nº3** — le rang du tour client où la première valeur est arrivée.
+
+    1 signifie « le client a parlé une fois, il a vu des produits ». `None` si aucune
+    valeur n'a jamais été livrée : la prise n'entre alors pas dans la médiane, parce que
+    « zéro tour avant une valeur qui n'est jamais venue » serait le meilleur score possible
+    pour le pire comportement possible."""
+
     questions_avant_valeur: int | None
-    """Critère nº3. `None` si aucune valeur n'a jamais été livrée : la prise n'entre alors
-    pas dans la médiane, parce que « zéro question avant une valeur qui n'est jamais
-    venue » serait le meilleur score possible pour le pire comportement possible."""
+    """Publiée sans seuil depuis le correctif de l'étape 12. Elle mesure la règle « donner
+    avant de demander », pas le délai avant première valeur — voir `SEUIL_QUESTIONS`."""
 
     attendu_en_top3: bool | None
     """Critère nº4. `None` si le scénario ne porte pas d'attendu (arbitrage F)."""
@@ -251,7 +279,12 @@ class Mesures:
     zero_resultats_traites: int
 
     # ---- Critères de qualité ------------------------------------------------
+    tours_par_prise: tuple[int, ...]
+    """Critère nº3. Un élément par prise **qui a livré une valeur**."""
+
     questions_par_prise: tuple[int, ...]
+    """Publiée sans seuil. Même population que `tours_par_prise`."""
+
     prises_sans_valeur: int
     prises_avec_attendu: int
     attendus_en_top3: int
@@ -264,16 +297,47 @@ class Mesures:
     tours_replies: int
     attentes_manquees: tuple[tuple[str, int, Attente], ...]
     diagnostics_manques: tuple[tuple[str, int, Motif], ...]
+    codes_declenches: frozenset[CodeGrief]
+    """Les codes de grief qu'au moins un texte a levés sur cette exécution.
+
+    ⚠️ **Une règle qui ne tire jamais est indistinguable d'une règle absente**, et l'étape
+    12 a montré pourquoi cela compte : le critère nº1 ne détecte pas une règle manquante,
+    seulement un trou dans la réaction à une règle qui existe. Ce qui détecte une règle
+    manquante est l'effondrement du taux de rejet — encore faut-il savoir **sur quoi** ce
+    taux portait. Voir `codes_jamais_declenches`."""
+
     prises_ou_loutil_a_signale_le_budget: int
     """Publié sans seuil : sur combien de prises `suggest_next_question` a-t-il signalé le
     budget manquant. Voir `Attente.BESOIN_DE_BUDGET` — c'est une observation sur la
     conduite du dialogue, pas une exigence."""
 
     @property
+    def mediane_des_tours(self) -> float | None:
+        """Critère nº3."""
+        if not self.tours_par_prise:
+            return None
+        return float(statistics.median(self.tours_par_prise))
+
+    @property
     def mediane_des_questions(self) -> float | None:
+        """Publiée sans seuil — voir `SEUIL_QUESTIONS`."""
         if not self.questions_par_prise:
             return None
         return float(statistics.median(self.questions_par_prise))
+
+    @property
+    def codes_jamais_declenches(self) -> tuple[CodeGrief, ...]:
+        """Les règles qu'aucun texte n'a fait tirer, **dérivées de `CodeGrief`**.
+
+        Jamais d'une liste écrite à la main : un sixième code ajouté demain n'y
+        figurerait jamais, et la ligne du rapport mentirait par omission — exactement le
+        défaut qu'elle existe pour signaler.
+
+        Un code absent d'ici ne veut pas dire que la règle est cassée : `test_pieges.py`
+        l'exerce à chaque `make check`. Il veut dire que **cette suite de scénarios** ne
+        la sollicite pas, et donc que le taux de rejet ne dit rien d'elle.
+        """
+        return tuple(code for code in CodeGrief if code not in self.codes_declenches)
 
     @property
     def part_attendus_en_top3(self) -> float | None:
@@ -304,8 +368,9 @@ class Mesures:
 
     @property
     def critere_3(self) -> bool | None:
-        mediane = self.mediane_des_questions
-        return None if mediane is None else mediane <= SEUIL_QUESTIONS
+        """Tours client, depuis le correctif de l'étape 12 — voir `SEUIL_TOURS`."""
+        mediane = self.mediane_des_tours
+        return None if mediane is None else mediane <= SEUIL_TOURS
 
     @property
     def critere_4(self) -> bool | None:
@@ -336,6 +401,7 @@ def mesurer(prise: PriseJouee) -> MesuresDunePrise:
         tours=len(prise.tours),
         griefs_livres=tuple(g for g in griefs if g.code is not CODE_DU_CRITERE_2),
         violations_budget=tuple(g for g in griefs if g.code is CODE_DU_CRITERE_2),
+        tours_avant_valeur=tours_avant_premiere_valeur(prise.tours),
         questions_avant_valeur=questions_avant_premiere_valeur(evenements),
         attendu_en_top3=_attendu_en_top3(evenements, prise.attendu),
         zero_resultats=sum(1 for e in evenements if _est_un_zero_resultat(e)),
@@ -355,11 +421,35 @@ def mesurer(prise: PriseJouee) -> MesuresDunePrise:
     )
 
 
-def questions_avant_premiere_valeur(evenements: Sequence[Evenement]) -> int | None:
-    """Critère nº3 — le **délai avant première valeur** de §3.9, en questions.
+def tours_avant_premiere_valeur(tours: Sequence[TourJoue]) -> int | None:
+    """**Critère nº3** — au bout de combien de messages du client la première valeur arrive.
 
-    Compte les `QuestionPosee` qui précèdent le premier `ProduitsTrouves` non vide. Rend
-    `None` si aucune valeur n'est jamais venue : voir la docstring du champ.
+    C'est le « délai avant première valeur » de §3.9 pris au mot : ce que le client vit,
+    c'est le nombre de fois qu'il a dû parler, pas le nombre de fois qu'on lui a posé une
+    question. Un agent qui explique longuement sans rien montrer coûte un tour ; un agent
+    qui pose une question **et** montre trois produits n'en coûte aucun de plus.
+
+    Rend le rang **1-indexé** du tour où le premier `ProduitsTrouves` non vide apparaît, ou
+    `None` si aucune valeur n'est jamais venue.
+    """
+    for rang, tour in enumerate(tours, start=1):
+        if any(
+            isinstance(evenement, ProduitsTrouves) and evenement.resultat.produits
+            for evenement in tour.evenements
+        ):
+            return rang
+    return None
+
+
+def questions_avant_premiere_valeur(evenements: Sequence[Evenement]) -> int | None:
+    """Combien de fois `ask_clarification` a clos un tour avant la première valeur.
+
+    ⚠️ **Ce n'est plus le critère nº3** (correctif de l'étape 12) : c'est la mesure de la
+    règle « donner avant de demander » (section 5 du prompt, §3.9), publiée sans seuil.
+    Elle vaut 0 partout sur le jeu de scénarios actuel, et ce zéro est une **bonne**
+    nouvelle mal lisible — d'où le déplacement du critère sur les tours client.
+
+    Rend `None` si aucune valeur n'est jamais venue, pour la même raison.
     """
     questions = 0
     for evenement in evenements:
@@ -545,8 +635,11 @@ def agreger(mesures: Iterable[MesuresDunePrise]) -> Mesures:
         violations_budget=sum(len(prise.violations_budget) for prise in prises),
         zero_resultats=sum(prise.zero_resultats for prise in prises),
         zero_resultats_traites=sum(prise.zero_resultats_traites for prise in prises),
+        tours_par_prise=tuple(
+            prise.tours_avant_valeur for prise in prises if prise.tours_avant_valeur is not None
+        ),
         questions_par_prise=questions,
-        prises_sans_valeur=sum(1 for prise in prises if prise.questions_avant_valeur is None),
+        prises_sans_valeur=sum(1 for prise in prises if prise.tours_avant_valeur is None),
         prises_avec_attendu=sum(1 for prise in prises if prise.attendu_en_top3 is not None),
         attendus_en_top3=sum(1 for prise in prises if prise.attendu_en_top3),
         rejets=tuple(rejet for prise in prises for rejet in prise.rejets),
@@ -564,6 +657,7 @@ def agreger(mesures: Iterable[MesuresDunePrise]) -> Mesures:
             for prise in prises
             if prise.diagnostic_tenu is False and prise.diagnostic_attendu is not None
         ),
+        codes_declenches=frozenset(rejet.code for prise in prises for rejet in prise.rejets),
         prises_ou_loutil_a_signale_le_budget=sum(
             1 for prise in prises if Attente.BESOIN_DE_BUDGET in prise.faits
         ),
