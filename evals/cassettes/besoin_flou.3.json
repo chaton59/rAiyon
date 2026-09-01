@@ -1,0 +1,267 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "besoin_flou",
+    "prise": 3,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.v1",
+    "prompt_empreinte": "6da03a675684",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-01"
+  },
+  "prises": [
+    {
+      "requete": "1a4498bc9b4a",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "EvMCCpABCBEYAipAqMF9DX1Be2M73KrlnIEiRoK1IUjufE8ruGE8SMs4utj5Dc2ehns7MicpviMJU9bQeOAsYy/IErHUrIZqEF6jHDIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAdGK29QGEgwfYto9r74sUXEmklcaDKFgGu9ADTEzwvaDlyIwm3af3gIK9ubqDJ4KDeUSxJWenGsdacoHvbVKvFeRBELjhn0PL3f1xDkjWU7zWGhHKo8B/wI/SZG0/NQfy1+FPOUZDVhtewErJMrtR284KeczXR8wXloIZg6JHlwxQoAXv5V40oWehPS/+JfTxLr79W64iv3SQ+oHk0QteszG+c4gSfS9VVWbWx2QXTTdT4CzyrmRUdwQK1ZylLPk56OJbT0r0e0gX7FjBh3+UpIRTV2L1HsuUl+O+EqJU1no/spQQZoYAQ==",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01HEk7y3VSijcaiK1GHs3MzM",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor"
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01NMxpPmojDKNfRyN4AM3fHe",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "probe_catalog",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "1ddc3d61d3ba",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, de 65 $ à plus de 9000 $ pour les modèles très haut de gamme.\n\nPour bien viser, j'aurais besoin de deux choses : c'est plutôt pour du jeu, du bureau/bureautique, ou de la création (montage, graphisme) ? Et vous avez un budget en tête ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "0eab0a0774ff",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, de 6…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, avec des prix allant de 64,98 $ à 9333,00 $ pour les modèles les plus haut de gamme.\n\nPour bien viser, j'aurais besoin de deux choses : c'est plutôt pour du jeu, du bureau/bureautique, ou de la création (montage, graphisme) ? Et vous avez un budget en tête ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "acbb86f027d4",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, de 6…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, avec…»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "Ev4QCpABCBEYAipAGKGG2I1S8vB3mu8jOKVVfMU34r12yi2NgPHoCownk5D/taxzD/vWTBD8vxt6+HVBf4nVEevSHk1niyDlguTTojIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAeGK29QGEgyqDiuXlWhsqXe7UpYaDGoZcPlB1gEPEvEzzyIwXsjXhL2Ukv+46o0gb88WqAUhg3mmEM5bHbdrqI9+iMpVPQzGoC/is06j8OXZKMXTKpoPb6NIfdg+DkcZcB49Ymmb/g+/SABxpQ9ttSs5I+bc6pr3byp8DMjm63yOINba6KFuiIwpnGRnw8WBAd+p74AxWUpur1emxpa81PRnMMCS3L9n3+hx4NEs+bQCqFudAhzJbsJeUJ7cCf6wWFusl68jNzh3UTD0iU5VzC7PlHnyuzuAPIw03pOJ/Uq/U6m5Q5CbZFno4PtzTl2v1J4HSRTImROsY70JQF2PQ+qop5q2xW8e+Pf1zBZvX93011Aszjcnnam+JyxHvOtl2ylv3htryFh+8uhBI46Lqq1IndTkuu/l268q9pFv24ILALOYmGBii2NmCOWMDBKScI4mQU1L4bQOOK6+x80sL6P9BmzQJWKIcHi2YrU0EVU6F8rKkJWr4FwmariEeJAGy22V+VAykz2qaFL3agBcDkgMCKV1HAAzciXDU9Uz9xVI5fyaymQXGIRIOre4mla+UtuocWrpYETFhN0Dei1M3ZzwgamQFCdRf+JjsrZCeYcdc/m9ZMLJvAVZh2SVsgpZo5dG0sfnpf61MyFhri1CEMGhrSjaDN0O1E51XA8REICW5y4k2P8bPSHOPfbDvXCmWnXgQdbhRBNmp+aNe5uf0Xh8lMvrBvIM1rsnv7GTAzGo/bER5rFEqzvIKcDLptGwLYgX0Ge7hjEqXNrY7sHzPqjy+9h9d1/Dkp7RJKIuGpg1l2ZQyI3U5DiyuYcJW0o4hxt7Q/f46VL6EP5azx2w1UGA/5Pr3FA9ToHcowYHpTjMfpQzJJcIXE8VpOgoXn3Gemodq3/pcD9LK2N5PJ81jpGhm2j61hHFgXpiekeuroJBTVw/CYy7a8KNwR1M8dTdbme1KvTxHkgHFqRwxJPHhJaX7vqxWVWoLSM3nP2R6Kp/u5gfpWP4WzHYBJQIdxCdoIWfL7vD1yGp4Xh1ZRwIQIty5n0WlEjwtnWZDS0U8aj2aESskhCktRx9PclTGiLzq6r6ggmAAJFkVMRRttMk87THmD/S/GCJFMACcqhzMtCiXhmnBESCA1mpWv1pt6+BJYrGv2DEdqN40RGdrz7HDH1NhUiMvwlzcVfAPd/5gIF2LduIKaU4DoHTYoMl0jJ2nowZwDuLLvvWNQe1mMaYUKEgOjtm69mfymYn5afLgHOzPv+fS3pz9esQVH4S/qqo3bjLrfqtfrUyPUqttUhXU4+SRf+Ai1CXv5P2p6+FFpmDT+lzE2RniS6PKSEQke6kM3gQuEuVQZ0kkk4qOXDFqyVwL/IzM6KdGVcpd7jFqdHMeHHfeFFblbTTxpkBgZsFH4K3n6NuhU5dZNrOr4yVByc44t5pp+inv3i3C35ryjYUt5Cu6q45gQvfXIWMtomCWZR7ubWIXv80q/Q8LA33uimCJR17BSUGd1tDQ/lfI6JEtYDwV3rshLVSOURNJtCXpiBuGeyJTPlv/NW3XdhR3fcX4e4EErvk+HTsZF57eyWQ3iaOSM+Xf6ns9rmRk/DMYfI3EuOl9nNN2/AuoOQpui2ZQGkxBAM6pRn7z/mbe4TIhop/m+Yhl5g/IITfCwKyfDwRHdtXJRzNPX9oiqtToavEaQEGLFJcPXInY2rolQlRUDkxHadiWml+ZdsWCZeSHjDxJGihqhLkcFG5lNrjnpT3iYChuOSWo9vB9gqsHebeaZ4vcmyuuJH5tOiS4lnpL8kQlugI7lJBffgOsRaNwrqw1vnu1RVryyGO8FNXZxilNK4kVGeqywQlbTK0OSbp8xbGlgTeRuXu0tQOQwpw1bNS+eiHXGnXqEiUI5Io0ag22Me7Y/+ijpfpkwAwqbQSg1MBwD5e7jzkQj00ukTGdNqHQm/GWCwijebtlMD/G8Q5ooHw43lXeacKE/AMcFfEfvMWQcC32qCoddE9LoGiY1eH6b90FmG7fVBig87hx3iKXtpVT3u4Hg4kQdZnwej0Oa+Q7roPndXx2DeIQ02iWZ9JsZZRNHXo/meqFRdmlMGIeh3yH9jEkvbQE2aH4/F4A4tdql1eN701T2DiiTQT1g0t9klDt4XtRokiLTpzKqFvn3fGPOGcFpuq01GLVU0wHL42HvHSmSlC90t9Ujtct6Hsg+A+fX7zQmyr6HfzijEpWW+FaI5ZYH+Si9WMnvBP5cCDkfHpf9zqZWEDu5X0N4tIVIjwgsQTc5KVlCIjl4754IoVvJ5zjqdJeKDLUxAnmMI8mQBDo6QZokpBrEVXfNlwJMubxkEjttYtfoPLBycFwK7EvjybE3PIUz+YiitHUhk7St08/57QQeXyujarBeL8p23QwfxvvOh+Zxx/NKN8j0p0zFXhnKGYDmxsluXEUyfxBYQmKbl/KJw7Y6PbQB/VCjYPc0hSrtj4h9xP0W0FFq41v5Lz51rYxrWSLWoGC/et0B39t6apnl6tD8EWnOmpnShC+GvHMX18mqyDIk8A6TFdHzVdR08LUAcu20vN0wVQ+Ls0HNdSL0tXpAbWI1bPE00Dm/kZrk5L7x4jRZcegRI9TInGkFDUEwNcljKnjZiYLnXrqUKbLKaBmXrinWiu1qfFcQX2MfNtb4CjcnWk1vZ5OUMr7H//OsmQRQPKH7c9beMRqiKxY6Nfp6PUK3QYAQ==",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_014o4wKFfxJKoYhbsPr77CCN",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "budget_usd": "250"
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "b190e15b5fad",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, de 6…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, avec…»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\"}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"250.00\", \"op…»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "Eq4ECpABCBEYAipAeo+mdho3VFGBUhSPMWJV37L1DRBD4IcOsXgV5zztJdY2P+9eOP9ptvWo3G4YMT/wpwLvF2BIv4ZL4UWfr1R/jzIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAeWK29QGEgygDdSUm27GeeztYJ8aDM8dZiDfkhM7NvaY9iIwIwcnvyNc+tXGCPml6+OMPQtLE+Q1EyGFw/Lcg+Lvo3ZyKYuEOCBWQcmYLhfRTnl1KsoCVtwAwOi4SW3gVG6gtT/C6+OiNwuMu3qoamgtTyHsIWhanimhCjdh+QAQAcmJSb3q6tPrFMxdbqW771nawLhFoZb6QBGC46NAVzdIsDiEnU63zMGrAjkQNduNeme2Wn06p/d+8gIY1q6+BSCXMKL0Ir0lkLGbjJxL8NZ8KDmdAVBSli1eSzmaDgRE8yBIb6jie5EjN1v+i4moVWsKvbQSrUDQzQEZ/e3RlYPsbcAsZN1bgnJgJqdH7iAtbhPX3wZR/o8+60aNpBBDiWaIfG1eMGY25vLs5xpNZ62KXScq6XaZ/kF7fgok/KBiXBM8LBQVP9czMT1A/j1fDfr8F/jOhsbdsEKatq+OnwBBEBqyBI3MMIvez5Lqom+s71kBKZ4DeWmGlTz9fK4NrKqZU92Y71kq+96PI6cCmXqV9rXwcXyhkAWeAamd2RZjGAE=",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_016qUk3r4nAAjFT79afxdMMh",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "probe_catalog",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_015ArZYg5nQGjXJYYuzo4Emg",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "search_products",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "fc430eaa5e6f",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, de 6…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, avec…»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\"}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"250.00\", \"op…»",
+        "10 assistant thinking | tool_use probe_catalog {} | tool_use search_products {}",
+        "11 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 7…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 75, \"produits\": [{\"id\"…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "signature": "EqIJCpABCBEYAipAxQLDHce9MhmnNMUJfKHItqE2URRUkSIBA1KzQPu6fK9qO+A0olVBuWFp/wnP+SYDhobKViiOsPWlnP8Itr7+yDIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAeuK29QGEgy2hQAuj0vzN3FOp2waDFcEzCnYXd1A9gF3qSIwexXlGlVWwkAM00s1PcNJQP19WCOxBgzziQSmdpmHXqBpj44eNor38DihIlDfNX2KKr4HAm+X3zf8CrJWFSqjnGQcjyqU/4cFaIuAynBMJDVUCI54MeR695QB0OkYEUjmIQ/xnEh4jk3l4UnIh1Su0V1a/i8N0M7O7xwbeNww456Ms/iWZUT2kNEiBcw/37/FHGEnAZoYqJ5GgzdOVjr4RMxi3c4z+DOqcrPZj6kxZhC0c+ayWfAaukBqjMke382AnEzYBHkLKUYQpl4unDYzaZ/RHCbC7XijPqU/rztviIFlBh6691CzyeqEYWQeADSybXeVALN2L9EUpiMJA6FsJSEKWBrFy2EA3OEydUy/5s0qIXFyytrBXRua+ljmag+uu+TahL8aD9/tgOFNlwhsroM2fznqt6A07fsOXwvgVGdfcKX258VlcNC7RiZApRCTW6+hdpPJTotwMviO0P8BLvP1ju6zd4R2aU9zJpjiH+eNae6G0T3QGJ7WWc7ITRld798ilNM2i8FtNbQClo+XFREll+9reSs9nla4m0YxaOP05b4EmIaQW2D3hSYcivmJR88BQJcTqhB5Wnq0OXxrQGBWeJD94j3XBbX20kccyzMGux+d4YZuclFxoqu6lHaHCwdsrttguA+LXjuGdLWSr9b1B4qKGcPeKQ9q5hBF2p+Hs3+lcDuCX5VATcfAvO6Rnoi1+D+QxUZmcZ9pb+r3B1hn/uMCpCdijc2w/yqlvfdAmGWaPTieeuwpN7CKhyS4XRpovBDj6JKMQ9OHZdSkHNU2zuGFG12ZMo0HoQuBKSAc4vsFwqiBHxgFFoJz0TygDNpXqYhG+CY2Xid7yNgas36wetcD5cm5d48Qn8cq6IJ7VvPMgDA/wGzRrsvJ/8B9mikoTw35rdaq/bDc0ZS8V6WNzziYmPDwLVAZfUiJyvmOYHlKQzvrI+Z6JCt9CtGyRW+ohTD6QoW1Dojq3U+MID6yQDuwWVpyNhx1UASPmcaEGqX5C3V/SJZZrHjUhONm3gvokHBtjkBwMB3pqtDgNQLHRH4kVaLeMNLMxQVT0+v4B6jcSmc9e1z8WT9hDifdJAuHm/sRcUWoRpMIdZc9AUEvBaAWZWfrzvTQBECiRNPE6Xd0S/7mOAZYl2TDc4W4bxrGSiTfQG4aA5rvcXd5RWKtZmNVYnn0Ek7UlsGEP/rHaHmK8QP+QGzdJOY9EKYC1FPgy+kthAttUE+tepZYQntn6VI6wFQBc/ZJHglHIjmquAuYXNg3mAnHgd/XNdrm4OBnYtQJ3yFojJ7fpmLZq3az1dPnndtsnkAvTjBmsnE5ogoYrMGq0/IL7TIEQlEZ9BgB",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "text": "Pour du jeu à 250 $, voici ce que j'ai dans le budget :\n\n1. **MSI PRO MP225V** (`monitor-e8ef8ef321`) — 64,98 $. 21,4 pouces, 1920x1080, dalle VA, 100 Hz, temps de réponse 4 ms. Le plus abordable, mais l'écran est un peu petit et le rafraîchissement reste modeste.\n2. **MSI PRO MP225** (`monitor-0926d28cf1`) — 74,98 $. 21,5 pouces, 1920x1080, dalle IPS, 100 Hz, 4 ms. Même registre, dalle IPS pour de meilleures couleurs.\n3. **Sceptre C248W-1920RN** (`monitor-ea5239770d`) — 87,97 $. 23,6 pouces, 1920x1080, dalle VA, 75 Hz, 5 ms. Plus grand, mais rafraîchissement plus bas.\n\nSi vous cherchez quelque chose de plus nerveux pour le jeu, j'ai deux modèles juste au-dessus de votre budget :\n- **MSI G27C4 E3** (`monitor-68c678f1a8`) — 258,00 $, soit 8,00 $ au-dessus. 27 pouces, 1920x1080, VA, 180 Hz.\n- **Samsung Odyssey G55A** (`monitor-da8212f86b`) — 259,00 $, soit 9,00 $ au-dessus. 27 pouces, 2560x1440, VA, 165 Hz.\n\nEst-ce que vous privilégiez plutôt un grand écran fluide (144 Hz et plus), même si ça dépasse un peu le budget, ou vous préférez rester strictement sous les 250 $ ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "e26feb09644b",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, de 6…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, avec…»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\"}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"250.00\", \"op…»",
+        "10 assistant thinking | tool_use probe_catalog {} | tool_use search_products {}",
+        "11 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 7…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 75, \"produits\": [{\"id\"…»",
+        "12 assistant thinking | text «Pour du jeu à 250 $, voici ce que j'ai dans le budget : 1. **MSI PRO MP225V** (`…»",
+        "13 user text «Je suis plutôt sur du 27 pouces, et il me faut au moins 144 Hz.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "EtcFCpABCBEYAipAuKWAUGEvhFYXJS8lYN/BKdeyLhm8T571AkzuxalwVIt79XAmfSjMFMSfWCQhgbjKDdkkbwmdsKvWkIYB0BMfBTIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAfaK29QGEgxy8+u9yQJuTPMUgVIaDBTG/iy0q60gjKd1diIwQjWvDyCSYFKZ5STiEob8/S1hjcgZya/90Xk6ASHXRxJAYc5NBve6HLUL0xJ49iTgKvMDj2v8gj6B7KYntyBnD3fDItK9rD7fgD7J6wXyAjrcOiePNZUy2leF6iyjs+ekG/qyCk5EoYnmBu5t2SAYOpqDmulZao4EyHWZ3yDICp95ote0DO4RpS1YO74jlA3MCm5kejMddCrbNhaLShZMON6gdmUHyZhE59U5Mzt54oHkocAlOhk2I/BJPiQ8kmfZG1mwNJv7wqUOPEALoRy3ipygn0IYtURmpPhtQlL9mlEj2daVyiPQEV+YrSdARtUNYZgWI5d20o5SCO+qMzDpUp/9zeNPqpUtSqTau+DS3oJKt/j/xEjGVq47t7IIL6skFJEspr1wxO0QKiOOGdMehpGJU1+lW++sgHX0rvbaGtfYF9TDnPzF35xFvTDWcfmREMsyd+9ua5H6197LPIfdl9aSXlps443hwETdkjXttnyZML3G9i7uJc5F4+wBPhuyde9+ZCw0/ESY4ocPrvkvubbAHbsX2YBr9oF4naOvJbt96hxKb0+JYWa1/5Momr7ZtrZShIlunfLQU+kLa/Ua1tHNOBOlzlQhG6DhajxRqrb3NGwErONeObyoVSMJJOqWfmkD50yWefRGOvRy14KdS022oiXTZ3I9UD5en2uY5JB5tAYGsYGrBt8bH4CXOnN1Qj2H9DfEPdu8Bq++dHSukQ3VwpFkhRgB",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01H6mcQjQYByUJcwZTY98joS",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "criteres": [
+              {
+                "champ": "screen_size",
+                "operateur": "egal",
+                "valeur": "27",
+                "importance": "important"
+              },
+              {
+                "champ": "refresh_rate",
+                "operateur": "au_moins",
+                "valeur": "144",
+                "importance": "bloquant"
+              }
+            ]
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01SreNrR4od9pLR9qwtF2gmD",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "search_products",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "aa8f0453246b",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, de 6…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «C'est un bon choix, il y a du monde sur ce rayon : 171 écrans au catalogue, avec…»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\"}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"250.00\", \"op…»",
+        "10 assistant thinking | tool_use probe_catalog {} | tool_use search_products {}",
+        "11 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 7…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 75, \"produits\": [{\"id\"…»",
+        "12 assistant thinking | text «Pour du jeu à 250 $, voici ce que j'ai dans le budget : 1. **MSI PRO MP225V** (`…»",
+        "13 user text «Je suis plutôt sur du 27 pouces, et il me faut au moins 144 Hz.»",
+        "14 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"importan… | tool_use search_products {}",
+        "15 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 8, \"produits\": [{\"id\":…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Bonne nouvelle : en 27 pouces et 144 Hz minimum, il reste 8 modèles compatibles, et voici les trois qui rentrent dans votre budget de 250 $ :\n\n1. **MSI MAG 274CQF** (`monitor-6794f9ca20`) — 189,99 $. 27 pouces, 2560x1440 (donc plus net qu'en Full HD), dalle VA, 180 Hz, temps de réponse très rapide à 0,5 ms. Le meilleur compromis résolution/fluidité de la sélection.\n2. **Acer Nitro EDA270U P** (`monitor-a075f4505b`) — 179,99 $. 27 pouces, 2560x1440, dalle VA, 170 Hz. Très proche du MSI, un peu moins rapide en rafraîchissement, un peu moins cher.\n3. **ASRock Phantom Gaming PG27FRS1A** (`monitor-ba17c6131b`) — 142,99 $. 27 pouces, mais en 1920x1080 (moins net que les deux autres), dalle VA, 180 Hz. Le plus abordable si la résolution ne vous préoccupe pas.\n\nSi vous voulez pousser encore la fluidité, deux modèles dépassent légèrement le budget :\n- **MSI G27C4 E3** (`monitor-68c678f1a8`) — 258,00 $, soit 8,00 $ au-dessus. 27 pouces, 1920x1080, 180 Hz.\n- **Samsung Odyssey G55A** (`monitor-da8212f86b`) — 259,00 $, soit 9,00 $ au-dessus. 27 pouces, 2560x1440, 165 Hz.\n\nVoulez-vous que je vous recommande plutôt le MSI MAG 274CQF pour le meilleur rapport résolution/fluidité, ou préférez-vous économiser avec l'ASRock ?",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

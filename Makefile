@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install up down logs psql migrate revision seed-build seed calibrer fumee chat api fmt lint typecheck test test-int check clean
+.PHONY: help install up down logs psql migrate revision seed-build seed calibrer fumee chat api eval eval-enregistrer eval-live fmt lint typecheck test test-int check clean
 
 help: ## Liste les cibles disponibles
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -81,6 +81,28 @@ api: ## Serveur HTTP + interface web — nécessite base + seed + clé API
 	@# L'hôte et le port sont ici et nulle part ailleurs : aucune variable
 	@# d'environnement n'a été ajoutée pour eux (étape 10, arbitrage K).
 	uv run uvicorn raiyon.api.app:app --reload --host 127.0.0.1 --port 8000
+
+eval: ## Rejoue les cassettes, écrit docs/eval/rapport.md — base requise, clé NON requise
+	@# Le rejeu n'appelle aucun modèle : `raiyon/eval/client.py` n'importe pas le
+	@# SDK, et un test d'isolation le vérifie sur le disque. Il a en revanche besoin
+	@# de la base et du seed, et c'est assumé (étape 12, arbitrage A) : les
+	@# `tool_result` ne sont **pas** enregistrés, ils sont recalculés par le vrai
+	@# moteur. Un scoring cassé se voit donc ici, sans rien réenregistrer.
+	@#
+	@# Sort en code non nul si un critère bloquant est violé — c'est la porte de
+	@# sortie, pas un document à relire.
+	uv run python scripts/eval.py rejouer
+
+eval-enregistrer: ## (Ré)enregistre les cassettes — consomme la clé et des jetons
+	@# SCENARIO=<nom> n'en refait qu'un. À lancer à chaque changement de prompt ou de
+	@# schéma d'outils : l'écart d'empreinte fait échouer `make eval` en le disant.
+	uv run python scripts/eval.py enregistrer $(if $(SCENARIO),--scenario $(SCENARIO),)
+
+eval-live: ## 2-3 conversations avec le client simulé — clé requise, hors CI, rien n'est écrit
+	@# Ces conversations ne sont **pas** reproductibles : les deux côtés sont non
+	@# déterministes. Elles servent à lire un dialogue que les scénarios scriptés ne
+	@# produisent pas, pas à mesurer. PERSONAS="nom nom" en choisit.
+	uv run python scripts/eval.py live $(if $(PERSONAS),--personas $(PERSONAS),)
 
 fmt: ## Formate le code et applique les corrections automatiques de ruff
 	uv run ruff format .

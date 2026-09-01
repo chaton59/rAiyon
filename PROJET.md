@@ -790,8 +790,8 @@ scénarios — ce qui est le cœur du travail sur le dialogue.
 | Moteur de matching | pytest pur, catalogue fixture, **zéro appel API** |
 | Invariants des outils | Assertions dures : clamp budget, séparation hors-budget, forme des agrégats |
 | Validateur | Fixtures de sorties LLM piégeuses (prix modifié, ID inexistant, produit inventé) |
-| Scénarios bout en bout | **Cassettes enregistrées** : le premier run appelle l'API, les suivants rejouent depuis le disque. CI gratuite et déterministe |
-| Dialogue réel | 2-3 scénarios avec **client simulé par LLM**, lancés à la main, hors CI |
+| Scénarios bout en bout | **Cassettes enregistrées** (étape 12) : `make eval-enregistrer` appelle l'API, `make eval` rejoue depuis le disque **sans clé**. ⚠️ Pas « gratuite et déterministe » au sens où cette ligne le promettait : le rejeu exige Postgres et le seed, puisque les `tool_result` sont recalculés (étape 12, arbitrage A). `make check` reste donc inchangé, et `make eval` est une commande à part |
+| Dialogue réel | `make eval-live` : trois personas joués par Haiku, **cloisonnés** — ils ne voient que la prose livrée et les produits (étape 12, arbitrage H). Lancés à la main, hors CI, et **rien n'est enregistré** : ces conversations ne sont pas reproductibles par construction |
 
 **Alternative écartée — mocks écrits à la main.** Aucun appel API, mais on teste
 ses propres suppositions sur ce que le LLM répond, pas la réalité.
@@ -799,8 +799,34 @@ ses propres suppositions sur ce que le LLM répond, pas la réalité.
 **Alternative écartée — appels réels marqués et exclus par défaut.** Teste la
 vérité, mais rien ne l'exécute automatiquement : les régressions passent.
 
-**Servitude des cassettes :** il faut les régénérer à chaque changement de prompt.
-C'est une discipline à tenir, pas un détail.
+~~**Servitude des cassettes :** il faut les régénérer à chaque changement de prompt.
+C'est une discipline à tenir, pas un détail.~~
+
+**Amendement de l'étape 12 — ce n'est plus une discipline, c'est une erreur.** La phrase
+est barrée plutôt qu'effacée parce qu'elle décrivait bien le problème et mal sa parade :
+une discipline se tient jusqu'au jour où on l'oublie, et une cassette périmée qui se
+rejoue en silence produit **des chiffres au lieu d'une erreur** — le pire des deux.
+
+Chaque cassette porte donc, dans son en-tête, **trois empreintes** que le rejeu compare à
+celles en vigueur avant de jouer le premier tour (arbitrage C) :
+
+* le **prompt système**, avec sa version ;
+* le **schéma d'outils** — c'est celle que la formulation « hash du prompt » de §5 étape 12
+  laissait échapper. Le schéma fait partie du préfixe mis en cache (§3.13) et détermine ce
+  que le modèle **peut** faire : un outil dont la description change périme la cassette
+  autant qu'un prompt modifié, et l'étape 13 doit justement toucher `schema_outils.py` ;
+* le **modèle**, et la date d'enregistrement.
+
+Un écart lève `CassettePerimee`, nomme la cassette et **donne la commande à taper**. Un
+test d'intégration mince rejoue une cassette committée à chaque `make test-int`, avec sa
+contre-épreuve : sans elle, un `verifier()` qui ne vérifierait rien passerait au vert.
+
+**Et la servitude n'est pas la seule chose que le format protège.** Une cassette
+n'enregistre **que les réponses du modèle** (arbitrage A) : les `tool_result` sont
+recalculés au rejeu par le vrai moteur, sur le seed committé. C'est ce qui fait que l'éval
+mesure la pile entière — mais c'est aussi ce qui la rend sensible à un changement de
+comportement du moteur, qui se manifeste alors comme une **divergence de requête** nommant
+le tour. Constaté à l'étape 12, en neutralisant une règle du validateur.
 
 ### 3.16 — Frontière SQL / Python du moteur
 
@@ -2945,20 +2971,217 @@ surveiller à l'étape 12, où le harnais ajoutera une nouvelle famille de tests
 
 ---
 
-### Étape 12 — Harnais d'éval
+### Étape 12 — Harnais d'éval ✅
 
-1. Enregistrement en cassettes (hash du prompt stocké dedans : le test échoue si
-   le prompt a changé sans régénération).
-2. 8 à 10 scénarios écrits, dont obligatoirement : budget serré, budget absent,
-   besoin très flou, besoin sur-spécifié sans solution, changement d'avis en
-   cours de route, demande de comparaison entre deux propositions, catégorie hors
-   catalogue, et le cas zéro résultat.
-3. Métriques calculées automatiquement : hallucinations, violations budget,
-   questions avant première recommandation, présence du produit attendu en top 3.
-4. 2-3 scénarios avec client simulé par Haiku, lancés à la main.
+Cassettes enregistrées, dix scénarios, métriques calculées **depuis les événements**,
+rapport markdown committé, et un client simulé cloisonné. Le prompt v1 cesse d'être une
+intention bien rédigée pour devenir un taux.
 
-**Porte de sortie :** un tableau de métriques généré par commande, où les
-critères 1, 2 et 6 sont à zéro violation.
+**Aucun prompt n'a changé dans cette étape**, pas même d'un mot : régler une formulation
+appartient à l'étape 13, et le faire ici rendrait incomparable ce que le harnais mesure.
+
+**Porte de sortie franchie :** `make eval` rejoue les seize prises, écrit
+`docs/eval/rapport.md` et sort en **code 0**, critères nº1, nº2 et nº6 à zéro violation.
+`make eval-live` a été mené sur trois personas. Et la neutralisation d'une règle du
+validateur a bien cassé le harnais — voir ci-dessous, la façon dont elle l'a cassé est le
+résultat le plus intéressant de l'étape.
+
+**Mesure : 823 tests purs en 7,4 s, 86 d'intégration** — 103 purs écrits ici, **2
+d'intégration**. Le ratio pur/intégration monte de 8,6:1 à **9,6:1**, ce qui est cohérent
+avec l'arbitrage E : des métriques qui se calculent sur des suites d'événements
+fabriquées à la main se testent sans base.
+
+#### Ce que l'étape a livré
+
+```
+src/raiyon/eval/
+    cassette.py       # format, en-tête, empreintes, lecture/écriture — PUR
+    client.py         # ClientCassette (rejeu) et ClientEnregistreur — PUR, sans SDK
+    scenario.py       # Scenario, Attendu, les dix scénarios — PUR
+    metriques.py      # suite d'Evenement -> Mesures — PUR
+    rapport.py        # Mesures -> tableau markdown stable — PUR
+    executeur.py      # joue un scénario contre session.tour(), collecte
+    client_simule.py  # le client joué par Haiku, cloisonné
+scripts/eval.py       # make eval | eval-enregistrer | eval-live
+prompts/client_simule.v1.md
+evals/cassettes/*.json          # 16 prises, 244 Ko
+docs/eval/rapport.md            # la sortie de `make eval`, committée
+tests/eval/                     # 103 tests purs, dont l'isolation par découverte
+tests/integration/test_eval.py  # 2 tests : le harnais ne pourrit pas en silence
+```
+
+Cinq modules sur sept ne chargent ni `anthropic` ni FastAPI, et
+`tests/eval/test_isolation_eval.py` le vérifie **sur le disque**, par découverte. Le
+cinquième est `client.py`, que le §5 n'avait pas nommé : c'est lui qui fait que
+**`make eval` tourne sans clé API**, et c'est une propriété qu'on peut perdre par un
+import distrait.
+
+#### Arbitrages
+
+**A. Une cassette n'enregistre que les réponses du modèle.** Rien d'autre. Les
+`tool_result` sont **recalculés** à chaque rejeu par le vrai moteur, la vraie couche
+outils et le vrai validateur, sur le seed committé. C'est ce qui fait que l'éval mesure
+la **pile entière** : un changement de scoring, une borne recalibrée, une règle du
+validateur qui se resserre se voient au rejeu suivant, sans rien réenregistrer.
+
+*Alternative écartée — enregistrer aussi les `tool_result`.* Le rejeu serait entièrement
+hors ligne, donc intégrable à `make check`. Écartée parce qu'elle **fige le moteur** : un
+scoring cassé rejouerait ses anciens résultats et la suite resterait verte. On testerait
+la conduite du dialogue contre un passé figé, pas le produit. *Conséquence assumée : le
+rejeu exige Postgres et le seed ; `make check` reste inchangé.*
+
+**B. Rejeu par index, avec assertion d'empreinte.** On rend la n-ième prise, comme le
+`FauxClient` de l'étape 8, mais après avoir vérifié que l'empreinte de la requête reçue —
+système + outils + messages, sérialisés clés triées — est celle enregistrée. Un écart fait
+échouer le scénario **en nommant le tour** où la conversation a divergé, avec un `diff`
+lisible sur l'aperçu.
+
+*Alternative écartée — l'index seul.* Une divergence **désynchronise en silence** : le
+modèle reçoit la réponse du tour suivant, la conversation part ailleurs, et les métriques
+décrivent un dialogue qui n'a jamais eu lieu. C'est le mode d'échec le plus coûteux d'un
+harnais, parce qu'il produit **des chiffres au lieu d'une erreur**.
+
+*Alternative écartée — un dictionnaire indexé par empreinte.* Robuste à un
+réordonnancement, mais le message d'échec parlerait d'un hash absent au lieu d'un tour, et
+une cassette lue hors ordre ne se relit pas à la main.
+
+**C. La cassette porte les empreintes qui la périment.** Trois : le prompt système avec sa
+version, le **schéma d'outils**, le modèle et la date. La deuxième est celle que la
+formulation « hash du prompt » du §5 laissait échapper — le schéma fait partie du préfixe
+mis en cache (§3.13) et détermine ce que le modèle peut faire ; un outil dont la
+description change périme la cassette autant qu'un prompt modifié. Au rejeu, un écart
+échoue en donnant la commande à taper.
+
+**D. Trois prises sur trois scénarios, une ailleurs.** La température n'est pas fixée
+(étape 8, arbitrage 12) : une cassette est **un tirage**, pas une espérance. Trois prises
+sur `budget_serre`, `besoin_flou` et `zero_budget_trop_bas` donnent un ordre de grandeur
+de la dispersion des métriques nº3 et nº4, donc de quoi savoir à l'étape 13 si un écart
+entre deux prompts est un signal ou du bruit. ⚠️ **Trois prises ne sont pas un intervalle
+de confiance**, et le rapport ne le prétend nulle part.
+
+**E. Les métriques se calculent depuis les événements, jamais depuis le texte.**
+`QuestionPosee` compte les questions, `ProduitsTrouves` porte les produits et le
+diagnostic, `TexteRejete` l'origine et les codes, `Repli` son motif, `CriteresMisAJour` les
+mouvements refusés. **Aucune expression régulière ne relit la prose** : ce serait un second
+validateur, plus faible que le premier, et il finirait par diverger de lui.
+
+Une seule chose lit la prose, et c'est **le validateur lui-même** — `valider()`, les mêmes
+cinq règles, contre le contexte réellement fourni. L'exception confirme la règle : on ne
+réécrit pas la lecture, on rappelle celle qui existe.
+
+*Coût assumé de cette frontière :* « l'agent a **dit** au client qu'il refusait le
+desserrage » n'est mesuré par rien. `Attente.CRITERE_TENU` constate que le critère n'a pas
+bougé ; que la phrase le dise est affaire de lecture humaine, et c'est au §7.
+
+**F. La réponse de référence du critère nº4 est choisie à la main, et justifiée.** Elle ne
+vient pas du moteur — le déterminer en lançant le moteur reviendrait à le tester contre
+lui-même, et la métrique vaudrait 100 % par construction. Chaque `Attendu` porte donc un
+identifiant choisi **en lisant le catalogue** et une phrase qui dit pourquoi. Cette phrase
+est une **donnée**, pas un commentaire : c'est elle qu'on relira le jour où la métrique
+chutera, et sans elle on ne saura pas si le moteur a régressé ou si l'attendu était
+mauvais. Six prises sur seize en portent un ; le rapport le dit.
+
+**G. Les tours du client scripté sont des énoncés de besoin, pas des réponses.** Un client
+scripté ne réagit pas : le message du tour 3 est écrit d'avance et peut tomber à côté de ce
+que l'assistant vient de demander. Chaque tour est donc écrit pour **se suffire**. Le
+réalisme conversationnel est le rôle du client simulé, pas des scénarios déterministes.
+
+**H. Le client simulé ne voit que ce qu'un client voit.** Il reçoit la prose livrée
+(`Texte`, `QuestionPosee`, `Repli`) et les produits de `ProduitsTrouves`. Il ne voit
+**jamais** les `tool_result`, ni l'`EtatSession`, ni un `TexteRejete`. Sans cette cloison
+il devient un **oracle** : il « sait » ce que l'assistant a compris, et répond à côté de ce
+qu'un vrai client aurait compris. La mesure serait flatteuse et fausse. Son prompt vit dans
+`prompts/client_simule.v1.md`, versionné comme les autres (§3.14).
+
+#### Le piège central de l'étape, et il est écrit dans le rapport lui-même
+
+> **Les critères nº1 et nº2 sont garantis par construction depuis l'étape 9. Un tableau qui
+> les affiche à zéro ne prouve rien.**
+
+Le validateur refuse le texte fautif, régénère une fois, puis se replie sur un template
+écrit en Python : le texte **livré** ne peut donc pas contenir d'hallucination. Le rapport
+publie donc **trois couches** — ce qui est livré, ce que le modèle a **tenté** (taux de
+rejet par origine et par code), ce qui a fini en **repli** (par motif) — et il porte cette
+phrase en tête :
+
+> *Un tableau où le critère nº1 vaut 0 et le taux de repli vaut 30 % décrit un produit qui
+> échoue.*
+
+#### Ce que l'étape a appris, et qui n'était pas prévu
+
+**1. Neutraliser une règle du validateur ne fait pas monter le critère nº1 — et c'est une
+propriété du harnais qu'il fallait découvrir.** L'expérience a été menée deux fois.
+
+*Version littérale : `regle_montants` retirée de `REGLES`.* Le harnais a cassé, mais pas
+là où on l'attendait. La boucle a cessé de refuser un texte qu'elle refusait, n'a donc plus
+demandé de régénération, et la conversation rejouée est devenue **plus courte d'un
+message** que celle enregistrée : `besoin_flou.3` a échoué en `DivergenceDeRequete`, en
+nommant le tour 3 et en montrant le `diff` — là où il y avait un message de reprise, il y a
+maintenant le message suivant du client. C'est exactement le mode d'échec que l'arbitrage B
+cherche à rendre bruyant.
+
+*Même expérience sur `regle_valeurs_unitaires`, rejeu de `budget_serre` seul* — un scénario
+dont le rejet tombe au **dernier** tour, donc sans divergence possible. Trois signaux :
+le taux de rejet passe de 2 à **0**, l'avertissement « 4 prises consommées sur 5 » sort, et
+le texte fautif est bel et bien **livré au client**. Et le critère nº1 **reste à zéro**.
+
+La raison est structurelle et n'a rien d'un défaut d'écriture : le harnais mesure le
+validateur **avec le validateur**. Amputer les règles rend aveugles les deux à la fois.
+
+*Version qui teste réellement le harnais : la boucle calcule le verdict et l'ignore.* Les
+cinq règles restent entières côté mesure ; le texte fautif part au client. Le critère nº1
+passe alors à **2 griefs ❌** sur `budget_serre` et `make eval` sort en code non nul.
+
+**La conclusion à retenir, et elle est au §7 :** le critère nº1 ne détecte pas une règle
+manquante, il détecte un **trou dans la réaction** à une règle qui existe. Ce qui détecte
+une règle manquante, c'est le **taux de rejet qui s'effondre** — troisième raison, non
+prévue, de publier les trois couches ensemble.
+
+**2. Une attente écrite sur un nom d'outil mesure l'outil, pas le produit.** Le §5 nommait
+`BesoinDeBudget` pour le scénario « budget absent ». Écrite ainsi, l'attente a échoué sur
+**deux** scénarios où l'agent s'était pourtant très bien conduit : il avait sondé le
+catalogue puis posé la question en texte, sans passer par `suggest_next_question` — ce que
+le prompt système autorise explicitement, puisque §3.8 dit que la question suggérée **est
+une suggestion**. L'exigence porte désormais sur l'invariant réel,
+`AUCUNE_RECHERCHE_SANS_BUDGET` : aucune recherche pendant que le budget vaut `None`. Le
+passage par l'outil reste **publié sans seuil**, comme observation.
+
+C'est la première correction que le harnais a apportée à lui-même, et elle est arrivée dans
+les dix minutes qui ont suivi la première exécution complète.
+
+**3. La métrique nº3 n'a aucun signal en v1, et son zéro est une bonne nouvelle mal
+lisible.** *Questions avant première valeur* vaut **0 sur les onze prises** qui livrent une
+valeur : sur ce jeu de scénarios, l'agent ne pose jamais `ask_clarification` avant de
+montrer quelque chose. La règle « donner avant de demander » (§3.9, section 5 du prompt)
+produit donc bien son effet — mais la métrique censée la suivre est au plancher, sans marge
+de progression, et l'étape 13 ne pourra rien y lire. Le vrai délai avant première valeur se
+compte plutôt en **tours client**, ce que le rapport publie déjà indirectement.
+
+**4. `make eval-live` a montré en une conversation ce que 35 tours scriptés n'ont pas
+montré.** Les scénarios déterministes ont enregistré **zéro repli**. La première
+conversation du persona `joueur_serre` en a produit un — motif `validation` — au moment
+précis où le client a demandé « c'est quoi la différence entre IPS et VA ? ». Le modèle a
+voulu répondre depuis sa connaissance du monde, le validateur a refusé deux fois, et le
+client a lu la phrase de repli.
+
+La cause est claire : les dix scénarios posent des questions **sur le catalogue**, et un
+vrai client pose des questions **sur le domaine**. Le taux de repli de 0 % du rapport est
+donc un artefact du jeu de scénarios, pas une propriété du produit. C'est la meilleure
+justification qu'on puisse donner au mode `live`, et elle n'était pas anticipée.
+
+**5. Un message assistant qui ne porte qu'un bloc `thinking` clôt le tour sans rien
+livrer.** Observé dans la même conversation, à la ligne 21 des 27 tours persistés : juste
+après le repli, le modèle a répondu par un unique bloc `thinking`. `_depouiller()` ignore
+les types de blocs inconnus — c'est voulu, un bloc inattendu ne doit pas clore une
+conversation —, `message.texte` est vide et `message.appels` aussi : la boucle rend son
+`IssueDuTour` **sans avoir émis un seul événement**. Le client a écrit « Euh… vous êtes
+là ? ». Voir §7 ; le correctif n'est pas dans cette étape.
+
+**6. `claude-sonnet-5` émet des blocs `thinking` sans qu'on les demande.** L'arbitrage 12
+de l'étape 8 écartait le thinking étendu ; les cassettes montrent qu'il arrive quand même,
+avec sa `signature`. Sans effet sur le rejeu — rien n'est renvoyé à l'API — mais la phrase
+« pas de thinking en v1 » décrit ce qu'on demande, pas ce qu'on reçoit. C'est aussi la
+cause de la ligne 5.
 
 ---
 
@@ -3053,7 +3276,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **L'entropie sur un champ numérique continu est grossière** | Faible | Sur `price_per_gb` ou `core_clock`, chaque produit porte presque sa propre valeur : l'entropie normalisée y est maximale alors que la question n'apprendrait rien. La parade est une **exclusion par nombre de valeurs distinctes** — au-delà de la moitié des candidats, le champ sort du classement. C'est **un seuil, pas une théorie**, et il n'a pas été calibré : le découpage en classes, qui serait la vraie réponse, est hors périmètre. Second effet, écrit plutôt que masqué : la normalisation par `log2(k)` mesure l'équilibre et non le gain brut, d'où un départage à score égal sur le nombre de valeurs atteignables |
 | **Le champ le plus discriminant n'est pas toujours la meilleure question** | Faible — c'est la qualité perçue | Mesuré sur le seed : sur les 32 écrans à 144 Hz sous 400 $, `marque` marque 0,93 contre 0,73 pour le type de dalle, parce que treize marques bien réparties portent plus d'information que deux types de dalle. La mesure a raison ; « tu as une préférence de marque ? » n'est pourtant pas toujours ce qu'un vendeur demanderait. Gain d'information et valeur conversationnelle sont deux critères distincts : l'outil rend le premier et **reste une suggestion** (§3.8), le prompt de l'étape 8 arbitre le second, et la métrique nº3 le mesure |
 | **La garde de l'arbitrage C concentre l'invariant, elle ne le supprime pas** | Faible, mais à ne pas oublier | Les outils de recherche n'ont plus d'argument de critère : il n'existe donc plus d'argument hostile à clamper. Mais la règle de collant doit toujours être appliquée quelque part, et ce quelque part est maintenant **unique** — `record_criteria`. Un futur outil qui écrirait dans l'état sans passer par `fusionner()` rouvrirait tout, et rien dans le typage ne l'en empêche. Atténuation : `EtatSession` est immuable et ses champs sont typés `Mapping`, donc une écriture en place ne compile pas sous `mypy --strict` ; mais construire un état neuf à la main reste possible |
-| **Le prompt v1 n'est mesuré par rien avant l'étape 12** | **Élevée** — c'est la qualité perçue, et elle n'a aucun filet | Les sections 4 (« une fourchette n'est jamais un prix »), 6 (« la question suggérée est une suggestion ») et 9 (« dire le refus plutôt que le contourner ») sont des **atténuations déclarées, pas vérifiées** : elles sont écrites dans le prompt et rien ne constate qu'elles produisent leur effet. Une observation en conversation manuelle n'est pas une mesure. Le harnais de l'étape 12 est ce qui les transforme en taux ; d'ici là, ce sont des intentions bien rédigées |
+| ~~**Le prompt v1 n'est mesuré par rien avant l'étape 12**~~ | **Éteint** à l'étape 12 — harnais d'éval branché, seize prises rejouées, rapport committé. La ligne est barrée plutôt qu'effacée : c'est le dernier risque **Élevé** du projet, et il a décidé de l'ordre des étapes 12 et 13 | Les sections 4 (« une fourchette n'est jamais un prix »), 6 (« la question suggérée est une suggestion ») et 9 (« dire le refus plutôt que le contourner ») étaient des **atténuations déclarées, pas vérifiées**. **Ce que le harnais mesure réellement, et il faut le dire précisément :** la section 4 est mesurée — `regle_montants` et `regle_valeurs_unitaires` la constatent phrase par phrase, et le taux de rejet par code dit combien de fois le modèle a essayé (7 `montant_non_fourni` et 3 `valeur_non_fournie` sur 35 tours à la première exécution). La section 9 est mesurée **à moitié** : `Attente.CRITERE_TENU` constate qu'un desserrage refusé n'a pas fini par passer, mais rien ne constate que l'agent l'a **dit** au client — voir la ligne dédiée ci-dessous. La section 6 n'est **pas** mesurée, et le harnais l'a appris à ses dépens : une attente écrite sur l'appel à `suggest_next_question` mesurait quel outil l'agent avait choisi, pas ce que le produit avait fait. Restent donc des intentions bien rédigées : la conduite du dialogue au sens large, que seul `make eval-live` donne à lire |
 | **Le faux client teste la boucle, pas le modèle** | Moyenne — et c'est un angle mort de `make check` | `tests/agent/` couvre l'enchaînement, le réenchaînement de l'état, la terminalité, l'appairage des `tool_result` et la garde d'itérations — tout ce qui ne dépend pas de ce que le modèle répond. **Un défaut de conduite du dialogue passe donc entièrement à travers `make check`** : un agent qui interrogerait le client six fois de suite, ou qui citerait un prix jamais fourni, ferait une suite verte. C'est la contrepartie assumée de l'arbitrage 2, et elle ne se referme qu'avec les cassettes et le client simulé de l'étape 12 |
 | ~~**Le texte sortant n'est validé par rien jusqu'à l'étape 9**~~ | **Éteint** à l'étape 9 — validateur programmatique branché, texte bufferisé, une régénération puis repli sur template. La ligne est barrée plutôt qu'effacée : c'est le risque qui a décidé de l'ordre du plan | §2 reposait **uniquement sur le prompt système** : un prix recopié de travers, un `id` approximatif ou une spec déduite d'un sondage partaient au client. C'est pour cette raison que l'étape 9 est passée avant l'étape 10 — mettre une API et un front devant un texte non validé aurait multiplié la surface avant de fermer le trou. **Le trou est fermé au niveau du mécanisme, pas de la couverture** : les trois lignes qui suivent disent ce que le validateur ne voit pas |
 | **Un entier nu, sans unité et sans `$`, n'est vérifié par rien — sauf dans un intervalle** | Moyenne — c'est le trou connu et **assumé** du validateur, désormais réduit | La règle 5 ne mord que sur un nombre suivi d'une unité connue, la règle 2 que sur un montant en dollars. « 32 candidats » ou « il en reste douze » ne sont donc contrôlés par personne. L'exemption est délibérée : sans elle, « je vous propose trois modèles » lèverait un grief, et **un validateur qui crie sur du français correct finit par être débranché**. **Une exception depuis le correctif de l'étape 9** : dans « entre A et B *unité* », la borne basse hérite de l'unité de la borne haute et cesse d'être un entier nu. Elle vient d'un cas de terrain — le modèle a écrit « entre 65 et 400 dollars environ » là où la borne fournie valait 64,98 $, et 65 est un **arrondi**, c'est-à-dire l'affirmation approximative sur le catalogue que l'étape 7 avait refusé de faire produire à `probe_catalog`. Une seule forme est traitée parce qu'une seule a été observée ; « de A à B » ou « autour de A » seraient de la théorie. Fermeture complète possible et non retenue : exiger qu'un entier nu appartienne aux agrégats fournis, ce qui rendrait « trois modèles » et « les deux premiers » invalides |
@@ -3066,6 +3289,13 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Le garde-fou de l'arbitrage F favorise légèrement les produits à données manquantes** | Faible, mais réelle et constatée | Un critère indisponible sort du calcul et les poids sont renormalisés : un produit incomplet a donc moins d'occasions de perdre des points. Atténuation : à score égal, celui dont **plus de critères ont été évalués** passe devant, et la trace expose `criteres_evalues` / `criteres_indisponibles`. L'atténuation ne supprime pas le biais — elle ne joue qu'à score **exactement** égal. Un écran sans `refresh_rate` déclaré peut donc devancer un écran à 120 Hz sur un souhait de 144 Hz, et c'est visible dans la démonstration de l'étape. Les deux alternatives (0, ou 0,5) sont pires : l'une punit l'absence, l'autre l'invente |
 | **Le verrou de tour reste tenu si le générateur SSE n'est jamais démarré** | Faible — fenêtre étroite, et le défaut s'auto-guérit | Le verrou est pris dans l'endpoint ; le `try/finally` qui le relâche vit dans le générateur. Or `_flux(...)` **construit** le générateur sans l'exécuter : tant que Starlette n'a pas appelé le premier `next()`, le `finally` n'existe pas. Si l'itération ne commence jamais — client déjà parti quand `http.response.start` est envoyé —, la `Session` reste ouverte, sa transaction non validée, et **le verrou tient jusqu'au ramasse-miettes**. Symptôme visible : un `409` « un tour est déjà en cours » sur une session où rien ne tourne, au renvoi d'une requête qui avait lâché. **La parade est nommée et non prise** : amorcer le générateur dans l'endpoint — un `next()` avant de rendre — pour entrer dans le `try` avant que Starlette n'itère. Elle coûte de rechaîner la première trame devant le reste du flux (`itertools.chain`), donc de compliquer le seul endroit du code qui doit rester lisible, et de déplacer le début du tour **avant** l'envoi des en-têtes — c'est-à-dire de rendre à nouveau possible une exception après la décision du code HTTP et avant le premier octet, exactement la ligne que l'arbitrage E trace. Le défaut, lui, se referme seul au GC, sa conséquence est un 409 qu'un renvoi résout, et aucun tour n'est perdu puisqu'aucun n'avait commencé |
 | **Le parseur SSE et le réducteur du front ne sont vérifiés par aucun test** | Moyenne — c'est le seul code du projet dans ce cas | `tests/api/test_cadrage_sse.py` prouve que **le serveur émet** des trames bien formées, sans saut de ligne brut, et recomposables sous un découpage arbitraire des octets (1, 7, 64, 4096). Il ne prouve **pas** que `flux.js` les recompose : un parseur JavaScript qui oublierait sa queue passerait toute cette suite au vert, et son symptôme — un événement perdu de temps en temps, donc **une carte produit qui manque une fois sur dix** — ne se verrait qu'en démonstration. L'atténuation est la **concentration, pas la couverture** : la logique tient dans deux modules nommés et sans DOM (`flux.js`, 95 lignes de code ; `etat.js`, 81), dont l'un **transcrit** un algorithme écrit et testé en Python. C'est une atténuation et non une preuve, et le dire ainsi vaut mieux que la fausse assurance qu'on aurait achetée autrement. *Alternative écartée — Playwright de bout en bout* : une dépendance, des navigateurs à installer, un serveur à lancer en test, et surtout `make check` perdrait la propriété qui fait sa valeur — tourner **sans base, sans conteneur, sans clé**. La porte de sortie serait littéralement automatisée, et elle cesserait de tourner |
+| **Une cassette est un tirage, pas une espérance** | Moyenne — elle porte l'étape 13 tout entière | La température n'est pas fixée (étape 8, arbitrage 12), et on ne l'a pas fixée à l'étape 12 : une cassette enregistre **une** réponse du modèle parmi celles qu'il aurait pu donner. Trois prises ont donc été enregistrées sur `budget_serre`, `besoin_flou` et `zero_budget_trop_bas` pour avoir un ordre de grandeur du bruit. ⚠️ **Trois prises ne sont pas un intervalle de confiance**, et le rapport ne le prétend nulle part : c'est un ordre de grandeur, infiniment mieux que le plancher de bruit inconnu qu'on aurait sinon, et rien de plus. Conséquence directe pour l'étape 13 : un écart entre deux prompts inférieur à cet ordre de grandeur **n'est pas un signal**, et le conclure serait exactement la faute que le motif nº3 du parcours cherche à ne plus commettre. Fermeture possible et non retenue : fixer `temperature=0` — le dépôt s'est déjà fait prendre à supposer que cela donnait du déterminisme (étape 5), et on ne le suppose plus |
+| **La réponse de référence du critère nº4 est choisie à la main, et sa qualité n'est vérifiée par rien** | Moyenne — elle décide d'un critère d'acceptation | L'attendu ne vient pas du moteur (arbitrage F) : le déterminer en lançant le moteur ferait valoir la métrique 100 % par construction. Il vient donc d'une **lecture du catalogue**, et rien ne relit cette lecture. Une métrique nº4 qui chute peut donc accuser le moteur à tort. Atténuation réelle et partielle : quatre des six attendus sont adossés à une **unicité** constatée — un seul produit du catalogue satisfait les contraintes —, ce qui est le plus solide qu'on puisse faire sans jury humain, et un test pur vérifie que chaque identifiant existe bien dans le seed committé. Les deux autres (`changement_davis`, `comparaison`) reposent sur un argument, et leur `justification` le dit en toutes lettres dans `scenario.py`. **C'est cette phrase qu'il faut relire avant d'accuser le moteur**, et c'est pour ça qu'elle est une donnée et pas un commentaire |
+| **Le critère nº1 ne détecte pas une règle manquante — seulement un trou dans la réaction à une règle existante** | Moyenne, et **mesurée** à l'étape 12 | Le harnais mesure le validateur **avec le validateur** : `valider()` relit la prose livrée avec les mêmes cinq règles que la boucle. Amputer `REGLES` rend donc aveugles les deux à la fois, et le critère nº1 reste à zéro pendant que du texte fautif part au client — constaté, en retirant `regle_valeurs_unitaires` puis en rejouant `budget_serre`. L'alternative — une seconde lecture indépendante de la prose — est refusée par l'arbitrage E : ce serait un second validateur, plus faible que le premier, qui finirait par diverger de lui. **Ce qui détecte une règle manquante existe pourtant, et c'est la troisième couche du rapport :** le taux de rejet s'effondre (2 → 0 sur ce scénario), l'avertissement « prises consommées » sort, et sur un scénario où le rejet ne tombe pas au dernier tour le rejeu échoue carrément en `DivergenceDeRequete`. Le critère nº1, lui, détecte bien ce pour quoi il est fait : la boucle rendue insensible à un verdict fait passer le compte à 2 griefs et `make eval` sort en code non nul |
+| **Un message assistant qui ne porte qu'un bloc `thinking` clôt le tour sans rien livrer** | Moyenne — le client ne reçoit **rien**, et rien ne le signale | `_depouiller()` ignore les types de blocs inconnus, et c'est voulu : un bloc inattendu ne doit pas clore une conversation par une exception. Mais quand le message n'en porte **que** un, `message.texte` est vide et `message.appels` aussi : la boucle prend la branche « aucun `tool_use`, que du texte », loggue `boucle.fin_de_tour` en `INFO` et rend son `IssueDuTour` **sans avoir émis un seul événement**. Aucun `Texte`, aucun `Repli`, aucune erreur. Observé en conversation réelle à `make eval-live` — ligne 21 sur 27 d'une session persistée, juste après un repli de validation ; le client simulé a répondu « Euh… vous êtes là ? ». Ce n'était pas un cas théorique tant que le thinking était supposé absent (étape 8, arbitrage 12) ; les cassettes montrent que `claude-sonnet-5` en émet **sans qu'on le demande**. Correctif nommé et non pris à l'étape 12, qui ne change aucun comportement : traiter « aucun événement émis » comme une itération sans progrès plutôt que comme une fin de tour, ou émettre le repli de `MAX_ITERATIONS`. À trancher à l'étape 13, où l'on saura ce que le harnais en dit |
+| **La métrique nº3 est au plancher et n'a aucune marge de progression** | Faible, mais elle prive l'étape 13 de son indicateur principal | *Questions avant première valeur* vaut **0 sur les onze prises** qui livrent une valeur : sur ce jeu de scénarios, l'agent n'appelle jamais `ask_clarification` avant de montrer quelque chose. C'est la règle « donner avant de demander » (§3.9, section 5 du prompt) qui produit son effet — donc une bonne nouvelle — mais §5 étape 13 dit « viser en priorité la métrique nº3 », et il n'y a rien à viser. Deux lectures possibles et non départagées : les dix scénarios sont trop explicites (ils énoncent taille, fréquence et budget dès le premier tour), ou le délai avant première valeur se compte en **tours client** et non en questions. `besoin_flou` est le seul scénario écrit contre ce biais, et il livre lui aussi une valeur sans poser de question |
+| **Le taux de repli de 0 % est un artefact du jeu de scénarios** | Moyenne — c'est un chiffre publié qui flatte | Trente-cinq tours scriptés, **zéro repli**. La première conversation de `make eval-live` en a produit un, motif `validation`, au moment où le client a demandé « c'est quoi la différence entre IPS et VA ? ». La cause est nette : les dix scénarios posent des questions **sur le catalogue**, un vrai client en pose **sur le domaine** — et le catalogue ne contient pas de quoi expliquer une technologie de dalle. Le modèle répond alors depuis sa connaissance du monde, le validateur refuse, régénère, et se replie. Atténuation : le mode `live` existe précisément pour cela, et il est désormais une porte de sortie. Ce qui reste ouvert : rien n'oblige à le lancer, et une régression de ce type ne se verrait dans aucune commande automatique |
+| **Rien ne constate que l'agent *dit* au client qu'il a refusé un desserrage** | Moyenne — c'est la moitié non mesurée de la section 9 du prompt | Le scénario `desserrage_refuse` vérifie deux faits, tous deux lus sur les événements : le jeton de parole a bien refusé (`CriteresMisAJour.mouvements_refuses` non vide) et le critère n'a pas fini par bouger (`Attente.CRITERE_TENU`). **Ni l'un ni l'autre ne dit ce que la prose affirme.** Un agent qui refuserait le desserrage et écrirait « c'est noté, je passe à 144 Hz » tiendrait les deux attentes. La fermer demanderait de lire la prose autrement que par le validateur, ce que l'arbitrage E refuse — un second validateur, plus faible, qui diverge du premier. Ce n'est pas une limite du harnais mais de ce qu'un harnais programmatique sait faire, et c'est exactement le genre de chose que le client simulé donne à **lire** sans savoir la compter |
 | **La prose du modèle contient du markdown que le front n'interprète qu'à moitié** | Faible — c'est de l'affichage, et le correctif est daté | Le modèle écrit `**gras**`, des listes numérotées, et des identifiants entre `` ` `` (« le `monitor-ee31fe1bb3` »). Le front rend **deux formes et pas une de plus** — le gras et les sauts de ligne — construites en nœuds DOM par une trentaine de lignes qui ne peuvent structurellement pas ouvrir d'injection (arbitrage B). Le reste s'affiche tel quel : les backticks sont visibles à l'écran, constaté en démonstration. **C'est le prompt qu'on corrigera à l'étape 13, pas le front qu'on armera d'un parseur.** Ajouter ici une dépendance markdown ferait porter au front la mise en forme d'un texte dont on maîtrise la production — et écrire un parseur markdown à la main rouvrirait exactement la surface d'injection que l'arbitrage B ferme. Le sens du correctif est donc : demander au prompt de ne produire que ce que le front rend, plutôt que de faire courir le front derrière ce que le prompt produit |
 
 ---

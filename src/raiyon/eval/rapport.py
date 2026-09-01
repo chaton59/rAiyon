@@ -1,0 +1,396 @@
+"""`Mesures` vers un tableau markdown. **Pur, et stable octet pour octet.**
+
+`docs/eval/rapport.md` est committé : deux exécutions sur les mêmes mesures doivent
+produire exactement le même fichier, sans quoi chaque `make eval` produirait un diff qui
+ne dit rien. Toutes les listes sont donc triées, et rien n'est daté ici — la date d'un
+enregistrement vit dans l'en-tête des cassettes, pas dans le rapport.
+
+---
+
+### Le rapport doit se défendre contre une lecture qui s'arrêterait à la première ligne
+
+C'est la raison d'être d'`AVERTISSEMENT`, et il n'est pas décoratif.
+
+Les critères nº1 et nº2 sont garantis **par construction** depuis l'étape 9 : le validateur
+refuse le texte fautif, régénère une fois, puis se replie sur un template écrit en Python.
+Un tableau qui affiche `0` sur ces deux lignes ne dit donc pas « le modèle n'a pas menti » —
+il dit « le mécanisme a fonctionné ».
+
+> **Un tableau où le critère nº1 vaut 0 et le taux de repli vaut 30 % décrit un produit
+> qui échoue.**
+
+Sans cette phrase dans le fichier lui-même, quelqu'un lira la première ligne et s'arrêtera
+là — et ce quelqu'un, dans six mois, c'est l'auteur.
+
+### Trois lignes n'ont pas de seuil, et ce sont les plus intéressantes
+
+Taux de rejet, taux de repli, itérations par tour. Ce sont elles qui **bougent** quand un
+prompt change, et elles que l'étape 13 cherchera à faire descendre. Les critères binaires,
+eux, sont déjà tenus par du code et ne bougeront pas.
+"""
+
+import statistics
+from collections.abc import Sequence
+
+from raiyon.eval.metriques import (
+    SEUIL_QUESTIONS,
+    SEUIL_TOP3,
+    Attente,
+    Mesures,
+    MesuresDunePrise,
+)
+
+TITRE = "# Rapport d'éval — rAiyon"
+
+AVERTISSEMENT = """> ⚠️ **Comment lire ce tableau.** Les critères nº1 et nº2 sont garantis **par
+> construction** depuis l'étape 9 : le validateur refuse le texte fautif, régénère une
+> fois, puis se replie sur un template écrit en Python. Un `0` sur ces lignes ne dit pas
+> « le modèle n'a pas menti », il dit « le mécanisme a fonctionné ». Une valeur non nulle
+> signifierait que **le validateur a un trou** — c'est là toute l'information.
+>
+> **Un tableau où le critère nº1 vaut 0 et le taux de repli vaut 30 % décrit un produit
+> qui échoue.** Les trois couches se lisent ensemble : ce qui est **livré**, ce que le
+> modèle a **tenté** (taux de rejet), et ce qui a fini en **repli** — une réponse
+> dégradée, servie au client."""
+
+TENU = "✅"
+VIOLE = "❌"
+SANS_OBJET = "—"
+
+
+def rendre(mesures: Mesures) -> str:
+    """Le rapport entier. Une seule fonction publique : c'est un fichier, pas une API."""
+    sections = [
+        TITRE,
+        "",
+        AVERTISSEMENT,
+        "",
+        "## Critères d'acceptation",
+        "",
+        *_tableau_des_criteres(mesures),
+        "",
+        "## Ce que le modèle a tenté, et ce qui a fini en repli",
+        "",
+        *_tableau_des_couches(mesures),
+        "",
+        "### Rejets par origine et par code",
+        "",
+        *_tableau_des_rejets(mesures),
+        "",
+        "### Replis par motif",
+        "",
+        *_tableau_des_replis(mesures),
+        "",
+        "## Par scénario",
+        "",
+        *_tableau_des_prises(mesures),
+        "",
+        *_ecarts(mesures),
+        "",
+        *_manquements(mesures),
+    ]
+    return "\n".join(sections).rstrip("\n") + "\n"
+
+
+# --------------------------------------------------------------------------- #
+# Les tableaux
+# --------------------------------------------------------------------------- #
+
+
+def _tableau(entetes: Sequence[str], lignes: Sequence[Sequence[str]]) -> list[str]:
+    """Un tableau markdown sans alignement de colonnes.
+
+    Aligner à la largeur du contenu produirait un diff sur **toutes** les lignes dès
+    qu'une valeur s'allonge d'un caractère. Le fichier est committé : la lisibilité du
+    diff prime sur celle de la source, et le markdown rendu est identique.
+    """
+    return [
+        "| " + " | ".join(entetes) + " |",
+        "|" + "|".join("---" for _ in entetes) + "|",
+        *["| " + " | ".join(ligne) + " |" for ligne in lignes],
+    ]
+
+
+def _tableau_des_criteres(mesures: Mesures) -> list[str]:
+    """Les six critères du §4, dans l'ordre du §4. Le nº5 n'est pas mesuré ici."""
+    return _tableau(
+        ("#", "Critère", "Seuil", "Mesuré", "Verdict"),
+        (
+            (
+                "1",
+                "Aucun produit, prix ou spec inventé — **dans le texte livré**",
+                "0",
+                f"{mesures.griefs_livres} grief(s)",
+                _verdict(mesures.critere_1),
+            ),
+            (
+                "2",
+                "Budget jamais dépassé sans présentation explicite",
+                "0",
+                f"{mesures.violations_budget} violation(s)",
+                _verdict(mesures.critere_2),
+            ),
+            (
+                "3",
+                "Délai avant première valeur",
+                f"médiane ≤ {SEUIL_QUESTIONS}",
+                _mediane(mesures),
+                _verdict(mesures.critere_3),
+            ),
+            (
+                "4",
+                "Le produit attendu est dans le top 3",
+                f"≥ {SEUIL_TOP3:.0%}".replace("%", " %"),
+                _part_top3(mesures),
+                _verdict(mesures.critere_4),
+            ),
+            (
+                "5",
+                "Moteur de matching testable sans API",
+                "binaire",
+                "hors de ce rapport — `make check`",
+                SANS_OBJET,
+            ),
+            (
+                "6",
+                "Cas zéro résultat traité proprement",
+                "binaire",
+                f"{mesures.zero_resultats_traites}/{mesures.zero_resultats} traité(s)",
+                _verdict(mesures.critere_6),
+            ),
+        ),
+    )
+
+
+def _tableau_des_couches(mesures: Mesures) -> list[str]:
+    """Les trois lignes sans seuil. Ce sont elles que l'étape 13 fera bouger."""
+    iterations = mesures.iterations
+    return _tableau(
+        ("Mesure", "Valeur", "Seuil"),
+        (
+            (
+                "Taux de rejet du validateur",
+                f"{len(mesures.rejets)} grief(s) sur {mesures.tours} tour(s) "
+                f"— {mesures.taux_de_rejet:.2f}/tour",
+                "publié",
+            ),
+            (
+                "Taux de repli",
+                f"{mesures.tours_replies} tour(s) sur {mesures.tours} "
+                f"— {mesures.taux_de_repli:.0%}".replace("%", " %"),
+                "publié",
+            ),
+            (
+                "Itérations par tour",
+                _distribution(iterations),
+                "publié",
+            ),
+            (
+                "Prises sans aucune valeur livrée",
+                f"{mesures.prises_sans_valeur} sur {len(mesures.prises)}",
+                "publié",
+            ),
+            (
+                "Prises où `suggest_next_question` a signalé le budget manquant",
+                f"{mesures.prises_ou_loutil_a_signale_le_budget} sur {len(mesures.prises)}",
+                "publié — **observation, pas exigence**",
+            ),
+        ),
+    )
+
+
+def _tableau_des_rejets(mesures: Mesures) -> list[str]:
+    """Par origine **et** par code : un taux global masquerait lequel des deux fuit."""
+    if not mesures.rejets:
+        return ["Aucun texte refusé par le validateur sur cette exécution."]
+    comptes: dict[tuple[str, str], int] = {}
+    for rejet in mesures.rejets:
+        cle = (rejet.origine.value, rejet.code.value)
+        comptes[cle] = comptes.get(cle, 0) + 1
+    return _tableau(
+        ("Origine", "Code de grief", "Rejets"),
+        [(origine, code, str(comptes[(origine, code)])) for origine, code in sorted(comptes)],
+    )
+
+
+def _tableau_des_replis(mesures: Mesures) -> list[str]:
+    """Un repli est une réponse **dégradée livrée au client**, pas un incident interne."""
+    if not mesures.replis:
+        return ["Aucun repli sur cette exécution."]
+    comptes: dict[str, int] = {}
+    for motif in mesures.replis:
+        comptes[motif.value] = comptes.get(motif.value, 0) + 1
+    return _tableau(
+        ("Motif", "Tours repliés"),
+        [(motif, str(comptes[motif])) for motif in sorted(comptes)],
+    )
+
+
+def _tableau_des_prises(mesures: Mesures) -> list[str]:
+    """Une ligne par prise. Trois prises d'un même scénario se lisent côte à côte.
+
+    C'est ce qui donne la **fourchette** de l'arbitrage D : trois valeurs alignées, dont
+    on lit l'écart à l'œil. Ce n'est pas un intervalle de confiance et le rapport ne le
+    présente jamais comme tel — voir `_ecarts()`.
+    """
+    return _tableau(
+        (
+            "Scénario",
+            "Prise",
+            "Tours",
+            "Questions avant valeur",
+            "Attendu top 3",
+            "Rejets",
+            "Replis",
+            "Itér.",
+            "Conforme",
+        ),
+        [
+            (
+                prise.scenario,
+                str(prise.prise),
+                str(prise.tours),
+                _entier(prise.questions_avant_valeur),
+                _booleen(prise.attendu_en_top3),
+                str(len(prise.rejets)),
+                str(len(prise.replis)),
+                _distribution(prise.iterations),
+                TENU if prise.conforme else VIOLE,
+            )
+            for prise in sorted(mesures.prises, key=lambda prise: (prise.scenario, prise.prise))
+        ],
+    )
+
+
+def _ecarts(mesures: Mesures) -> list[str]:
+    """Ce que trois prises disent, et ce qu'elles ne disent pas (arbitrage D)."""
+    lignes = [
+        "## Dispersion, et ce qu'elle ne prouve pas",
+        "",
+        "La température n'est pas fixée (étape 8, arbitrage 12) : **une cassette est un",
+        "tirage, pas une espérance.** Trois prises ont été enregistrées sur les scénarios",
+        "ci-dessous, pour obtenir un ordre de grandeur du bruit sur les métriques nº3 et nº4.",
+        "",
+        "⚠️ **Trois prises ne sont pas un intervalle de confiance.** C'est un ordre de",
+        "grandeur, et c'est déjà infiniment mieux que le plancher de bruit inconnu qu'on",
+        "aurait sinon. Un écart de deux prompts inférieur à cet ordre de grandeur n'est pas",
+        "un signal.",
+        "",
+    ]
+    multiples = _scenarios_a_plusieurs_prises(mesures.prises)
+    if not multiples:
+        return [*lignes, "Aucun scénario n'a plus d'une prise sur cette exécution."]
+    return [
+        *lignes,
+        *_tableau(
+            ("Scénario", "Prises", "Questions avant valeur", "Attendu top 3"),
+            [
+                (
+                    nom,
+                    str(len(prises)),
+                    _fourchette([prise.questions_avant_valeur for prise in prises]),
+                    _fourchette_booleenne([prise.attendu_en_top3 for prise in prises]),
+                )
+                for nom, prises in multiples
+            ],
+        ),
+    ]
+
+
+def _manquements(mesures: Mesures) -> list[str]:
+    """Les attentes binaires non tenues, nommées. Vide, la section dit qu'elle est vide."""
+    lignes = ["## Attentes binaires non tenues", ""]
+    if not mesures.attentes_manquees and not mesures.diagnostics_manques:
+        return [*lignes, "Aucune."]
+    rangs: list[tuple[str, str, str]] = [
+        (scenario, str(prise), f"attente `{attente.value}`")
+        for scenario, prise, attente in mesures.attentes_manquees
+    ]
+    rangs += [
+        (scenario, str(prise), f"diagnostic attendu `{motif.value}`")
+        for scenario, prise, motif in mesures.diagnostics_manques
+    ]
+    return [*lignes, *_tableau(("Scénario", "Prise", "Ce qui manque"), sorted(rangs))]
+
+
+# --------------------------------------------------------------------------- #
+# Formatage — chaque fonction rend la **même** chaîne pour la même entrée
+# --------------------------------------------------------------------------- #
+
+
+def _verdict(tenu: bool | None) -> str:
+    if tenu is None:
+        return SANS_OBJET
+    return TENU if tenu else VIOLE
+
+
+def _booleen(valeur: bool | None) -> str:
+    if valeur is None:
+        return SANS_OBJET
+    return "oui" if valeur else "non"
+
+
+def _entier(valeur: int | None) -> str:
+    return SANS_OBJET if valeur is None else str(valeur)
+
+
+def _mediane(mesures: Mesures) -> str:
+    mediane = mesures.mediane_des_questions
+    if mediane is None:
+        return "aucune prise n'a livré de valeur"
+    return f"{mediane:.1f} sur {len(mesures.questions_par_prise)} prise(s)"
+
+
+def _part_top3(mesures: Mesures) -> str:
+    """Le rapport dit **sur combien de scénarios** la métrique porte (arbitrage F)."""
+    part = mesures.part_attendus_en_top3
+    if part is None:
+        return "aucun scénario ne porte d'attendu"
+    return (
+        f"{part:.0%} ".replace("%", " %")
+        + f"— {mesures.attendus_en_top3}/{mesures.prises_avec_attendu} prise(s) "
+        "à réponse de référence"
+    )
+
+
+def _distribution(valeurs: Sequence[int]) -> str:
+    """`min à max (médiane N)`, ou la valeur seule quand il n'y en a qu'une."""
+    if not valeurs:
+        return SANS_OBJET
+    bas, haut = min(valeurs), max(valeurs)
+    if bas == haut:
+        return str(bas)
+    return f"{bas} à {haut} (médiane {statistics.median(valeurs):.1f})"
+
+
+def _fourchette(valeurs: Sequence[int | None]) -> str:
+    connus = [valeur for valeur in valeurs if valeur is not None]
+    if not connus:
+        return SANS_OBJET
+    bas, haut = min(connus), max(connus)
+    manquants = len(valeurs) - len(connus)
+    suite = f" (+{manquants} sans valeur livrée)" if manquants else ""
+    return (str(bas) if bas == haut else f"{bas} à {haut}") + suite
+
+
+def _fourchette_booleenne(valeurs: Sequence[bool | None]) -> str:
+    connus = [valeur for valeur in valeurs if valeur is not None]
+    if not connus:
+        return SANS_OBJET
+    return f"{sum(connus)}/{len(connus)}"
+
+
+def _scenarios_a_plusieurs_prises(
+    prises: Sequence[MesuresDunePrise],
+) -> list[tuple[str, list[MesuresDunePrise]]]:
+    groupes: dict[str, list[MesuresDunePrise]] = {}
+    for prise in prises:
+        groupes.setdefault(prise.scenario, []).append(prise)
+    return [
+        (nom, sorted(groupe, key=lambda prise: prise.prise))
+        for nom, groupe in sorted(groupes.items())
+        if len(groupe) > 1
+    ]
+
+
+__all__ = ["AVERTISSEMENT", "Attente", "rendre"]

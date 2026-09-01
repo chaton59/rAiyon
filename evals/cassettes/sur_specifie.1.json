@@ -1,0 +1,219 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "sur_specifie",
+    "prise": 1,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.v1",
+    "prompt_empreinte": "6da03a675684",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-01"
+  },
+  "prises": [
+    {
+      "requete": "63496a2765dd",
+      "apercu": [
+        " 1 user text «Il me faut un écran de 27 pouces au minimum, en 500 Hz, dalle IPS, et moins de 4…»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "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",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01YPd2wyfusbX6SbcgEtzLDk",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "budget_usd": "400",
+            "optimisation": "rapport_qualite_prix"
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01A4o1gi6ibDN9MdGpjhRvmZ",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "criteres": [
+              {
+                "champ": "screen_size",
+                "operateur": "au_moins",
+                "valeur": "27",
+                "importance": "bloquant"
+              },
+              {
+                "champ": "refresh_rate",
+                "operateur": "au_moins",
+                "valeur": "500",
+                "importance": "bloquant"
+              },
+              {
+                "champ": "panel_type",
+                "operateur": "egal",
+                "valeur": "IPS",
+                "importance": "bloquant"
+              }
+            ]
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "dfc0d77d462d",
+      "apercu": [
+        " 1 user text «Il me faut un écran de 27 pouces au minimum, en 500 Hz, dalle IPS, et moins de 4…»",
+        " 2 assistant thinking | tool_use record_criteria {\"budget_usd\":\"400\",\"categorie\":\"monitor\",\"optimisation\":\"rapport_qualite_prix\"} | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"400.00\", \"op…» | tool_result ERREUR «{\"ok\": false, \"erreur\": \"critere_invalide\", \"message\": \"'panel_type' (type de da…»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "ErQECpABCBEYAipA1RPBc9rLC277DucXYfUisET5BLTtFn/jAEw2FVgOEVYSmiOPPQQTzXpFeHGol7Z2aJXck+UTD7XwEmweyH804DIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAZCL29QGEgy04lUg3g8GyJX4dzUaDFEEAywh1N82X6D3hSIwmW2QCj0VZ9br3mT3Ox5VyvUwyjRtUXAIY3cJ/5TJ4OomZ63UKpWmAJ/VKd2hzHi3KtACSrGd8x+QV2mgni81q+kTNoHCmgL/0vzZGHAO/gjObBcat38wr3Ak7YQh1mhOIP15UryfNi828Pnhudt3R8K/Q0i3uEfyqpySqVvqiocAmxy32u8gyVOlRjtz4H8cxfWqme1YdhCZkuGzt6zYBC0fuN9Jk6JDwbHAGXuu3a0yDYIh9BSIIPvGNEDBrFhQhVzXQKYOTkK2wh6/s7+u1l/Et/UonrdFPCS4gEUKbW1+X5AqjwfHxwZA5mRhlYy5J1KH2KbBWK1bnyp1u+DsGFOH9AL6uPaHv60KiZtzXUjGONezjZ+Plh+jjMrF6PKiMiu2xtkoGp88nc/pxqaI8jIJ+XHeo3hdce4cXD7I1lWRDiQWq61re0jJ/rDplv3c6fXYgBFht/b6JEl/pyG4vCakDalNVV5FkIwBPFXYWhc8Wv5kCwlBlV22W6WL+Yu7ARSxGAE=",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_013RxsUhNHcEPiLad7XPJLQu",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "criteres": [
+              {
+                "champ": "screen_size",
+                "operateur": "au_moins",
+                "valeur": "27",
+                "importance": "bloquant"
+              },
+              {
+                "champ": "refresh_rate",
+                "operateur": "au_moins",
+                "valeur": "500",
+                "importance": "bloquant"
+              },
+              {
+                "champ": "panel_type",
+                "operateur": "egal",
+                "valeur": "IPS",
+                "importance": "important"
+              }
+            ]
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "4c786ac6a4a6",
+      "apercu": [
+        " 1 user text «Il me faut un écran de 27 pouces au minimum, en 500 Hz, dalle IPS, et moins de 4…»",
+        " 2 assistant thinking | tool_use record_criteria {\"budget_usd\":\"400\",\"categorie\":\"monitor\",\"optimisation\":\"rapport_qualite_prix\"} | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"400.00\", \"op…» | tool_result ERREUR «{\"ok\": false, \"erreur\": \"critere_invalide\", \"message\": \"'panel_type' (type de da…»",
+        " 4 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "id": "toolu_013mjXfothTHfK2VnVqPxEdG",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "search_products",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "6de092ad2586",
+      "apercu": [
+        " 1 user text «Il me faut un écran de 27 pouces au minimum, en 500 Hz, dalle IPS, et moins de 4…»",
+        " 2 assistant thinking | tool_use record_criteria {\"budget_usd\":\"400\",\"categorie\":\"monitor\",\"optimisation\":\"rapport_qualite_prix\"} | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"400.00\", \"op…» | tool_result ERREUR «{\"ok\": false, \"erreur\": \"critere_invalide\", \"message\": \"'panel_type' (type de da…»",
+        " 4 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        " 6 assistant tool_use search_products {}",
+        " 7 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 0, \"produits\": [], \"tr…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Aucun écran ne descend en dessous de 400 dollars avec 500 Hz : c'est le critère qui bloque tout. La fréquence de rafraîchissement maximale que je peux atteindre dans vos autres critères est de 280 Hz, ce qui rouvrirait 56 écrans.\n\nVoulez-vous que je baisse le seuil de rafraîchissement à 280 Hz pour voir ce qui est disponible ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "8d3d031b77d0",
+      "apercu": [
+        " 1 user text «Il me faut un écran de 27 pouces au minimum, en 500 Hz, dalle IPS, et moins de 4…»",
+        " 2 assistant thinking | tool_use record_criteria {\"budget_usd\":\"400\",\"categorie\":\"monitor\",\"optimisation\":\"rapport_qualite_prix\"} | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"400.00\", \"op…» | tool_result ERREUR «{\"ok\": false, \"erreur\": \"critere_invalide\", \"message\": \"'panel_type' (type de da…»",
+        " 4 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        " 6 assistant tool_use search_products {}",
+        " 7 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 0, \"produits\": [], \"tr…»",
+        " 8 assistant text «Aucun écran ne descend en dessous de 400 dollars avec 500 Hz : c'est le critère …»",
+        " 9 user text «Le 500 Hz est vraiment ce qui compte pour moi.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "EukICpABCBEYAipAIzphyN2inw7I2AwC7oJrhoOLAibRu+saCLIrrNJrWvjSeZ95AS8sp+UxKuY1QIOQl9SVQBkfRb64XLQg7clejTIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAZyL29QGEgxdf8F7ZK2GuqdRQpQaDNgB6yBJMV0EyXt9aSIwlxI9YrNKrDRF2SqBGfIHgjnOb+nqwz6IUgVwFlz30bFnrbtaVk3bNR2Y81HD5R39KoUHlKUkyyTSeYE6ZGC0iKz5wbLWdqW1eeH9Qzo6lGCSFX3ldneKqtRTKwt0aMR7rD3Lq0Gu/zOAZgKAM15FjqP8jgbihcf//L7M3Cjqj9j+NiZrVO3o1oFAhKqFEKjhaVlshr/uD3sIlsyE/s4H2BqkCeDWW5hydxwsiKo7/n7PPKL9iuks71igpqGeNoDJJ0K0ZCuMOyOXK916d58sfA9p55FpuU+MozC0U51vQi35b9MQ433D9gorzdcGa03BG/mrJBawfXSWuNrm8w5S3/rg/XCHcSPZil5IP8AlDc6mrK+qAvZA94tcjGXbrH0hLYCwvo1vmh7+Yr7WCdRhs49jyYEwOPyvyS4sT4iKEtAFJUOn3x8mcCXWGKcrOHxePB2lSrna61Xs5n+mc1goASDPn7ofyAXNaWqLL1qg6MJ/DYb2ieGjL0/pHvwPFguWC5V4WbhTWFowG7snWCTC7Xg+gcYQPKfDu/2pUdVXq1G/4OiRT/iz4srNz8r7oKzy0KEVMQk2xwlhnnFK47pFYwJE9fgRYCLv8rp3k8rHOpco7mVVUNl0wFD6HtUCKcKWLeZoDmtLbbqHupIWGQraYTRBx07VnJg83OzSs9nWRffAG/GXc1gJeT/tMhoXcpKOhxUYuX1s3jGnwt4yAunzxzEcBNJQFD8jPfCHatrpruulS54YjLHxfvCYKy3mw63kkK/cN/UIn0192FgSm5Fi0xc98f/QeTaQ9luik3jtkJ5jkkUc1ANcbEsND/g0VFXXQLGPMlCzgBkVIc8ESqxreRT5LWnTbllh/6BRGhQeO/Fx9gYPiG1bikCoTSQE/pYp0sGZyk1Pf3XZfFk5ghFaIOfnV78rxxN7yiJOgMb9R4qtV5JoiUslZ5cCQpwOYu5ch25PhPt2XihLxLwxSP8yYEg+KslX+QznmrJpGiuP7i3Hqqdd1CwvpsP7Grbs2awxI5mcFPGSIUkXhmZLp9hl4MzRdnAETG1KhUQ0k/Z5YOBlUN3KK/twu0voaPWLMdNh3x83N/M3aFFpjLZqj/coWy5Hws503zBBT+gxratqcb5HCyj5h3dmPvLhpz6tTFZn+vEvtqsr2WePL6r92vyZzVAG2rsQwtejHSlEmA3AuGWIH1EB9wzu3s/ibvFxYqEtEOs7lwuojzsDv2JTUZx2gy42z2c2UoOu/98rsJPnYjIKwbucrZJ6vhgB",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_018LxuScPoLCXKz8BEEPAF3Q",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "champs": [
+              "refresh_rate"
+            ]
+          },
+          "name": "probe_catalog",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "a4175eed9954",
+      "apercu": [
+        " 1 user text «Il me faut un écran de 27 pouces au minimum, en 500 Hz, dalle IPS, et moins de 4…»",
+        " 2 assistant thinking | tool_use record_criteria {\"budget_usd\":\"400\",\"categorie\":\"monitor\",\"optimisation\":\"rapport_qualite_prix\"} | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"400.00\", \"op…» | tool_result ERREUR «{\"ok\": false, \"erreur\": \"critere_invalide\", \"message\": \"'panel_type' (type de da…»",
+        " 4 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        " 6 assistant tool_use search_products {}",
+        " 7 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 0, \"produits\": [], \"tr…»",
+        " 8 assistant text «Aucun écran ne descend en dessous de 400 dollars avec 500 Hz : c'est le critère …»",
+        " 9 user text «Le 500 Hz est vraiment ce qui compte pour moi.»",
+        "10 assistant thinking | tool_use probe_catalog {\"champs\":[\"refresh_rate\"]}",
+        "11 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"400.00\", \"dans_le_budget\": 0…»"
+      ],
+      "fin": "max_tokens",
+      "blocs": [
+        {
+          "signature": "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",
+          "thinking": "",
+          "type": "thinking"
+        }
+      ]
+    }
+  ]
+}

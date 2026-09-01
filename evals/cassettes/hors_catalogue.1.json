@@ -1,0 +1,47 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "hors_catalogue",
+    "prise": 1,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.v1",
+    "prompt_empreinte": "6da03a675684",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-01"
+  },
+  "prises": [
+    {
+      "requete": "20d6fbb272e1",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "signature": "EuMDCpABCBEYAipAs7zBjsEG8pgaiB4HY7Ovz5C+5rwrDUH7wKmgDSc/KZm1+/3CdussPgnF7W09C5wvc+iidsR2ePx9CfiJOr5pPTIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAfyL29QGEgxY5zgLgkp+keYaykIaDHQT3+aoDwaZtaAysyIwRmbT3vzAhvlOrHUNNsPEww4jQSN25+cgwzAkwYtoGNT5Z3GbpHi95WhQilJnxivHKv8BshYBH7UMuLClgEkwe9rfJRDKSNiSxfLoC/XiTZyiN0SHc3fwu3B6Cq7U4QWJPZZFYjU6Vsefd6MvPxdDls1Af3gCDbKOLCR4tTZnHuSipE9ZNGBBUhnByGQFAHC5rGB+BBBI5sYcScv0s+LvEXpoZDwBkHZRxOLhTr7wjSCFE+IlFj31bdj4uu27iBHDPaMb8KR0Y8rfRiVW6mBAH4DayteLp+eJmEtY+TeagJ4ZWx2i6wJ6kCnx+BHFSLGR/j4UfC9Y/fAdITd8huuQtsAF2iUBCt3ujQkfWh1s0j83xiZPxgJVZ4wQqy7GFN4OibF+hyAHJhhYXYLpNZ0QOd57GAE=",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "text": "Bonjour, malheureusement je ne suis pas en mesure de vous aider pour cet achat : je suis spécialisé dans les composants et périphériques PC (processeurs, cartes graphiques, mémoire vive, stockage interne, écrans et casques). Je n'ai pas de perceuses dans mon catalogue.\n\nPuis-je vous aider pour un composant ou périphérique PC ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "ef329a87e47b",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
+        " 2 assistant thinking | text «Bonjour, malheureusement je ne suis pas en mesure de vous aider pour cet achat :…»",
+        " 3 user text «Vraiment rien ? C'est pour percer du béton.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Vraiment rien, désolé. Mon catalogue ne couvre que les composants et périphériques PC : processeurs, cartes graphiques, mémoire vive, stockage interne, écrans et casques. Pas d'outillage, même pour du béton.\n\nSi un jour vous avez besoin d'un de ces composants, je suis là.",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}
