@@ -1,6 +1,6 @@
 # Comparaison v1-base → v2
 
-**Ce que cette comparaison cherche à savoir.** l'effet des trois cibles de v2 — la rédaction chiffrée, le périmètre de domaine, le markdown que le front ne rend pas. ⚠️ La base et v2 ne datent pas du même jour : l'écart majore la dérive du modèle sans la mesurer.
+**Ce que cette comparaison cherche à savoir.** l'effet des trois cibles de systeme.v2 — la rédaction chiffrée, le périmètre de domaine, le markdown que le front ne rend pas. ⚠️ La base et v2 ne datent pas du même jour : l'écart majore la dérive du modèle sans la mesurer.
 
 > ⚠️ **Ce que ces chiffres ne disent pas d'eux-mêmes.**
 >
@@ -41,9 +41,11 @@ des tailles d'échantillon.
 > estimée sur trois prises : elle déclare « au-delà » moins souvent qu'un test
 > statistique, ce qui est le sens dans lequel ce dépôt préfère se tromper.
 >
-> ⚠️ **Une dispersion nulle ne veut pas dire « stable ».** Elle veut dire qu'on n'a
-> pas vu ce scénario bouger sur trois prises — « stable par construction » et « calme
-> par chance » ne se distinguent pas à ce nombre de tirages.
+> ⚠️ **Un scénario vu trois fois à la même valeur ne compte pas zéro.** « Stable par
+> construction » et « calme par chance » ne se distinguent pas à trois tirages : trois
+> tirages identiques bornent l'étendue par en dessous, ils ne la mesurent pas. Chaque
+> scénario contribue donc au moins **1 pas**. Sans ce plancher, un
+> scénario jamais vu bouger rendrait n'importe quel écart significatif.
 >
 > ⚠️ **Dispersion inconnue, comptée pour zéro**, sur : `categorie_efface_budget`. Un seul tirage n'a pas d'étendue. Le verdict y est donc **trop généreux**.
 
@@ -51,11 +53,12 @@ des tailles d'échantillon.
 
 | Mesure | v1-base | v2 | Écart | Dispersion | Verdict | Sens cherché |
 |---|---|---|---|---|---|---|
-| Rejets du validateur | 3.00 | 2.00 | -1.00 | ± 7.00 | dans le bruit | baisse |
-| Tours repliés | 0.33 | 0.00 | -0.33 | ± 1.00 | dans le bruit | baisse |
-| Chiffres sur les tours de domaine | 3.67 | 7.67 | +4.00 | ± 9.00 | dans le bruit | stable |
-| Markdown non rendu par le front | 51.00 | 0.00 | -51.00 | ± 40.00 | au-delà | baisse |
-| Itérations | 60.33 | 57.50 | -2.83 | ± 8.00 | dans le bruit | stable |
+| Rejets du validateur | 3.00 | 2.00 | -1.00 | ± 14.00 | dans le bruit | baisse |
+| Tours repliés | 0.33 | 0.00 | -0.33 | ± 11.00 | dans le bruit | baisse |
+| Chiffres sur les tours de domaine | 3.67 | 7.67 | +4.00 | ± 19.00 | dans le bruit | stable |
+| Markdown non rendu par le front | 51.00 | 0.00 | -51.00 | ± 43.00 | au-delà | baisse |
+| Itérations | 60.33 | 57.50 | -2.83 | ± 14.00 | dans le bruit | stable |
+| Tours avant la première valeur (nº3) | 14.00 | 12.67 | -1.33 | ± 9.00 | dans le bruit | stable |
 
 ## Les critères, des deux côtés
 
@@ -72,6 +75,12 @@ des tailles d'échantillon.
 avant la première valeur : son minimum atteignable est **1**, et il est déjà atteint.
 Ce qu'on surveille ici est qu'elle ne **monte** pas — un modèle rendu plus prudent
 avec les chiffres sonde davantage et montre plus tard.
+
+⚠️ **Elle porte sa dispersion comme les cinq autres mesures**, dans le tableau
+ci-dessus. Publier une baisse de nº3 sans son étendue, après avoir appliqué
+« au-delà / dans le bruit » partout ailleurs, serait un double standard sur la seule
+métrique qui va dans le bon sens — c'est ce qu'un relecteur verrait en premier, et
+il aurait raison.
 
 ## Les codes de grief, des deux côtés
 

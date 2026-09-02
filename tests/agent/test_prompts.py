@@ -59,12 +59,35 @@ def test_le_prompt_systeme_en_vigueur_se_charge():
 # --------------------------------------------------------------------------- #
 
 
-def test_la_version_par_defaut_reste_systeme_v1(sans_cache_de_config):
-    """Le défaut ne bouge **que** quand le jalon 3 aura tranché quelle version passe en
-    vigueur. Le vérifier ici évite qu'une campagne v2 laisse le défaut derrière elle."""
+def test_la_version_par_defaut_est_celle_qui_a_ete_arbitree(sans_cache_de_config):
+    """Le défaut ne bouge qu'après un arbitrage écrit. Il vaut `systeme.v2` depuis le
+    jalon 3 de l'étape 13 — voir la docstring de `SYSTEME_PAR_DEFAUT` et §5.
+
+    Le test épingle la valeur pour qu'une campagne suivante ne laisse pas le défaut
+    derrière elle : enregistrer v3 sans déplacer le défaut ferait tourner la démonstration
+    et l'API sur v2 pendant que les rapports parlent de v3."""
     sans_cache_de_config.delenv("RAIYON_PROMPT_SYSTEME", raising=False)
 
-    assert version_systeme() == SYSTEME_PAR_DEFAUT == "systeme.v1"
+    assert version_systeme() == SYSTEME_PAR_DEFAUT == "systeme.v2"
+
+
+def test_le_defaut_nest_ecrit_quà_un_seul_endroit(sans_cache_de_config):
+    """**Le défaut a été écrit deux fois, et déplacer l'une sans l'autre n'a rien cassé.**
+
+    `Settings.prompt_systeme` porte le défaut du champ ; `prompts.SYSTEME_PAR_DEFAUT` le
+    nommait aussi. Au jalon 3 de l'étape 13, la seconde est passée à `systeme.v2` et la
+    première est restée à `systeme.v1` : le dépôt **annonçait** v2 et **servait** v1, sans
+    qu'aucun type ne s'en émeuve — c'est le test de la version par défaut qui l'a attrapé,
+    par chance plutôt que par construction.
+
+    Celui-ci le construit : la constante **est** le défaut du champ, pas une copie.
+    """
+    from raiyon.config import PROMPT_SYSTEME_PAR_DEFAUT, Settings
+
+    sans_cache_de_config.delenv("RAIYON_PROMPT_SYSTEME", raising=False)
+
+    assert SYSTEME_PAR_DEFAUT is PROMPT_SYSTEME_PAR_DEFAUT
+    assert Settings.model_fields["prompt_systeme"].default == SYSTEME_PAR_DEFAUT
 
 
 def test_la_variable_denvironnement_choisit_le_fichier(sans_cache_de_config):
@@ -123,12 +146,13 @@ def test_le_prompt_v1_porte_ses_onze_sections():
     **une** et mesurer. Un prompt v1 maximal laisserait les métriques nº3 et nº4 sans
     marge de progression et rendrait chaque changement ultérieur non attribuable.
 
-    ⚠️ **Le test porte sur v1 seul, et il y reste.** v2 et v3 ajoutent des sections — c'est
-    leur objet — et étendre ce compte à toutes les versions ferait de la longueur du prompt
-    une contrainte, ce qu'elle n'est pas. Ce qui doit valoir pour les trois est
+    ⚠️ **Le test porte sur v1 seul, et il y reste** — il nomme donc `systeme.v1` et non la
+    version par défaut, qui a bougé au jalon 3 de l'étape 13. v2 ajoute trois sections,
+    c'est son objet, et étendre ce compte à toutes les versions ferait de la longueur du
+    prompt une contrainte, ce qu'elle n'est pas. Ce qui doit valoir pour toutes est
     l'interpolation, et c'est le test suivant.
     """
-    texte = charger(SYSTEME_PAR_DEFAUT)
+    texte = charger("systeme.v1")
 
     for numero in range(1, 12):
         assert f"\n## {numero}." in texte, f"section {numero} absente"
@@ -157,14 +181,18 @@ def test_aucun_prompt_systeme_ne_contient_dinterpolation(version: str):
         )
 
 
-def test_le_prompt_v1_dit_la_regle_absolue_et_la_verbatim():
+@pytest.mark.parametrize("version", versions_systeme())
+def test_chaque_prompt_dit_la_regle_absolue_et_la_verbatim(version: str):
     """Deux règles sont des critères d'acceptation, pas des préférences de style :
     §2 (le LLM ne produit jamais un fait) et §3.4ter (les noms se citent verbatim).
 
     ⚠️ Ce test constate leur **présence**, pas leur **effet**. Rien ne mesure le prompt
     avant l'étape 12 — c'est au §7 des risques.
+
+    Il porte sur **chaque** version : ces deux règles ne se retirent pas d'un prompt, quelle
+    que soit la rédaction. C'est le seul contrôle de contenu qui vaille pour toutes.
     """
-    texte = charger(SYSTEME_PAR_DEFAUT)
+    texte = charger(version)
 
     assert "search_products" in texte
     assert "verbatim" in texte

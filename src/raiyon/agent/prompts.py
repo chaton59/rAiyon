@@ -24,7 +24,7 @@ from pathlib import Path
 
 import structlog
 
-from raiyon.config import get_settings
+from raiyon.config import PROMPT_SYSTEME_PAR_DEFAUT, get_settings
 
 logueur = structlog.get_logger(__name__)
 
@@ -39,10 +39,24 @@ PREFIXE_SYSTEME = "systeme."
 """Ce qui distingue un prompt système d'un autre prompt de `prompts/`. Le préfixe est
 lu par `versions_systeme()`, qui découvre les fichiers plutôt que de les lister."""
 
-SYSTEME_PAR_DEFAUT = "systeme.v1"
-"""La version servie quand rien n'est configuré. **C'est le défaut du code, pas un
-choix arbitré** : le jalon 3 de l'étape 13 le déplacera sur la version retenue, et
-d'ici là toute campagne v2 ou v3 se lance en nommant sa version."""
+SYSTEME_PAR_DEFAUT = PROMPT_SYSTEME_PAR_DEFAUT
+"""La version servie quand rien n'est configuré. **Arbitrée au jalon 3 de l'étape 13.**
+
+⚠️ **Importée de `config.py`, jamais recopiée.** Elle a été écrite deux fois pendant une
+demi-heure — ici et dans le défaut du champ `Settings.prompt_systeme` — et déplacer l'une
+sans l'autre a fait annoncer `systeme.v2` à un dépôt qui servait `systeme.v1`. Aucun type
+ne voit ce genre d'écart ; un seul endroit d'écriture, si.
+
+`systeme.v1` jusque-là. v2 passe en vigueur parce qu'aucune mesure ne recule et qu'une
+avance au-delà du bruit : le markdown que le front ne rend pas tombe de 51 à 0 par passe,
+contre une dispersion de ± 43. Les cinq autres mesures sont dans le bruit, dans le bon
+sens ou stables, et les critères nº1, nº2, nº4 et nº6 sont inchangés.
+
+⚠️ **Ce n'est pas le taux de rejet qui l'a emporté** — il baisse de 3,00 à 2,00 par passe,
+très en deçà de la dispersion. Ce qui emporte la décision et ne se lit dans aucun agrégat
+est l'appendice de domaine : v1 **enseignait la technologie d'affichage**, ce que §2
+interdit, et le faisait sans un chiffre ; v2 refuse le cours et bascule sur la répartition
+du catalogue. Voir §5 étape 13."""
 
 
 def version_systeme() -> str:

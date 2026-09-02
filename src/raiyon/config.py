@@ -18,6 +18,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PREFIXE_ENV = "RAIYON_"
 FICHIER_ENV = ".env"
 
+PROMPT_SYSTEME_PAR_DEFAUT = "systeme.v2"
+"""La version de prompt servie quand rien n'est configuré. **Écrite ici et nulle part
+ailleurs.**
+
+Elle a d'abord été écrite deux fois — dans le champ ci-dessous et dans
+`prompts.SYSTEME_PAR_DEFAUT` — et le jalon 3 de l'étape 13 a déplacé la seconde en
+oubliant la première : la constante annonçait `systeme.v2` pendant que la configuration
+servait `systeme.v1`, sans qu'aucun type ne s'en émeuve. `prompts.py` importe donc cette
+valeur, et l'arbitrage qui l'a choisie est documenté là-bas, à côté de son usage.
+
+Elle vit dans `config.py` parce que c'est **le défaut d'un champ de configuration**, et
+que `config.py` est le point unique de lecture de l'environnement ; l'inverse créerait un
+cycle, `prompts.py` important déjà `config.py`."""
+
 
 class ConfigurationError(Exception):
     """Configuration invalide détectée avant la validation Pydantic.
@@ -104,7 +118,9 @@ class Settings(BaseSettings):
     # Le motif refuse tout ce qui n'est pas un nom de fichier nu : sans lui,
     # `RAIYON_PROMPT_SYSTEME=../../etc/passwd` ferait lire un chemin arbitraire à
     # `prompts.charger()`, qui concatène sans vérifier.
-    prompt_systeme: str = Field(default="systeme.v1", pattern=r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
+    prompt_systeme: str = Field(
+        default=PROMPT_SYSTEME_PAR_DEFAUT, pattern=r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+    )
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     app_env: Literal["dev", "test", "prod"] = "dev"

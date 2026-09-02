@@ -3558,6 +3558,139 @@ citation garde le refus, qui ne porte aucun chiffre ; la bascule est enseignée 
 `docs/prompts/` se lisent ensemble, la décision et sa révision), la dette nº1 de
 l'étape 8, `grief.v1.md`, et la fuite des exemples chiffrés du prompt (§7).
 
+#### Jalon 3 — l'arbitrage, et ce que la campagne pouvait démontrer
+
+**Trois cibles, trois natures de preuve — et ce n'est pas un défaut du protocole, c'est ce
+que le protocole permettait.**
+
+* le **markdown** est démontré **par les chiffres** : 51 occurrences par passe contre 0,
+  seul écart au-delà de la dispersion (± 43) ;
+* la **rédaction chiffrée** est attribuée **par inspection de l'appendice A** : l'arrondi
+  de borne a catégoriquement disparu — cinq griefs en base, aucun en v2, et une cassette
+  écrit `64,98` là où v1 écrivait « 65 $ » — tandis que la dérivation d'écart tient bon,
+  trois griefs des deux côtés ;
+* le **périmètre de domaine** se lit **à l'appendice B**, et nulle part ailleurs.
+
+⚠️ **Avec ± 7 de dispersion sur les rejets, cette campagne ne pouvait pas démontrer la
+cible 1 par l'agrégat.** Le taux de rejet passe de 3,00 à 2,00 par passe : très en deçà du
+bruit, et il l'aurait été quel que soit le résultat. **C'était su avant de la lancer, pas
+découvert après** — c'est la raison d'être de l'appendice A, écrit au jalon 0 précisément
+parce qu'« un taux qui descend de 11 à 5 ne dit pas quelle forme a disparu ».
+
+**Ce qui emporte l'arbitrage n'est donc aucun agrégat.** C'est l'appendice de domaine :
+
+    v1  « Bonne question, ça change vraiment l'usage : - Dalle VA : meilleur
+          contraste, noirs plus profonds… »                        → 0 chiffre
+    v2  « Sur les 9 écrans qui correspondent à vos critères, la répartition
+          est : 6 en dalle VA, 3 en dalle IPS. »                    → 8 chiffres
+
+v1 **enseignait la technologie d'affichage** — ce que §2 lui interdit — et le faisait sans
+un seul chiffre. v2 refuse le cours et bascule sur le catalogue, en ne citant que des faits
+fournis. **C'est la démonstration de l'attente refusée au jalon 0, point D** : une attente
+« aucun chiffre sur un tour de domaine » aurait **passé sur v1 et échoué sur v2**, donc
+pénalisé exactement le comportement qu'elle était censée obtenir. Mesuré, pas argumenté.
+
+**`systeme.v2` passe en vigueur.** Aucune mesure ne recule, une avance au-delà du bruit,
+les critères nº1, nº2, nº4 et nº6 inchangés, et le taux de repli tombe à zéro.
+
+**Contre-argument, et il est réel** : v2 porte trois changements et la campagne n'en
+démontre statistiquement qu'un. Un relecteur qui n'accepterait que la preuve par agrégat
+devrait conclure « une cible sur trois ». La réponse n'est pas de gonfler les chiffres,
+c'est que l'appendice **est** une preuve — recopiée d'un artefact committé que n'importe
+qui peut relire — et qu'elle est plus forte, sur ces cibles-là, qu'un delta noyé dans le
+bruit.
+
+##### La métrique nº3, et le double standard évité de justesse
+
+Elle passe de 2,0 à 1,0 de médiane, et cette baisse a d'abord été publiée **sans sa
+dispersion**, alors que les cinq autres mesures portaient toutes leur verdict. Un double
+standard sur la seule métrique qui va dans le bon sens est ce qu'un relecteur voit en
+premier, et il aurait raison.
+
+Corrigé : nº3 est un compteur comme les autres, avec son étendue. Et sa correction en a
+appelé une seconde, plus profonde. Son étendue mesurée valait **zéro** sur les onze
+scénarios de la base — donc n'importe quel écart y était « au-delà du bruit ». Or l'étape
+12 avait mesuré `besoin_flou` à **2, 2 puis 3 tours** sur le même prompt : l'étendue de
+cette métrique n'est pas nulle, elle n'a pas été revue à ce tirage-là. **Le module écrivait
+qu'une dispersion nulle ne veut pas dire « stable » et traitait pourtant l'étendue observée
+comme une borne dure** — il documentait le piège et tombait dedans.
+
+Chaque scénario contribue donc désormais **au moins un pas** (`PLANCHER_DETENDUE`). Trois
+tirages identiques bornent l'étendue par en dessous, ils ne la mesurent pas. La seule
+mesure que ce plancher fait basculer est nº3, dont on savait par ailleurs que son étendue
+n'était pas nulle ; le markdown (51 contre 43) reste au-delà.
+
+⚠️ **Au passage, la meilleure illustration de « une cassette est un tirage » que le dépôt
+ait produite** : la même métrique nº3, sur le **même prompt** `systeme.v1`, vaut 1,0 sur le
+tirage de l'étape 12 et 2,0 sur la ligne de base. Rien n'a changé que les tirages.
+
+##### La neutralisation, et ce qu'elle a trouvé
+
+Trois choses cassées, trois tests qui tombent :
+
+| Ce qu'on casse | Ce qui tombe |
+|---|---|
+| L'appendice A ne dérive plus de `CodeGrief` (un code écrit à la main) | `test_lappendice_des_refus_est_derive_de_codegrief_et_non_dune_liste` |
+| `DIVERGENCES_ATTENDUES` devient une tolérance (l'appel de vérification disparaît) | `test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu` |
+| Le plancher de dispersion disparaît | quatre tests de `test_comparaison.py` |
+
+⚠️ **La deuxième n'a rien cassé au premier essai**, et c'est ce que la neutralisation
+existe pour trouver. Le test appelait `_verifier_les_divergences_attendues` **directement**
+au lieu de passer par `mesurer_le_jeu` : la garde existait et n'était branchée à rien de
+vérifié. Elle passe désormais par le rejeu réel, en déclarant divergente une cassette qui
+se rejoue parfaitement.
+
+##### Un défaut qu'aucun type ne voyait
+
+`SYSTEME_PAR_DEFAUT` et le défaut du champ `Settings.prompt_systeme` écrivaient **la même
+valeur à deux endroits**. Mettre v2 en vigueur a déplacé la première et oublié la seconde :
+pendant une demi-heure, le dépôt **annonçait** `systeme.v2` et **servait** `systeme.v1`.
+C'est le test de la version par défaut qui l'a attrapé, par chance plutôt que par
+construction. La valeur vit maintenant dans `config.py` seule, et un test constate que la
+constante **est** le défaut du champ plutôt qu'une copie.
+
+#### ⭐ L'audit que deux incidents appellent : le prompt exige-t-il des chiffres que les outils fournissent ?
+
+**Deux fois dans la même étape, le même motif.** Au jalon 1 : la section 9 ordonne de dire
+**quel mouvement a été refusé**, et `mouvements_refuses` ne porte pas la valeur refusée —
+le validateur punissait donc l'obéissance. Au jalon 2 : la section 7 ordonne de dire **de
+combien un produit dépasse le budget**, et `ecart_usd` n'existe que pour la zone de
+tolérance — le modèle calcule `12,99 $` parce qu'on le lui demande et que personne ne le
+lui donne.
+
+Ce n'est pas deux accidents, c'est un motif : **le prompt ordonne de dire un chiffre que la
+couche outils ne garantit pas de fournir.** Le tableau ci-dessous est l'audit systématique,
+et il dit d'avance où sera le troisième.
+
+| Obligation du prompt | Champ qui la fournit | État |
+|---|---|---|
+| §2, §11 — le prix d'un produit | `search_products` → `produits[].prix_usd` | ✅ fourni |
+| §11 — une caractéristique d'un produit | `search_products` → `produits[].specs` | ✅ fourni |
+| §4 — la fourchette de prix du sous-catalogue | `probe_catalog` → `fourchette_prix.plus_bas` / `.plus_haut` | ✅ fourni |
+| §4, §13 — un comptage du catalogue | `probe_catalog` → `dans_le_budget`, `champs[].distribution` | ✅ fourni |
+| §10 — la valeur d'un assouplissement proposé | `search_products` → `diagnostic.propositions[].valeur_atteignable` | ✅ fourni, **et facultatif** — `None` quand aucune valeur n'est atteignable, auquel cas la section 12 de v2 interdit d'en inventer une |
+| §7 — l'écart au budget d'un produit **de la zone de tolérance** | `search_products` → `au_dessus_du_budget[].ecart_usd` | ✅ fourni |
+| §7 — l'écart au budget d'un produit **hors zone de tolérance** | *aucun* | 🔴 **trou** — mesuré à `zero_budget_trop_bas.3` : « il est à 142,99 $, donc 12,99 $ au-dessus de votre plafond » |
+| §9 — la valeur d'un mouvement refusé | *aucun champ direct* — `mouvements_refuses[]` porte `champ`, `operateur`, `motif` | 🟠 **contourné** à l'étape 13 en appariant le `tool_use` (voir `valeurs_des_mouvements_refuses`) |
+
+**Les deux corrections possibles pour le trou de `ecart_usd`, et aucune ne se fait ici :**
+
+* *que `search_products` rende l'écart pour **tout** produit au-dessus du budget, pas
+  seulement pour la zone de tolérance.* La plus juste — le chiffre devient fourni, et la
+  section 7 cesse d'exiger un calcul. ⚠️ Elle touche la couche outils, donc le
+  `tool_result`, donc **l'empreinte de requête** : les quarante-trois cassettes du dépôt
+  divergeraient au deuxième tour. C'est le mécanisme du jalon 1, à une échelle bien plus
+  grande ;
+* *que la section 7 cesse d'exiger le chiffre quand il n'est pas fourni* — « dites qu'il
+  dépasse, et de combien **si vous l'avez** ». Gratuite en cassettes puisqu'un prompt neuf
+  s'enregistre de toute façon. ⚠️ Elle affaiblit un critère d'acceptation : le nº2 est
+  précisément « budget jamais dépassé sans présentation explicite », et l'écart chiffré est
+  ce qui rend la présentation explicite.
+
+Le choix n'est pas évident, et il n'a pas à être fait dans une étape qui mesure des
+prompts. **Ce qui compte est que le trou soit nommé avant qu'un troisième cas ne le
+redécouvre**, ce que ce tableau fait.
+
 ---
 
 ### Étape 14 — README et finition
@@ -3606,7 +3739,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **La règle de comptage 3.4quater a été écrite après la mesure** | Moyenne — c'est une critique légitime en relecture de portfolio | Énoncée en principe général, appliquée aux 6 catégories, et elle en ferme toujours une. À exposer telle quelle dans le README plutôt qu'à taire |
 | **Prix figés à juillet 2025, en USD** | Certaine — c'est un snapshot | Assumé et documenté au README. Sans effet sur la démonstration, qui porte sur le raisonnement et non sur l'exactitude commerciale |
 | **L'agent dérive vers l'interrogatoire ou la recommandation prématurée** | Moyenne — c'est la qualité perçue | Règle « donner avant de demander » dans le prompt, métrique suivie, itération outillée à l'étape 13 |
-| **Les cassettes deviennent obsolètes silencieusement** | Moyenne — les tests passent à côté de la réalité | Hash du prompt stocké dans la cassette ; le test échoue si le prompt a changé |
+| **Les cassettes deviennent obsolètes silencieusement** | Moyenne — les tests passent à côté de la réalité | Trois empreintes dans l'en-tête (prompt, schéma d'outils, modèle) ; le rejeu échoue en disant de régénérer. **Le validateur est la quatrième**, découverte à l'étape 13 — voir sa ligne. ⚠️ **Ce qui date chaque tirage** : l'étape 12 a été enregistrée le **2026-08-31**, la campagne v1 partielle et v2 le **2026-09-02**, toutes sous le modèle configuré `claude-sonnet-5`. ⚠️ **L'en-tête n'épingle pas un instantané** : il enregistre le nom **configuré** du modèle, qui est un alias, pas la version que l'API a réellement servie. `ReponseLLM` ne porte que `blocs` et `fin`. *Alternative écartée — capturer l'identifiant résolu* : elle rouvre le `Protocol` du client, donc le faux client et les surcharges de l'API, pour une information dont l'étape 13 n'a pas besoin. À rouvrir le jour où la dérive devient une question à part entière
 | **Le nettoyage du dataset déborde** | Moyenne — dérive du projet | Geler le périmètre à ce qui est propre plutôt que poursuivre l'exhaustivité |
 | **Latence perçue de la boucle multi-outils** | Faible | Streaming des événements typés dès le premier appel d'outil |
 | **`absence_structurelle` est posé à la main dans le registre** | Faible aujourd'hui, croissante si le catalogue s'étend | Un seul attribut le porte (`internal-hard-drive.rpm`), et un test vérifie sur le seed que son absence est bien **déterminée** par `type`. Mais rien ne détecte le cas inverse : un attribut futur dont l'absence serait expliquée par une autre colonne ne se signalerait pas tout seul, et son zéro résultat serait diagnostiqué `donnee_absente` — donc expliqué par une phrase fausse. Atténuation partielle : un test balaie tous les attributs incomplets et échoue si l'un d'eux remplit le critère sans porter le drapeau. Il ne couvre que les vocabulaires fermés, et que le seed |
@@ -3619,6 +3752,9 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | ~~**Le prompt v1 n'est mesuré par rien avant l'étape 12**~~ | **Éteint** à l'étape 12 — harnais d'éval branché, seize prises rejouées, rapport committé. La ligne est barrée plutôt qu'effacée : c'est le dernier risque **Élevé** du projet, et il a décidé de l'ordre des étapes 12 et 13 | Les sections 4 (« une fourchette n'est jamais un prix »), 6 (« la question suggérée est une suggestion ») et 9 (« dire le refus plutôt que le contourner ») étaient des **atténuations déclarées, pas vérifiées**. **Ce que le harnais mesure réellement, et il faut le dire précisément :** la section 4 est mesurée — `regle_montants` et `regle_valeurs_unitaires` la constatent phrase par phrase, et le taux de rejet par code dit combien de fois le modèle a essayé (7 `montant_non_fourni` et 3 `valeur_non_fournie` sur 35 tours à la première exécution). La section 9 est mesurée **à moitié** : `Attente.CRITERE_TENU` constate qu'un desserrage refusé n'a pas fini par passer, mais rien ne constate que l'agent l'a **dit** au client — voir la ligne dédiée ci-dessous. La section 6 n'est **pas** mesurée, et le harnais l'a appris à ses dépens : une attente écrite sur l'appel à `suggest_next_question` mesurait quel outil l'agent avait choisi, pas ce que le produit avait fait. Restent donc des intentions bien rédigées : la conduite du dialogue au sens large, que seul `make eval-live` donne à lire |
 | **Le faux client teste la boucle, pas le modèle** | Moyenne — et c'est un angle mort de `make check` | `tests/agent/` couvre l'enchaînement, le réenchaînement de l'état, la terminalité, l'appairage des `tool_result` et la garde d'itérations — tout ce qui ne dépend pas de ce que le modèle répond. **Un défaut de conduite du dialogue passe donc entièrement à travers `make check`** : un agent qui interrogerait le client six fois de suite, ou qui citerait un prix jamais fourni, ferait une suite verte. C'est la contrepartie assumée de l'arbitrage 2, et elle ne se referme qu'avec les cassettes et le client simulé de l'étape 12 |
 | ~~**Le texte sortant n'est validé par rien jusqu'à l'étape 9**~~ | **Éteint** à l'étape 9 — validateur programmatique branché, texte bufferisé, une régénération puis repli sur template. La ligne est barrée plutôt qu'effacée : c'est le risque qui a décidé de l'ordre du plan | §2 reposait **uniquement sur le prompt système** : un prix recopié de travers, un `id` approximatif ou une spec déduite d'un sondage partaient au client. C'est pour cette raison que l'étape 9 est passée avant l'étape 10 — mettre une API et un front devant un texte non validé aurait multiplié la surface avant de fermer le trou. **Le trou est fermé au niveau du mécanisme, pas de la couverture** : les trois lignes qui suivent disent ce que le validateur ne voit pas |
+| **`NOMBRE` lit une résolution collée à une fréquence comme un seul nombre** | **Moyenne — mesurée à l'étape 13, correctif écrit et différé** | `NOMBRE` vaut `\d+(?:[ESPACES]\d{3})*(?:[.,]\d+)?` : l'espace y est un séparateur de milliers. « en 1920x1080 180 Hz » est donc lu comme **1 080 180 Hz**, une valeur qu'aucun produit ne déclare, et la règle 5 lève un `valeur_non_fournie` sur une phrase **exacte**. Deux des six griefs de la campagne v2 viennent de là (`categorie_efface_budget.3`). ⚠️ C'est un **faux positif du validateur**, pas une faute du modèle — et il est apparu parce que la section 14 de v2 pousse à écrire un produit par ligne, donc la résolution et la fréquence côte à côte. **Le correctif, précisément** : un séparateur de milliers ne suit jamais un groupe de quatre chiffres, donc le motif devient `(?:\d{1,3}(?:[ESPACES]\d{3})+\|\d+)(?:[.,]\d+)?` — une alternance entre la forme **séparée** et la forme **nue**. ⚠️ **La rédaction évidente `\d{1,3}(?:[ESPACES]\d{3})*` est fausse** et cassait plus qu'elle ne répare : sur `9333` elle lit `933` puis `3`, sur `1080 180` elle lit `108` puis `0 180`. L'alternance est ce qui garde `1 299,99` **et** `9333` intacts tout en séparant `1080` de `180`. Vérifié sur les six formes avant d'être écrit ici. **Différé, et pour la raison du jalon 1** : c'est un changement de validateur, il modifie des listes de griefs, donc des reprises, donc des empreintes de requête — il périmerait des cassettes. À livrer avec la prochaine campagne, jamais entre deux |
+| **La dette nº1 de l'étape 8 n'est pas résorbée** | Faible — **reportée deux fois, et la raison a changé** | `DESCRIPTION_SONDER` et `DESCRIPTION_PRECISION` portent des règles de dialogue que le prompt système redit — « une fourchette n'est jamais le prix d'un produit », « ne jamais demander sans donner quelque chose ». Deux rédactions d'une même règle finissent par en dire deux choses. Reportée à l'étape 8 parce qu'« on ne savait pas laquelle des deux portait l'effet » ; **reportée à l'étape 13 pour une autre raison, plus dure** : `schema_outils.py` est dans le préfixe mis en cache, le toucher périme les cassettes au même titre qu'un prompt, et le faire dans la même version qu'un changement de prompt rendrait l'effet inattribuable — exactement ce que la dette dit vouloir éviter. Elle se règle donc dans une version **à un seul changement**, où le prompt ne bouge pas |
+| **Le découpage v2/v3 n'a pas eu lieu** | Faible — **arbitrage budgétaire, écrit et daté** | L'étape 13 prévoyait `systeme.v2` (rédaction chiffrée seule) puis `systeme.v3` (domaine et markdown), pour attribuer chaque effet par isolation. Le plan coûtait ~500 appels ; les crédits en couvraient ~200. Les trois cibles sont donc parties ensemble, et **l'attribution vient de l'inspection des appendices, pas de l'isolation expérimentale** — plus faible, et suffisant ici parce que les cibles se lisent sur des artefacts différents. Les deux documents de `docs/prompts/` — la décision et sa révision — se lisent ensemble |
 | **Le prompt fuit peut-être ses propres exemples chiffrés** | **Ouverte** — hypothèse testable, pas un constat | `systeme.v1.md` illustre quatre de ses onze sections avec des chiffres : « il reste 32 écrans entre 180 et 395 dollars » (§4), « du 27 pouces » (§5), « je garde le 144 Hz » (§9), « celui-ci est à 120 Hz, pas 144 » (§11). Un rapprochement, et **il ne prouve rien** : la phrase refusée de `budget_serre.1` est « redescendre à **120 Hz** », et 120 est le seul chiffre de §11. Ce peut être une coïncidence — 120 est aussi le cran plausible sous 144, et le modèle le connaît sans le prompt. ⚠️ **Ce qui est sûr, c'est que la question n'a jamais été posée**, et qu'un prompt qui enseigne par l'exemple donne au modèle des chiffres qu'aucun outil n'a rendus. Non traité à l'étape 13 : retirer ces exemples modifierait des sections **existantes**, et v2 est une addition pure — deux sections qui bougent, c'est une attribution perdue. **Candidat pour une v3 à un seul changement**, où l'effet serait attribuable. La v2 elle-même n'ajoute aucun chiffre inventé : son §13 a été réécrit pour enseigner le geste (« dites la répartition que le sondage vient de rendre ») au lieu de montrer une réponse chiffrée en bloc de citation, qui est la forme qui appelle le plus l'imitation |
 | **Le validateur périme une cassette, et l'arbitrage C ne l'avait pas nommé** | **Moyenne — découverte à l'étape 13, et démontrée par un blocage réel** | L'arbitrage C de l'étape 12 nomme trois choses qui périment une cassette : le prompt système, le schéma d'outils, le modèle. **Le validateur est la quatrième.** Le mécanisme : quand un texte est refusé, la reprise est empilée dans `messages` avant la régénération (arbitrage D de l'étape 9) — elle fait donc partie de l'empreinte de requête du tour suivant. Un changement de validateur qui modifie la **liste des griefs** d'un tour régénéré change la reprise, donc l'empreinte, donc la cassette ne se rejoue plus. Constaté au jalon 1 de l'étape 13 : le correctif de `valeurs_refusees` fait tomber 2 des 4 griefs de `v1-etape12/desserrage_refuse.1`, et cette cassette a cessé d'être rejouable. **Une sur quarante** — la portée est étroite, mais elle n'est pas nulle et elle n'était écrite nulle part. ⚠️ **La divergence est le comportement correct** : sous le nouveau validateur, le modèle aurait reçu une autre reprise, et sa réponse enregistrée n'est pas celle qu'il aurait donnée. C'est l'arbitrage A qui fonctionne. *Alternative écartée — une empreinte de validateur dans l'en-tête de cassette*, qui rendrait la péremption automatique comme pour les trois autres : il faudrait hacher du **code source**, et un commentaire reformulé périmerait les quarante cassettes du dépôt. Une péremption qui se déclenche pour rien est une péremption qu'on finit par contourner. Atténuation retenue : `DIVERGENCES_ATTENDUES` (`scripts/eval.py`), une liste **assertée** et tenue à la main — une divergence non listée échoue, une cassette listée qui cesse de diverger échoue, une ligne qui nomme une cassette absente échoue. Ce n'est pas une tolérance, et la différence est ce qui empêche qu'une vraie régression du moteur y soit un jour excusée |
 | **Une provenance lue dans un message `user` rendrait le validateur auto-annulant** | **Fermée à l'étape 13, et c'est le piège le plus coûteux de l'étape** | Le message de reprise de l'étape 9 est un bloc de rôle `user` **de la même forme qu'un tour client** — un seul bloc `text`, sans `tool_result` — et il **cite les extraits refusés**, puisque c'est sa fonction. Une provenance « les nombres des messages utilisateur » y prendrait donc les nombres que le validateur vient de refuser et les rendrait citables au tour suivant : le validateur s'annulerait lui-même. **Mesuré, pas déduit** : sur les quarante cassettes du dépôt, 18 griefs sur 19 disparaissaient. C'est la rédaction naïve de l'alternative écartée au jalon 1 de l'étape 13, et elle est **invisible à la lecture** — rien dans le code ne distingue une reprise d'un tour client. Atténuation : `tests/validateur/test_faux_positifs.py::test_la_reprise_ne_fournit_jamais_un_fait` construit une conversation où le seul porteur d'un nombre est une reprise, et exige qu'il reste refusé. Il échoue si quelqu'un réintroduit la provenance |
@@ -3640,9 +3776,9 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | ~~**La métrique nº3 est au plancher et n'a aucune marge de progression**~~ | **Éteint** au correctif de l'étape 12 — le critère compte désormais des **tours client** | *Questions avant première valeur* valait **0 sur les onze prises** qui livraient une valeur : la règle « donner avant de demander » produit son effet, l'agent n'appelle jamais `ask_clarification` avant de montrer quelque chose. Bonne nouvelle, mais §5 étape 13 demande de viser la métrique nº3 en priorité et il n'y avait rien à viser. §3.9 disait déjà quoi compter — « le bon indicateur est le délai avant première valeur, pas le compte de questions » : on compte **combien de fois le client a dû parler**. La médiane passe de 0,0 à 1,0, et la dispersion de `besoin_flou` devient lisible (2 à 3 tours selon la prise, là où les questions donnaient 0 partout). Le seuil reste à 2 et change de sens : « au deuxième message, le client a vu quelque chose ». Le compte de questions reste publié **sans seuil** — il mesure la règle de dialogue, et l'étape 13 aura besoin de savoir laquelle des deux a bougé |
 | **Le taux de repli publié dépend du jeu de scénarios, et le correctif de l'étape 12 a montré comment** | Moyenne — **partiellement fermée**, et la cause n'était pas celle qu'on croyait | ~~Trente-cinq tours scriptés, zéro repli, alors que la première conversation de `make eval-live` en produisait un : les dix scénarios posent des questions **sur le catalogue**, un vrai client en pose **sur le domaine**.~~ **Le diagnostic était faux, et les cassettes l'ont dit.** Le zéro venait d'ailleurs : deux tours **muets** que personne ne comptait, faute d'un motif de repli pour eux. Le motif `REPONSE_VIDE` ajouté, les mêmes seize cassettes affichent **5 %** sans qu'une seule ait été réenregistrée. Quant à l'hypothèse des questions de domaine, le scénario `question_de_domaine` l'a testée sur trois prises et **ne l'a pas confirmée** : le modèle explique IPS contre VA sans citer un chiffre, aucune règle ne tire, aucun repli n'a lieu. Ce qui reste ouvert : le repli de domaine **existe** — la conversation live l'a déclenché — mais aucune cassette ne l'exerce, et rien n'oblige à lancer `eval-live`. Une régression sur ce chemin ne se verrait dans aucune commande automatique |
 | **Rien ne constate que l'agent *dit* au client qu'il a refusé un desserrage** | Moyenne — c'est la moitié non mesurée de la section 9 du prompt | Le scénario `desserrage_refuse` vérifie deux faits, tous deux lus sur les événements : le jeton de parole a bien refusé (`CriteresMisAJour.mouvements_refuses` non vide) et le critère n'a pas fini par bouger (`Attente.CRITERE_TENU`). **Ni l'un ni l'autre ne dit ce que la prose affirme.** Un agent qui refuserait le desserrage et écrirait « c'est noté, je passe à 144 Hz » tiendrait les deux attentes. La fermer demanderait de lire la prose autrement que par le validateur, ce que l'arbitrage E refuse — un second validateur, plus faible, qui diverge du premier. Ce n'est pas une limite du harnais mais de ce qu'un harnais programmatique sait faire, et c'est exactement le genre de chose que le client simulé donne à **lire** sans savoir la compter |
-| **Une affirmation de domaine chiffrée passe le validateur dès que le chiffre ne porte pas d'unité connue** | **Moyenne** — elle porte sur le critère nº1, et elle a été **mesurée**, pas déduite | C'est le trou de l'entier nu (ligne ci-dessus), pris en flagrant délit sur une affirmation qui n'est pas du tout sur le catalogue. Scénario `question_de_domaine`, prise 3 : le client demande le taux de contraste d'une dalle VA, et le modèle répond « VA : environ 3000:1 à 6000:1, IPS : 1000:1 à 1200:1 ». **Aucune des cinq règles ne tire** — « 3000:1 » n'est pas un montant, ne suit aucune unité connue, et la phrase ne nomme aucun produit fourni. Le chiffre est livré au client. ⚠️ **La nuance qui rend cette ligne moins noire qu'elle n'en a l'air** : deux prises sur trois refusent le chiffre **d'elles-mêmes** — « je ne peux pas vous donner un ratio exact sans l'inventer, et je ne le ferai pas ». La section 2 du prompt fait donc l'essentiel du travail, et le validateur n'est pas le filet qu'on croyait sur ce chemin-là. Fermeture possible et **non retenue** : exiger qu'un nombre appartienne aux agrégats fournis, ce qui rendrait « trois modèles » et « les deux premiers » invalides — un validateur qui crie sur du français correct finit par être débranché. Ce que ce risque coûte vraiment est borné par §2 : l'assistant conseille à partir du catalogue, il n'enseigne pas la technologie, et une affirmation de domaine fausse n'engage pas un achat |
-| **`PHRASE_DE_DOMAINE` n'est exercée par aucune cassette** | Faible — c'est une couverture, pas un défaut | Le repli de domaine a été écrit à partir d'une conversation réelle où il aurait dû se déclencher, et il est couvert par sept tests purs, dont un qui le relit avec les cinq règles du validateur. Mais le scénario `question_de_domaine`, **trois prises, deux tours de question de domaine**, n'a produit ni rejet ni repli : le modèle explique IPS contre VA sans citer un chiffre, et rien ne tire. Le chemin est donc vérifié en unitaire et **jamais en bout en bout**. ⚠️ **Ce qu'on n'a pas fait, et il faut le dire** : réenregistrer jusqu'à obtenir le repli attendu. Ce serait choisir le tirage qui arrange, sur un scénario dont §7 dit déjà qu'une cassette est un tirage — exactement la faute que ce dépôt cherche à ne plus commettre. La ligne reste ouverte, et l'étape 13 la refermera si elle trouve une formulation de client qui déclenche le cas de façon reproductible |
-| **La prose du modèle contient du markdown que le front n'interprète qu'à moitié** | Faible — c'est de l'affichage, et le correctif est daté | Le modèle écrit `**gras**`, des listes numérotées, et des identifiants entre `` ` `` (« le `monitor-ee31fe1bb3` »). Le front rend **deux formes et pas une de plus** — le gras et les sauts de ligne — construites en nœuds DOM par une trentaine de lignes qui ne peuvent structurellement pas ouvrir d'injection (arbitrage B). Le reste s'affiche tel quel : les backticks sont visibles à l'écran, constaté en démonstration. **C'est le prompt qu'on corrigera à l'étape 13, pas le front qu'on armera d'un parseur.** Ajouter ici une dépendance markdown ferait porter au front la mise en forme d'un texte dont on maîtrise la production — et écrire un parseur markdown à la main rouvrirait exactement la surface d'injection que l'arbitrage B ferme. Le sens du correctif est donc : demander au prompt de ne produire que ce que le front rend, plutôt que de faire courir le front derrière ce que le prompt produit |
+| **Une affirmation de domaine chiffrée passe le validateur dès que le chiffre ne porte pas d'unité connue** | **Moyenne — inchangée côté validateur, fortement réduite côté prompt à l'étape 13** | Le trou du validateur est **le même** : « 3000:1 » n'est ni un montant, ni une valeur unitaire, et aucune des cinq règles ne tire. Il n'a pas été refermé, et il ne doit pas l'être — exiger qu'un nombre appartienne aux agrégats fournis rendrait « trois modèles » invalide, et un validateur qui crie sur du français correct finit débranché. **Ce qui a changé est ce que le modèle tente.** v1 répondait à « IPS ou VA ? » en **enseignant la technologie d'affichage** — ce que §2 lui interdit — et le faisait sans un seul chiffre, donc sans qu'aucune mesure ne le voie. La section 13 de v2 lui dit ce qu'il ne sait pas et le fait basculer sur la répartition du catalogue : « sur les 9 écrans qui correspondent à vos critères, 6 en VA, 3 en IPS ». Le compteur de chiffres **monte** — 3,67 → 7,67 par passe — et c'est le bon résultat, ces chiffres-là étant fournis. ⚠️ **Le compteur seul ne tranche rien** : c'est l'appendice B, relu à la main, qui distingue un cours de technologie d'un fait de catalogue. La ligne reste ouverte parce que rien n'**empêche** encore une affirmation de domaine chiffrée ; elle est devenue improbable, pas impossible
+| ~~**`PHRASE_DE_DOMAINE` n'est exercée par aucune cassette**~~ | **Fermée à l'étape 13 — en constatant qu'elle devait le rester** | Le repli de domaine reste couvert par sept tests purs et par aucune cassette, sur trois campagnes et douze prises de `question_de_domaine`. **Et c'est le bon résultat.** `PHRASE_DE_DOMAINE` est ce qu'on sert quand la conduite a **déjà échoué** : un bon prompt la rend plus rare, pas plus fréquente. La section 13 de v2 fait en amont ce que le repli faisait en aval — dire ce que l'assistant ne fera pas, puis basculer sur le catalogue —, si bien que le chemin du repli est moins sollicité qu'avant, pas davantage. ⚠️ **Chercher une formulation de client qui le déclenche à coup sûr serait optimiser contre son propre correctif**, et la ligne se ferme en le disant plutôt qu'en fabriquant une couverture. Ce qui reste vrai : une régression sur ce chemin ne se verrait dans aucune commande automatique
+| ~~**La prose du modèle contient du markdown que le front n'interprète qu'à moitié**~~ | **Fermée à l'étape 13** | Le front rend deux formes — le gras et les sauts de ligne — et le reste s'affichait tel quel : 44 backticks, 56 puces et 32 listes numérotées sur les cassettes de l'étape 12. **C'est le prompt qui a été corrigé, pas le front armé d'un parseur** : la section 14 de `systeme.v2.md` dit ce que l'écran affiche, et fait d'« une ligne par produit » l'instruction. Mesuré : **51 occurrences par passe → 0**, seul écart de la campagne v2 au-delà de la dispersion (± 43). ⚠️ **La section a eu une empreinte inattendue sur le validateur**, prédite avant la campagne : elle fait écrire la résolution collée à la fréquence, et `NOMBRE` lit « 1920x1080 180 Hz » comme un seul nombre — voir la ligne dédiée
 
 ---
 

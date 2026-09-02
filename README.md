@@ -16,13 +16,15 @@ dit lequel des rapports décrit quoi.
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation | ✅ |
-| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1,0 tour sur 14 prises | ✅ |
-| 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 6/6 prises à réponse de référence | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1,0 tour sur 26 prises | ✅ |
+| 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 12/12 prises à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | `tests/matching/` tourne dans `make check` | ✅ |
-| 6 | Cas zéro résultat traité proprement | binaire | 6/6 traités | ✅ |
+| 6 | Cas zéro résultat traité proprement | binaire | 12/12 traités | ✅ |
 
-*Sur 19 prises, 11 scénarios, 44 tours client. `make eval` sort en code non nul si l'un
-des critères bloquants — 1, 2 et 6 — est violé.*
+*Sur 36 prises, 11 scénarios, 81 tours client, prompt `systeme.v2` (étape 13).
+`make eval` sort en code non nul si l'un des critères bloquants — 1, 2 et 6 — est violé.
+Quatre autres rapports coexistent dans `docs/eval/` : lequel décrit quoi est dans
+`docs/eval/LISEZMOI.md`.*
 
 ### ⚠️ Comment lire ce tableau, et pourquoi il ne dit pas ce qu'il a l'air de dire
 
@@ -38,8 +40,16 @@ plus intéressantes :
 | Couche | Dernière exécution |
 |---|---|
 | Ce qui est **livré** | 0 grief, 0 violation budget — les deux critères ci-dessus |
-| Ce que le modèle a **tenté** | **11 griefs refusés sur 44 tours**, soit 0,25 par tour : 7 `montant_non_fourni`, 3 `valeur_non_fournie`, 1 `ecart_non_dit` |
-| Ce qui a fini en **repli** | **2 tours sur 44 (5 %)**, tous deux `reponse_vide` — le client a lu une phrase écrite en Python |
+| Ce que le modèle a **tenté** | **6 griefs refusés sur 81 tours**, soit 0,07 par tour : 3 `valeur_non_fournie`, 2 `montant_non_fourni`, 1 `prix_etranger_au_produit` |
+| Ce qui a fini en **repli** | **0 tour sur 81** — aucune réponse dégradée servie au client |
+
+⚠️ **Le taux de rejet ne se lit pas seul.** Il valait 0,25 par tour sur le prompt v1 et
+0,07 sur v2, mais l'écart reste **en deçà de la dispersion mesurée** : sur trois prises par
+scénario, l'étendue prise-à-prise vaut plusieurs fois cet écart. Ce que la campagne de
+l'étape 13 démontre vraiment est ailleurs — le markdown que le front n'affiche pas tombe de
+51 occurrences à **0**, seul écart au-delà du bruit, et l'appendice de domaine montre un
+assistant qui a cessé d'enseigner la technologie d'affichage pour dire ce que le catalogue
+contient. Voir `docs/eval/comparaison.v1-base-v2.md`.
 
 > **Un tableau où le critère nº1 vaut 0 et le taux de repli vaut 30 % décrit un produit qui
 > échoue.**
@@ -47,15 +57,18 @@ plus intéressantes :
 Quatre choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.md` :
 
 - **trois codes de grief sur six ne se déclenchent jamais** sur cette suite —
-  `id_inconnu`, `prix_etranger_au_produit`, `nom_reecrit`. Le rapport le publie, parce
-  qu'une règle qui ne tire jamais est indistinguable d'une règle absente. Elles sont
-  exercées par `tests/validateur/test_pieges.py`, pas par les scénarios ;
+  `id_inconnu`, `nom_reecrit`, `ecart_non_dit`. Le rapport le publie, parce qu'une règle
+  qui ne tire jamais est indistinguable d'une règle absente. Elles sont exercées par
+  `tests/validateur/test_pieges.py`, pas par les scénarios ;
 - **le critère nº1 ne détecte pas une règle manquante.** Le harnais mesure le validateur
   avec le validateur ; retirer une règle rend les deux aveugles. Ce qui détecte une règle
   manquante, c'est l'effondrement du taux de rejet — vérifié en la retirant pour de bon ;
 - **une affirmation de domaine chiffrée passe** dès que le chiffre ne porte pas d'unité
-  connue. Mesuré : « le contraste d'une VA, c'est 3000:1 » est livré sans qu'aucune règle
-  ne le voie. Deux prises sur trois refusent pourtant le chiffre d'elles-mêmes ;
+  connue. Mesuré sur v1 : « le contraste d'une VA, c'est 3000:1 » est livré sans qu'aucune
+  règle ne le voie. Le correctif est **au prompt** — la section 13 de v2 dit à l'assistant
+  ce qu'il ne sait pas et le fait basculer sur la répartition du catalogue —, pas au
+  validateur, qui n'a aucun moyen honnête de trancher une affirmation qu'aucun outil ne
+  fonde ;
 - **le taux de repli est passé de 0 % à 5 % sans qu'une cassette change.** Le produit ne
   s'est pas dégradé : le correctif de l'étape 12 lui a donné un motif pour compter deux
   tours où le client ne recevait **rien**.

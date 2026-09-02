@@ -91,9 +91,17 @@ def _jeu_courant() -> Jeu:
 
 
 def test_une_cassette_committee_se_rejoue_et_se_mesure(base_seedee):
-    """Le harnais entier, sur un scénario : lecture, empreintes, rejeu, mesures."""
+    """Le harnais entier, sur un scénario : lecture, empreintes, rejeu, mesures.
+
+    ⚠️ **Le prompt vient du jeu, pas de la version en vigueur.** Les deux coïncidaient tant
+    que `systeme.v1` était le défaut ; depuis que le jalon 3 a mis v2 en vigueur, rejouer un
+    jeu v1 avec le prompt en vigueur le déclarerait périmé — ce qui serait vrai, et sans
+    rapport avec ce que ce test mesure.
+    """
+    from eval import systeme_du_jeu
+
     scenario = par_nom(SCENARIO)
-    prompt = prompt_systeme()
+    prompt = systeme_du_jeu(JEU_ANCRE)
     outils = schema_des_outils()
 
     chemin = JEU_ANCRE.chemin(SCENARIO, PRISE)
@@ -188,10 +196,12 @@ def test_les_vingt_et_une_prises_payees_restent_rejouables(base_seedee):
     verrait — et c'est exactement ce que la contrainte « v1 ne se modifie pas en place »
     protège. Le jeu est archivé sous un nom qui dit ce qu'il est : `v1-partielle`.
     """
+    from eval import systeme_du_jeu
+
     scenario = par_nom(SCENARIO)
-    prompt = prompt_systeme()
-    outils = schema_des_outils()
     archive = Jeu(nom="v1-partielle", version="systeme.v1")
+    prompt = systeme_du_jeu(archive)
+    outils = schema_des_outils()
 
     assert len(prises_du_jeu(archive)) == 21
     chemin = archive.chemin(SCENARIO, PRISE)
@@ -327,20 +337,42 @@ def test_chaque_ligne_de_la_liste_nomme_une_cassette_qui_existe():
         )
 
 
-def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu():
-    """La contre-épreuve du premier contrôle : sans elle, `_verifier_les_divergences_attendues`
-    pourrait ne rien vérifier — le mode d'échec réel d'une garde de ce genre."""
-    from eval import DivergenceAttendueAbsente, Jeu, _verifier_les_divergences_attendues
+def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu(monkeypatch, base_seedee):
+    """La contre-épreuve du premier contrôle, **à travers le rejeu réel**.
+
+    ⚠️ **La première rédaction de ce test appelait `_verifier_les_divergences_attendues`
+    directement, et c'était insuffisant** : la neutralisation du jalon 3 l'a montré en
+    retirant l'appel de `mesurer_le_jeu`, ce qui n'a fait tomber aucun test. La garde
+    existait et n'était branchée à rien de vérifié — précisément le mode d'échec qu'une
+    garde de ce genre présente.
+
+    Il passe donc par `mesurer_le_jeu`. On déclare divergente une cassette qui se rejoue
+    parfaitement (`budget_serre.1`) : le rejeu doit s'arrêter en le disant.
+    """
+    import eval as module
+    from eval import DivergenceAttendueAbsente, Jeu, _reglages_pour, mesurer_le_jeu, systeme_du_jeu
 
     archive = Jeu(nom=JEU_ETAPE_12, version="systeme.v1")
-    prises = [(par_nom("desserrage_refuse"), 1)]
+    monkeypatch.setitem(
+        module.DIVERGENCES_ATTENDUES,
+        (JEU_ETAPE_12, SCENARIO, PRISE),
+        "ligne inventée par le test : cette cassette se rejoue en réalité très bien.",
+    )
+    prompt = systeme_du_jeu(archive)
+    reglages, _, empreinte_outils = _reglages_pour(prompt)
 
     with pytest.raises(DivergenceAttendueAbsente) as erreur:
-        _verifier_les_divergences_attendues(archive, prises, vues=set())
+        mesurer_le_jeu(
+            archive,
+            [(par_nom(SCENARIO), PRISE)],
+            reglages,
+            prompt,
+            empreinte_outils,
+        )
 
     message = str(erreur.value)
     assert "se rejouent pourtant sans divergence" in message
-    assert "v1-etape12/desserrage_refuse.1" in message
+    assert f"{JEU_ETAPE_12}/{SCENARIO}.{PRISE}" in message
     assert "DIVERGENCES_ATTENDUES" in message
 
 

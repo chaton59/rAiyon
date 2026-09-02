@@ -14,6 +14,7 @@ from raiyon.agent.evenements import MotifDeRepli, Repli, Texte, TexteRejete
 from raiyon.eval.comparaison import (
     BRUIT,
     IDENTIQUE,
+    PLANCHER_DETENDUE,
     SIGNAL,
     Compteur,
     couvrir,
@@ -77,28 +78,44 @@ def test_la_dispersion_est_letendue_des_prises_sommee_sur_les_scenarios():
     assert etendue_par_scenario(mesures, REJETS) == 4, "2 sur `a`, 2 sur `b`"
 
 
-def test_un_scenario_a_une_seule_prise_contribue_zero_et_est_nomme():
-    """**Sa dispersion est inconnue, pas nulle.** La compter zéro rend le verdict trop
-    généreux, et c'est exactement pourquoi l'étape 13 paie trois prises partout — le
-    tableau doit donc le dire au lecteur plutôt que de le laisser croire à une stabilité."""
+def test_un_scenario_a_une_seule_prise_ne_contribue_pas_zero_et_est_nomme():
+    """**Sa dispersion est inconnue, pas nulle.** Le plancher évite qu'elle compte zéro,
+    mais il ne prétend pas la connaître — d'où le nommage, et d'où les trois prises que
+    l'étape 13 paie partout."""
     mesures = campagne(("a", 1, 5))
 
-    assert etendue_par_scenario(mesures, REJETS) == 0
+    assert etendue_par_scenario(mesures, REJETS) == PLANCHER_DETENDUE
     assert scenarios_a_une_prise(mesures) == ("a",)
     assert "Dispersion inconnue, comptée pour zéro" in rendre(
         mesures, mesures, nom_avant="x", nom_apres="y", question="?"
     )
 
 
-def test_une_dispersion_nulle_ne_se_presente_jamais_comme_une_stabilite():
-    """Trois prises ne distinguent pas « stable par construction » de « calme par chance »,
-    et le fichier doit porter la réserve — c'est lui qu'on relira, pas la docstring."""
+def test_un_scenario_jamais_vu_bouger_ne_rend_pas_tout_ecart_significatif():
+    """**Le piège que ce module décrivait sans s'en protéger.**
+
+    Il écrit qu'une dispersion nulle veut dire « on ne l'a pas vu bouger », et il traitait
+    pourtant l'étendue observée comme une borne dure : un scénario vu trois fois à la même
+    valeur rendait **tout** écart « au-delà du bruit ».
+
+    Le cas réel : la métrique nº3 est constante sur les onze scénarios de la ligne de base,
+    et une baisse de 1,33 y était déclarée significative — alors que l'étape 12 avait
+    mesuré `besoin_flou` à 2, 2 puis 3 tours sur le même prompt.
+    """
     calme = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 0))
+    un_peu = campagne(("a", 1, 1), ("a", 2, 1), ("a", 3, 1))
 
-    texte = rendre(calme, calme, nom_avant="v1", nom_apres="v2", question="?")
+    (ecart,) = [e for e in ecarts(calme, un_peu) if e.libelle == "Rejets du validateur"]
+    assert ecart.dispersion == PLANCHER_DETENDUE
+    assert ecart.delta == 1.0
+    assert ecart.verdict == BRUIT, (
+        "un écart d'un pas contre un plancher d'un pas n'est pas au-delà de lui : trois "
+        "tirages identiques bornent l'étendue par en dessous, ils ne la mesurent pas"
+    )
 
-    assert "Une dispersion nulle ne veut pas dire « stable »" in texte
-    assert "calme\n> par chance" in texte
+    texte = rendre(calme, un_peu, nom_avant="v1", nom_apres="v2", question="?")
+    assert "ne compte pas zéro" in texte
+    assert "« calme par chance » ne se distinguent pas" in texte
 
 
 # --------------------------------------------------------------------------- #
@@ -149,7 +166,7 @@ def test_la_dispersion_vient_de_la_campagne_de_reference_et_non_de_lautre():
     """La question posée est « le nouveau prompt a-t-il fait quelque chose que l'ancien ne
     faisait pas ? » : l'étalon de bruit est celui du monde d'avant. Le prendre après ferait
     dépendre le verdict de ce qu'on mesure — et un prompt instable s'auto-absoudrait."""
-    stable = campagne(("a", 1, 4), ("a", 2, 4), ("a", 3, 4))  # étendue 0, moyenne 4,0
+    stable = campagne(("a", 1, 9), ("a", 2, 9), ("a", 3, 9))  # étendue plancher, moyenne 9,0
     instable = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 9))  # étendue 9, moyenne 3,0
 
     (depuis_stable,) = [e for e in ecarts(stable, instable) if e.libelle == "Rejets du validateur"]
@@ -157,10 +174,10 @@ def test_la_dispersion_vient_de_la_campagne_de_reference_et_non_de_lautre():
         e for e in ecarts(instable, stable) if e.libelle == "Rejets du validateur"
     ]
 
-    assert depuis_stable.dispersion == 0
-    assert depuis_stable.verdict == SIGNAL
-    assert depuis_instable.dispersion == 9
-    assert depuis_instable.verdict == BRUIT
+    # Le **même** écart de 6, lu depuis deux étalons de bruit : significatif contre une
+    # référence stable, dans le bruit contre une référence qui bougeait déjà de 9.
+    assert (depuis_stable.dispersion, depuis_stable.verdict) == (PLANCHER_DETENDUE, SIGNAL)
+    assert (depuis_instable.dispersion, depuis_instable.verdict) == (9, BRUIT)
 
 
 # --------------------------------------------------------------------------- #
@@ -261,7 +278,11 @@ def test_un_repli_compte_dans_la_comparaison():
     )
 
     (ecart,) = [e for e in ecarts(sans, avec) if e.libelle == "Tours repliés"]
-    assert (ecart.avant, ecart.apres, ecart.verdict) == (0.0, 1.0, SIGNAL)
+    assert (ecart.avant, ecart.apres) == (0.0, 1.0)
+    assert ecart.verdict == BRUIT, (
+        "un repli de plus sur un scénario jamais vu replier ne dépasse pas le plancher — "
+        "il faudrait plus d'un pas, ou plus de scénarios touchés"
+    )
 
 
 # --------------------------------------------------------------------------- #

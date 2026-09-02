@@ -39,6 +39,7 @@ from scenarios import ECRAN_144
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from raiyon.agent.prompts import version_systeme
 from raiyon.api.app import MESSAGE_TOUR_EN_COURS, app, client_llm, fabrique_de_sessions
 from raiyon.api.verrou import verrouiller_le_tour
 from raiyon.db.models import SessionConversation, TourConversation
@@ -482,7 +483,10 @@ def test_health_rend_200_avec_la_base_joignable(api):
     assert reponse.status_code == 200
     corps = reponse.json()
     assert corps["base"] is True
-    assert corps["prompt"]["version"] == "systeme.v1"
+    # La version **en vigueur**, pas une valeur écrite ici : elle a bougé au jalon 3 de
+    # l'étape 13, et un littéral aurait fait échouer ce test pour une raison qui n'a rien
+    # à voir avec `/health`. Ce qui compte est que l'API annonce ce qu'elle envoie.
+    assert corps["prompt"]["version"] == version_systeme()
     assert len(corps["prompt"]["empreinte"]) == 12
     assert isinstance(corps["strict"], bool)
 

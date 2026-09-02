@@ -165,7 +165,12 @@ class Compteur:
     """
 
     libelle: str
-    par_prise: Callable[[MesuresDunePrise], int]
+    par_prise: Callable[[MesuresDunePrise], int | None]
+    """`None` quand la mesure n'a pas de valeur sur cette prise — le délai avant première
+    valeur d'une prise qui n'en a livré aucune. Ces prises sortent de la moyenne **et** de
+    l'étendue : « zéro tour avant une valeur jamais venue » serait le meilleur score
+    possible pour le pire comportement possible."""
+
     sens: str
     """Ce qu'on cherche : `"baisse"`, `"hausse"`, ou `"stable"` quand un mouvement dans
     l'un ou l'autre sens est également une information."""
@@ -183,6 +188,9 @@ COMPTEURS: tuple[Compteur, ...] = (
         "baisse",
     ),
     Compteur("Itérations", lambda prise: sum(prise.iterations), "stable"),
+    Compteur(
+        "Tours avant la première valeur (nº3)", lambda prise: prise.tours_avant_valeur, "stable"
+    ),
 )
 """Les mesures qui bougent quand un prompt change. **Les critères binaires n'y sont pas** :
 ils sont tenus par du code depuis l'étape 9 et ne bougeront pas — les comparer publierait
@@ -225,9 +233,17 @@ divisions ; sans ce seuil, un verdict dépendrait d'un bit de mantisse."""
 
 
 def _par_scenario(mesures: Mesures, compteur: Compteur) -> dict[str, list[int]]:
+    """Les valeurs d'un compteur, par scénario, **les absences retirées**.
+
+    Un scénario dont aucune prise n'a de valeur disparaît de la table : il ne contribue ni
+    à la moyenne, ni à l'étendue. Le compter zéro le ferait peser comme un scénario
+    parfait sur le délai avant première valeur, alors qu'il n'en a livré aucune.
+    """
     groupes: dict[str, list[int]] = {}
     for prise in mesures.prises:
-        groupes.setdefault(prise.scenario, []).append(compteur.par_prise(prise))
+        valeur = compteur.par_prise(prise)
+        if valeur is not None:
+            groupes.setdefault(prise.scenario, []).append(valeur)
     return groupes
 
 
@@ -247,19 +263,46 @@ def valeur_par_passe(mesures: Mesures, compteur: Compteur) -> float:
     return sum(sum(valeurs) / len(valeurs) for valeurs in _par_scenario(mesures, compteur).values())
 
 
+PLANCHER_DETENDUE = 1
+"""Ce qu'un scénario contribue à la dispersion quand ses prises donnent **la même valeur**.
+
+⚠️ **Sans lui, ce module tombait dans le piège que sa propre docstring décrit.** Il écrit
+qu'une dispersion nulle ne veut pas dire « stable » mais « on ne l'a pas vu bouger » — et
+il traitait pourtant l'étendue observée comme une borne dure, si bien qu'un scénario vu
+trois fois à la même valeur rendait **tout** écart « au-delà du bruit ».
+
+Le cas qui l'a montré : la métrique nº3 est constante sur les onze scénarios de la ligne
+de base, donc d'étendue nulle, et une baisse de 1,33 y était déclarée significative. Or
+l'étape 12 avait mesuré `besoin_flou` à **2, 2 puis 3 tours** sur le même prompt : l'étendue
+de cette métrique n'est pas nulle, elle n'a simplement pas été revue à ce tirage-là.
+
+Trois tirages identiques ne prouvent pas une constante ; ils bornent l'étendue **par en
+dessous**. On ajoute donc le plus petit pas observable — 1, puisque tous ces compteurs sont
+entiers. C'est peu, et c'est exactement ce qu'il faut : la seule mesure que ce plancher
+fait basculer est celle dont on savait par ailleurs que son étendue n'était pas nulle, et
+le markdown (51 contre 43) reste au-delà."""
+
+
 def etendue_par_scenario(mesures: Mesures, compteur: Compteur) -> float:
-    """La somme, sur les scénarios, de `max - min` des prises. Voir la docstring du module.
+    """La somme, sur les scénarios, de `max - min` des prises, **jamais moins d'un pas**.
 
     **Même unité que `valeur_par_passe`** : l'une et l'autre valent « pour une passe
     complète des scénarios », et sont donc comparables. C'est ce qui autorise le verdict.
 
-    Un scénario à une seule prise contribue **zéro** : son étendue n'est pas nulle, elle
-    est **inconnue**. La sous-estimer rendrait la dispersion trop petite, donc le verdict
-    trop généreux — c'est pourquoi l'étape 13 paie trois prises partout, et pourquoi
-    `_avertissement()` dit lesquels n'en ont qu'une.
+    Deux façons de sous-estimer, et le plancher n'en corrige qu'une :
+
+    * **un scénario vu trois fois à la même valeur** contribue `PLANCHER_DETENDUE`, pas
+      zéro — voir sa docstring ;
+    * **un scénario à une seule prise** contribue ce même plancher, alors que son étendue
+      est franchement **inconnue**. Le plancher ne prétend pas la connaître : c'est
+      pourquoi l'étape 13 paie trois prises partout, et pourquoi `_avertissement()`
+      nomme ceux qui n'en ont qu'une.
     """
     return float(
-        sum(max(valeurs) - min(valeurs) for valeurs in _par_scenario(mesures, compteur).values())
+        sum(
+            max(max(valeurs) - min(valeurs), PLANCHER_DETENDUE)
+            for valeurs in _par_scenario(mesures, compteur).values()
+        )
     )
 
 
@@ -377,6 +420,12 @@ def rendre(
         "Ce qu'on surveille ici est qu'elle ne **monte** pas — un modèle rendu plus prudent",
         "avec les chiffres sonde davantage et montre plus tard.",
         "",
+        "⚠️ **Elle porte sa dispersion comme les cinq autres mesures**, dans le tableau",
+        "ci-dessus. Publier une baisse de nº3 sans son étendue, après avoir appliqué",
+        "« au-delà / dans le bruit » partout ailleurs, serait un double standard sur la seule",
+        "métrique qui va dans le bon sens — c'est ce qu'un relecteur verrait en premier, et",
+        "il aurait raison.",
+        "",
         "## Les codes de grief, des deux côtés",
         "",
         *_tableau_des_codes(avant, apres, nom_avant, nom_apres),
@@ -491,9 +540,11 @@ def _avertissement(reference: Mesures, nom: str) -> list[str]:
         "> estimée sur trois prises : elle déclare « au-delà » moins souvent qu'un test",
         "> statistique, ce qui est le sens dans lequel ce dépôt préfère se tromper.",
         ">",
-        "> ⚠️ **Une dispersion nulle ne veut pas dire « stable ».** Elle veut dire qu'on n'a",
-        "> pas vu ce scénario bouger sur trois prises — « stable par construction » et « calme",
-        "> par chance » ne se distinguent pas à ce nombre de tirages.",
+        "> ⚠️ **Un scénario vu trois fois à la même valeur ne compte pas zéro.** « Stable par",
+        "> construction » et « calme par chance » ne se distinguent pas à trois tirages : trois",
+        "> tirages identiques bornent l'étendue par en dessous, ils ne la mesurent pas. Chaque",
+        f"> scénario contribue donc au moins **{PLANCHER_DETENDUE} pas**. Sans ce plancher, un",
+        "> scénario jamais vu bouger rendrait n'importe quel écart significatif.",
     ]
     if solitaires:
         lignes += [
@@ -566,6 +617,7 @@ def _top3(mesures: Mesures) -> str:
 
 __all__ = [
     "COMPTEURS",
+    "PLANCHER_DETENDUE",
     "Couverture",
     "Ecart",
     "couvrir",
