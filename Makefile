@@ -6,7 +6,7 @@
 .PHONY: help install up down logs psql migrate revision seed-build seed calibrer fumee chat api eval eval-etape12 eval-comparer eval-enregistrer eval-live fmt lint typecheck test test-int check clean
 
 help: ## Liste les cibles disponibles
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 install: ## Installe les dépendances, les hooks pre-commit et crée .env si absent

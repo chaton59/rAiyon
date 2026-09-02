@@ -7,10 +7,10 @@ code lui a fournis.
 
 ## Les critères d'acceptation, mesurés
 
-Six critères, arrêtés à l'étape 1 (PROJET.md §4) et **mesurés par le harnais d'éval**
-depuis l'étape 12. Le tableau ci-dessous est celui du rapport de la version de prompt en
-vigueur, que `make eval` régénère et qui est committé — voir `docs/eval/LISEZMOI.md`, qui
-dit lequel des rapports décrit quoi.
+Six critères, arrêtés au cadrage (PROJET.md §4) et **mesurés par le harnais d'éval**. Le
+tableau ci-dessous est celui du rapport de la version de prompt en vigueur, que
+`make eval` régénère et qui est committé — voir `docs/eval/LISEZMOI.md`, qui dit lequel
+des rapports décrit quoi.
 
 | # | Critère | Seuil | Mesuré | |
 |---|---|---|---|---|
@@ -21,17 +21,18 @@ dit lequel des rapports décrit quoi.
 | 5 | Moteur de matching testable sans API | binaire | `tests/matching/` tourne dans `make check` | ✅ |
 | 6 | Cas zéro résultat traité proprement | binaire | 12/12 traités | ✅ |
 
-*Sur 36 prises, 11 scénarios, 81 tours client, prompt `systeme.v2` (étape 13).
-`make eval` sort en code non nul si l'un des critères bloquants — 1, 2 et 6 — est violé.
+*Sur 36 prises, 11 scénarios, 81 tours client, prompt `systeme.v2`.
+`make eval` sort en code non nul si l'un des critères bloquants — 1, 2 et 6 — est violé,
+ou si une attente de scénario n'est pas tenue.
 Quatre autres rapports coexistent dans `docs/eval/` : lequel décrit quoi est dans
 `docs/eval/LISEZMOI.md`.*
 
 ### ⚠️ Comment lire ce tableau, et pourquoi il ne dit pas ce qu'il a l'air de dire
 
-**Les critères nº1 et nº2 sont garantis par construction depuis l'étape 9.** Le validateur
-refuse le texte fautif, régénère une fois, puis se replie sur un template écrit en Python :
-le texte **livré** ne peut donc pas contenir d'hallucination. Un `0` sur ces lignes ne dit
-pas « le modèle n'a pas menti », il dit « le mécanisme a fonctionné ». Une valeur non nulle
+**Les critères nº1 et nº2 sont garantis par construction.** Le validateur refuse le texte
+fautif, régénère une fois, puis se replie sur un template écrit en Python : le texte
+**livré** ne peut donc pas contenir d'hallucination. Un `0` sur ces lignes ne dit pas
+« le modèle n'a pas menti », il dit « le mécanisme a fonctionné ». Une valeur non nulle
 signifierait que **le validateur a un trou** — c'est là toute l'information.
 
 C'est pourquoi le rapport publie **trois couches**, et pourquoi les deux suivantes sont les
@@ -43,11 +44,11 @@ plus intéressantes :
 | Ce que le modèle a **tenté** | **6 griefs refusés sur 81 tours**, soit 0,07 par tour : 3 `valeur_non_fournie`, 2 `montant_non_fourni`, 1 `prix_etranger_au_produit` |
 | Ce qui a fini en **repli** | **0 tour sur 81** — aucune réponse dégradée servie au client |
 
-⚠️ **Le taux de rejet ne se lit pas seul.** Il valait 0,25 par tour sur le prompt v1 et
+⚠️ **Le taux de rejet ne se lit pas seul.** Il valait 0,13 par tour sur le prompt v1 et
 0,07 sur v2, mais l'écart reste **en deçà de la dispersion mesurée** : sur trois prises par
-scénario, l'étendue prise-à-prise vaut plusieurs fois cet écart. Ce que la campagne de
-l'étape 13 démontre vraiment est ailleurs — le markdown que le front n'affiche pas tombe de
-51 occurrences à **0**, seul écart au-delà du bruit, et l'appendice de domaine montre un
+scénario, l'étendue prise-à-prise vaut plusieurs fois cet écart. Ce que la comparaison
+démontre vraiment est ailleurs — le markdown que le front n'affiche pas tombe de 51
+occurrences à **0**, seul écart au-delà du bruit, et l'appendice de domaine montre un
 assistant qui a cessé d'enseigner la technologie d'affichage pour dire ce que le catalogue
 contient. Voir `docs/eval/comparaison.v1-base-v2.md`.
 
@@ -69,16 +70,16 @@ Quatre choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.
   ce qu'il ne sait pas et le fait basculer sur la répartition du catalogue —, pas au
   validateur, qui n'a aucun moyen honnête de trancher une affirmation qu'aucun outil ne
   fonde ;
-- **le taux de repli est passé de 0 % à 5 % sans qu'une cassette change.** Le produit ne
-  s'est pas dégradé : le correctif de l'étape 12 lui a donné un motif pour compter deux
-  tours où le client ne recevait **rien**.
+- **le taux de repli est passé de 0 % à 2 % sans qu'une cassette change.** Le produit ne
+  s'est pas dégradé : le motif de repli `REPONSE_VIDE` lui a donné de quoi compter un
+  tour où le client ne recevait **rien** — `docs/eval/rapport.v1-etape12.md`.
 
 ### Le harnais
 
 ```bash
 make eval                                    # rejoue le jeu en vigueur, écrit son rapport
                                              # base requise, clé API NON requise
-make eval-etape12                            # rejoue le jeu archivé de l'étape 12
+make eval-etape12                            # rejoue le jeu archivé, rapport.v1-etape12.md
 make eval-comparer AVANT=v1 APRES=v2 Q="…"   # deux jeux côte à côte, avec la dispersion
 make eval-enregistrer                        # (ré)enregistre — consomme la clé et des jetons
 make eval-enregistrer SCENARIO=budget_serre  # n'en refaire qu'un
@@ -125,21 +126,24 @@ make test-int  # tests d'intégration : migrations, contraintes, index, chargeme
 reste — installation, migrations, seed, calibration, `make check` — est du code
 déterministe qui n'appelle aucun modèle, et exiger une clé pour ces commandes serait un
 mensonge sur la dépendance. Son absence est signalée au moment de s'en servir, par un
-message qui dit quoi faire.
+message qui dit quoi faire. Avant `make chat`, `make api` ou `make fumee` : ouvrir le
+`.env` que `make install` vient de créer et y décommenter `ANTHROPIC_API_KEY` pour y
+mettre la vraie clé.
 
 `make` seul liste les autres cibles.
 
 Les tests d'intégration créent leurs propres bases jetables sur le Postgres de
-`docker-compose` (`raiyon_test` pour le schéma et le chargement, `raiyon_test_matching`
-pour le moteur, `raiyon_test_agregats` pour les agrégats de la couche outils, les deux
-dernières seedées une seule fois par session), les migrent et les suppriment : ils ne
-touchent pas à la base de travail. Sans Postgres joignable, ils sont ignorés avec un
-message qui dit quoi faire, jamais en échec silencieux.
+`docker-compose` (`raiyon_test` pour le schéma et le chargement, `raiyon_test_migrations`
+pour l'aller-retour des révisions, `raiyon_test_matching` pour le moteur,
+`raiyon_test_agregats` pour les agrégats de la couche outils, les deux dernières seedées
+une seule fois par session), les migrent et les suppriment : ils ne touchent pas à la
+base de travail. Sans Postgres joignable, ils sont ignorés avec un message qui dit quoi
+faire, jamais en échec silencieux.
 
 | suite | tests | ce qu'elle exige |
 | --- | --- | --- |
-| `make check` — la totalité de la part pure | **720** en 6,0 s | rien : ni base, ni conteneur, ni clé API |
-| `make test-int` | **84** | un Postgres joignable |
+| `make check` — la totalité de la part pure | **906** | rien : ni base, ni conteneur, ni clé API |
+| `make test-int` | **98** | un Postgres joignable |
 
 ## Lancer une conversation
 
@@ -178,8 +182,8 @@ Les produits au-dessus du budget sont rendus dans un ensemble séparé, avec leu
 exact — jamais mélangés au classement principal.
 
 `make chat` consomme la clé API. Le prompt système en vigueur et son empreinte sont
-affichés au démarrage et logués à chaque appel : c'est ce qui permettra, à l'étape 12,
-de détecter une cassette enregistrée sur un prompt qui a changé depuis.
+affichés au démarrage et logués à chaque appel : c'est ce qui détecte une cassette
+enregistrée sur un prompt qui a changé depuis.
 
 ## L'API et son fil d'événements
 
@@ -207,7 +211,7 @@ client a retenu :
 
 ```console
 $ curl -s http://127.0.0.1:8000/health
-{"base":true,"prompt":{"version":"systeme.v1","empreinte":"6da03a675684"},"strict":true}
+{"base":true,"prompt":{"version":"systeme.v2","empreinte":"61b474af9184"},"strict":true}
 ```
 
 ### Une conversation en `curl`
@@ -286,8 +290,7 @@ data: {"texte": "Honnêtement, dans votre créneau IPS 27\" à 144 Hz et plus, m
 500 $ ne change rien : les trois mêmes écrans restent les meilleurs choix…"}
 ```
 
-Ces deux trames sont réelles : elles viennent d'une conversation de recette. Le montant
-refusé n'a jamais atteint le client.
+Le montant refusé n'a jamais atteint le client.
 
 ### Ce que l'API garantit, et ce qu'elle ne garantit pas
 
@@ -408,8 +411,8 @@ Le modèle produit du markdown ; le front en rend **deux formes et pas une de pl
 gras `**…**` et les sauts de ligne — construites en nœuds DOM, jamais en HTML assemblé.
 Toute chaîne venue du fil entre par `textContent` : **on ne fait pas confiance au modèle
 pour les faits, on ne lui fait pas davantage confiance pour le HTML.** Le reste du
-markdown s'affiche tel quel, et c'est le **prompt** qui sera corrigé à l'étape 13 — pas le
-front qu'on armerait d'un parseur.
+markdown s'affiche tel quel, et c'est le **prompt** qui le corrige — pas le front qu'on
+armerait d'un parseur.
 
 ### Ce qui n'est vérifié par aucun test, et pourquoi
 
@@ -474,7 +477,7 @@ le scoring, le classement, la trace d'explication et le traitement du zéro rés
 
 **Conséquence directe, et c'est le critère d'acceptation nº5 :** `tests/matching/` se
 scinde en deux parts. La **part pure** — 170 tests — tourne dans `make check`, sans
-Postgres, sans conteneur et **sans clé API**, en 0,16 seconde. La part **`integration`**
+Postgres, sans conteneur et **sans clé API**, en 0,17 seconde. La part **`integration`**
 — 28 tests — porte le marqueur du même nom, travaille sur le catalogue réel des
 1 026 produits et se lance par `make test-int`. Il n'y a rien à débrancher pour tester
 le moteur hors ligne, parce qu'il n'y a rien de branché.
@@ -553,8 +556,8 @@ découverts sur le disque, chacun dans un interpréteur neuf.
 fabriquer un taux de change reviendrait à afficher un prix que personne n'a constaté.
 Un montant en euros serait donc un fait inventé, ce que ce projet s'interdit.
 
-Seuls 24 % des produits de la source portent un prix ; les autres sont écartés, car
-un produit sans prix n'entre pas dans un moteur à contrainte budgétaire. Le
+Seuls 24,6 % des produits des six catégories retenues portent un prix ; les autres sont
+écartés, car un produit sans prix n'entre pas dans un moteur à contrainte budgétaire. Le
 catalogue livré est un **échantillon stratifié par décile de prix**, à graine fixe :
 il conserve la forme de la distribution réelle, queue haute comprise, mais ses taux
 de remplissage diffèrent légèrement de ceux de la source. Toute statistique publiée
