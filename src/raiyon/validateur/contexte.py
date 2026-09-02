@@ -43,6 +43,15 @@ La lecture se fait **par clé**, jamais par nom d'outil. Deux raisons : le bloc
 `fourchette_prix` est une fourchette dans `probe_catalog` comme dans le champ `budget`
 de `suggest_next_question`. Les noms de clés sont donc rassemblés en constantes en tête
 de module, en un seul endroit, comme de l'autre côté.
+
+⚠️ **L'étape 13 apparie un `tool_use` à son `tool_result`, et la règle tient quand
+même** — parce que ce qui déclenche l'appariement est une **clé**, pas un nom d'outil.
+Quand un `tool_result` porte `mouvements_refuses` non vide, la valeur qui a été refusée
+n'est pas dans le résultat : elle est dans la requête qui l'a produite. On remonte donc
+au bloc appairé **par son identifiant**, sans jamais demander de quel outil il s'agit.
+Le jour où un second outil rendrait `mouvements_refuses`, il serait lu de la même façon,
+ce qui est exactement la propriété que « par clé » achète. Voir
+`valeurs_des_mouvements_refuses`.
 """
 
 import json
@@ -88,6 +97,15 @@ CLE_EFFECTIF = "effectif"
 CLE_ECARTES = "ecartes_faute_de_donnee"
 CLE_DIAGNOSTIC = "diagnostic"
 CLE_PROPOSITIONS = "propositions"
+CLE_MOUVEMENTS_REFUSES = "mouvements_refuses"
+
+# Les clés d'un bloc `tool_use`, et celle qui l'appaire à son résultat. Elles ne
+# décrivent pas un fait du catalogue : elles servent uniquement à retrouver la requête
+# dont un `tool_result` est la réponse (voir `valeurs_des_mouvements_refuses`).
+TYPE_TOOL_USE = "tool_use"
+CLE_ID_DE_BLOC = "id"
+CLE_ENTREE = "input"
+CLE_TOOL_USE_ID = "tool_use_id"
 CLE_ATTEIGNABLE = "valeur_atteignable"
 CLE_ROUVERTS = "produits_rouverts"
 
@@ -145,6 +163,48 @@ class ContexteFourni:
     indétectable ; les jeter entièrement interdirait de dire ce que le catalogue
     contient, qui est la raison d'être de `probe_catalog` (§3.7)."""
 
+    valeurs_refusees: frozenset[Decimal] = frozenset()
+    """Les valeurs qu'un **mouvement refusé** portait (étape 13, jalon 1).
+
+    ### Le besoin, et il est exactement celui-là
+
+    La section 9 du prompt ordonne au modèle de **dire au client quel mouvement a été
+    refusé** — « je garde le 144 Hz tant que vous ne me dites pas le contraire ». Un refus
+    visible vaut mieux qu'un refus contourné. Or le dire suppose de citer la valeur
+    refusée, et cette valeur n'est dans aucun `tool_result` : le jeton de parole ne
+    l'ayant pas appliquée, elle n'apparaît ni dans `criteres`, ni dans `budget_usd`.
+
+    Le validateur refusait donc « le passage à 300 $ et le 24 pouces n'ont pas été pris en
+    compte » — c'est-à-dire qu'il **punissait l'obéissance à la section 9**. Ce n'est pas
+    le cas d'une règle qui ne sait pas trancher et s'abstient ; c'est une règle qui tranche
+    contre le comportement demandé.
+
+    ⚠️ **Ce champ n'est pas une approximation étroite du besoin : c'est le besoin.** Les
+    valeurs citables au titre de la section 9 sont précisément celles des mouvements
+    refusés, ni plus ni moins. L'alternative écartée — admettre « tous les nombres que le
+    client a écrits » — couvrait le besoin **par recouvrement** et non par identité : sur
+    les quarante cassettes du dépôt elle admettait **119 nombres** là où celle-ci en admet
+    **2**, pour faire taire exactement les deux mêmes griefs. L'écart de 117 ne sert à
+    rien ; il n'est que de la surface.
+
+    ### ⚠️ La provenance est un refus du moteur, **la valeur est écrite par le modèle**
+
+    Les deux moitiés comptent, et la seconde interdit de traiter ce champ comme les
+    autres. Le moteur fournit le **refus** — le jeton de parole a bien rejeté ce
+    mouvement, c'est un fait produit par du code. Mais le **nombre**, lui, sort des
+    arguments que le modèle a passés à l'outil. Un modèle peut donc se fabriquer une
+    valeur citable en la faisant refuser exprès.
+
+    C'est pourquoi ces valeurs sont admises **uniquement dans une phrase qui ne nomme
+    aucun produit** — la discipline de `valeurs_de_distribution`, et pour la même raison.
+    Elles décrivent ce que le client a demandé, jamais ce qu'un produit vaut.
+
+    ⚠️ **Elles ne vont surtout pas dans `agregats`.** La règle 2 s'y comporterait bien —
+    un agrégat reste refusé dans une phrase à produit —, mais la règle 5 consulte
+    `agregats` **sans condition** : un `refresh_rate` refusé à 999 deviendrait citable en
+    « cet écran est à 999 Hz ». Le compartiment dédié ferme ce chemin, que les agrégats
+    laissent ouvert."""
+
     budget_usd: Decimal | None = None
     """Le plafond en vigueur, **tel que les outils l'ont rendu au modèle**.
 
@@ -180,11 +240,29 @@ def contexte_des_messages(messages: Sequence[Mapping[str, Any]]) -> ContexteFour
     `messages` est la liste au format de l'API — historique relu en base compris. Un
     message assistant ne porte aucun `tool_result` : l'ordre d'ajout du message en
     cours de validation est donc sans effet sur le résultat.
+
+    ⚠️ **Une seule chose se lit ailleurs que dans un `tool_result`** : la valeur d'un
+    mouvement refusé, qui n'est que dans la requête. Voir
+    `valeurs_des_mouvements_refuses`, et la docstring du module pour pourquoi la règle
+    « par clé, jamais par nom d'outil » y survit.
+
+    ⚠️ **Aucune provenance ne se lit dans le texte d'un message `user`, et c'est une
+    interdiction, pas un oubli.** Le message de reprise de l'étape 9 est un bloc `user`
+    qui **cite les extraits refusés** : en tirer des faits rendrait le validateur
+    auto-annulant — mesuré, 18 griefs sur 19 disparaissaient. Voir le test de régression
+    `test_la_reprise_ne_fournit_jamais_un_fait`.
     """
-    return contexte_des_resultats(_charges_utiles(messages))
+    return contexte_des_resultats(
+        _charges_utiles(messages),
+        valeurs_refusees=valeurs_des_mouvements_refuses(messages),
+    )
 
 
-def contexte_des_resultats(charges: Iterable[Mapping[str, Any]]) -> ContexteFourni:
+def contexte_des_resultats(
+    charges: Iterable[Mapping[str, Any]],
+    *,
+    valeurs_refusees: frozenset[Decimal] = frozenset(),
+) -> ContexteFourni:
     """Le contexte fourni, à partir des charges utiles déjà décodées.
 
     C'est la porte d'entrée des tests : un dictionnaire suffit, il n'y a ni base, ni
@@ -195,7 +273,75 @@ def contexte_des_resultats(charges: Iterable[Mapping[str, Any]]) -> ContexteFour
         if charge.get(CLE_OK) is not True:
             continue
         accumulateur.absorber(charge)
-    return accumulateur.figer()
+    return accumulateur.figer(valeurs_refusees=valeurs_refusees)
+
+
+def valeurs_des_mouvements_refuses(
+    messages: Sequence[Mapping[str, Any]],
+) -> frozenset[Decimal]:
+    """Les valeurs que le jeton de parole a refusé d'appliquer, sur toute la conversation.
+
+    **Le seul endroit du validateur qui remonte d'un `tool_result` à sa requête.** Il le
+    fait parce que la valeur refusée n'existe nulle part ailleurs : le mouvement n'ayant
+    pas été appliqué, elle n'est ni dans `criteres`, ni dans `budget_usd`.
+
+    ⚠️ **Le déclencheur est la clé `mouvements_refuses`, jamais un nom d'outil.** Un
+    second outil qui rendrait cette clé demain serait lu de la même façon, sans que
+    personne ait à l'inscrire ici — c'est la propriété que « par clé » achète, et elle
+    survit à l'appariement. L'identifiant, lui, ne dit rien de sémantique : il ne sert
+    qu'à retrouver *quelle requête* a produit *ce résultat*.
+
+    ⚠️ **Ce que cette fonction rend est écrit par le modèle**, et c'est pour cela que ses
+    valeurs sont cantonnées aux phrases sans produit (voir `ContexteFourni.valeurs_refusees`).
+    Le moteur fournit le refus ; le nombre vient des arguments d'appel.
+
+    *Alternative écartée — ajouter `valeur` à `MouvementRefuse`.* Bien plus direct, et
+    **impossible sans tout réenregistrer** : le `tool_result` est recalculé au rejeu et
+    entre dans l'empreinte de requête (arbitrage B de l'étape 12). Un champ de plus, et
+    les quarante cassettes du dépôt divergent au deuxième tour.
+    """
+    requetes: dict[str, Mapping[str, Any]] = {}
+    trouvees: set[Decimal] = set()
+    for message in messages:
+        contenu = message.get(CLE_CONTENU)
+        if not isinstance(contenu, list):
+            continue
+        for bloc in contenu:
+            if not isinstance(bloc, Mapping):
+                continue
+            if bloc.get(CLE_TYPE) == TYPE_TOOL_USE:
+                entree = bloc.get(CLE_ENTREE)
+                if isinstance(entree, Mapping):
+                    requetes[str(bloc.get(CLE_ID_DE_BLOC))] = entree
+            elif bloc.get(CLE_TYPE) == TYPE_TOOL_RESULT and not bloc.get(CLE_EST_ERREUR):
+                charge = _decoder(bloc.get(CLE_CONTENU))
+                requete = requetes.get(str(bloc.get(CLE_TOOL_USE_ID)))
+                if charge is not None and requete is not None:
+                    trouvees.update(_valeurs_refusees(requete, charge))
+    return frozenset(trouvees)
+
+
+def _valeurs_refusees(requete: Mapping[str, Any], resultat: Mapping[str, Any]) -> Iterator[Decimal]:
+    """Ce que la requête demandait et que le résultat n'a pas appliqué."""
+    refuses = {
+        str(mouvement.get(CLE_CHAMP))
+        for mouvement in resultat.get(CLE_MOUVEMENTS_REFUSES) or ()
+        if isinstance(mouvement, Mapping)
+    }
+    if not refuses:
+        return
+    for critere in requete.get(CLE_CRITERES) or ():
+        if not isinstance(critere, Mapping) or str(critere.get(CLE_CHAMP)) not in refuses:
+            continue
+        valeur = en_decimal(str(critere.get(CLE_VALEUR)))
+        if valeur is not None:
+            yield valeur
+    # Le budget suit le même chemin, mais il n'est pas un critère : le refus se lit sur
+    # l'écart entre ce qui a été demandé et ce qui a été rendu.
+    demande = en_decimal(str(requete.get(CLE_BUDGET_USD)))
+    rendu = en_decimal(str(resultat.get(CLE_BUDGET_USD)))
+    if demande is not None and rendu is not None and demande != rendu:
+        yield demande
 
 
 def _charges_utiles(messages: Sequence[Mapping[str, Any]]) -> Iterator[Mapping[str, Any]]:
@@ -248,7 +394,13 @@ class _Accumulateur:
         self.agregats: set[Decimal] = set()
         self.budget: Decimal | None = None
 
-    def figer(self) -> ContexteFourni:
+    def figer(self, *, valeurs_refusees: frozenset[Decimal] = frozenset()) -> ContexteFourni:
+        """Les provenances accumulées, plus celle qui ne s'accumule pas.
+
+        `valeurs_refusees` ne passe pas par `absorber()` : elle ne se lit pas dans une
+        charge utile mais dans l'appariement d'une requête et de son résultat, ce qui est
+        hors de portée d'un accumulateur qui reçoit des charges une par une.
+        """
         return ContexteFourni(
             produits=dict(self.produits),
             hors_budget=dict(self.hors_budget),
@@ -256,6 +408,7 @@ class _Accumulateur:
             valeurs_de_specs=frozenset(self.specs),
             valeurs_de_distribution=frozenset(self.distribution),
             agregats=frozenset(self.agregats),
+            valeurs_refusees=valeurs_refusees,
             budget_usd=self.budget,
         )
 

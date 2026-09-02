@@ -35,6 +35,12 @@ produit, reprends celui du `tool_result` » si.
   règle 2 ne referme pas, et elle est au §7.
 * **Le rapprochement de noms est flou** (`extraction.ressemble`) : il constate une
   ressemblance, il ne prouve pas une réécriture.
+* **Une valeur de mouvement refusé passe, hors phrase à produit** (étape 13). Le nombre
+  vient des arguments d'appel du modèle, pas du moteur : un modèle peut donc s'en
+  fabriquer un en le faisant refuser exprès. Ce qu'il en obtient est ce qu'un entier nu
+  lui donne déjà — dire un nombre dans une phrase qui n'attribue rien —, et rien de plus :
+  les règles 2 et 5 continuent de le refuser dès qu'un produit est nommé. Voir
+  `ContexteFourni.valeurs_refusees`.
 """
 
 from collections.abc import Callable, Sequence
@@ -205,7 +211,16 @@ def regle_montants(texte: str, contexte: ContexteFourni) -> tuple[Grief, ...]:
                 "produit : une fourchette de sondage n'est jamais le prix d'un produit."
             )
         else:
-            autorises = set(contexte.prix.values()) | set(contexte.agregats)
+            # `valeurs_refusees` n'est **que** dans cette branche, et c'est tout le
+            # dispositif : un mouvement refusé se raconte au client (« le passage à
+            # 300 $ n'a pas été pris en compte »), il ne s'attribue jamais à un produit.
+            # La valeur y est écrite par le modèle, pas par le moteur — voir
+            # `ContexteFourni.valeurs_refusees`.
+            autorises = (
+                set(contexte.prix.values())
+                | set(contexte.agregats)
+                | set(contexte.valeurs_refusees)
+            )
             code = CodeGrief.MONTANT_NON_FOURNI
             correction = (
                 "aucun outil n'a rendu ce montant dans cette conversation. Le reprendre "
@@ -338,6 +353,11 @@ def regle_valeurs_unitaires(texte: str, contexte: ContexteFourni) -> tuple[Grief
         autorisees = set(contexte.valeurs_de_specs)
         if not attribuable:
             autorisees |= contexte.valeurs_de_distribution
+            # Même discipline que la distribution, et pour une raison plus forte encore :
+            # une valeur de mouvement refusé est écrite par le **modèle**. « le 24 pouces
+            # n'a pas été pris en compte » est une phrase sur la demande du client ;
+            # « celui-ci fait 24 pouces » serait une affirmation sur un produit.
+            autorisees |= {canonique(valeur) for valeur in contexte.valeurs_refusees}
         for valeur in valeurs_unitaires(sans_les_noms(phrase, noms)):
             if canonique(valeur.valeur) in autorisees or valeur.valeur in contexte.agregats:
                 continue

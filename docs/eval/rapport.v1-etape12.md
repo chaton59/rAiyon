@@ -11,42 +11,48 @@
 > modèle a **tenté** (taux de rejet), et ce qui a fini en **repli** — une réponse
 > dégradée, servie au client.
 
+> ⚠️ **Ce que ces chiffres ne disent pas d'eux-mêmes.**
+>
+> - **v1-etape12/desserrage_refuse.1 est écartée de ce rapport** — divergence attendue au rejeu.
+>   le correctif de validateur de l'étape 13 (jalon 1, point D) fait tomber 2 des 4 griefs de ce tour. La reprise empilée avant la régénération porte donc 2 lignes au lieu de 4, l'empreinte de requête du tour régénéré change, et la prise 7 n'est plus reconstituable. Le modèle aurait reçu une autre reprise : sa réponse enregistrée n'est pas celle qu'il aurait donnée.
+>   Les tours et les griefs de cette prise ne sont donc comptés nulle part ci-dessous.
+
 ## Critères d'acceptation
 
 | # | Critère | Seuil | Mesuré | Verdict |
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief(s) | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation(s) | ✅ |
-| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 14 prise(s) | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 13 prise(s) | ✅ |
 | 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 6/6 prise(s) à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | hors de ce rapport — `make check` | — |
-| 6 | Cas zéro résultat traité proprement | binaire | 6/6 traité(s) | ✅ |
+| 6 | Cas zéro résultat traité proprement | binaire | 5/5 traité(s) | ✅ |
 
 ## Ce que le modèle a tenté, et ce qui a fini en repli
 
 | Mesure | Valeur | Seuil |
 |---|---|---|
-| Taux de rejet du validateur | 11 grief(s) sur 44 tour(s) — 0.25/tour | publié |
-| Taux de repli | 2 tour(s) sur 44 — 5 % | publié |
-| Itérations par tour | 1 à 4 (médiane 3.0) | publié |
-| Prises sans aucune valeur livrée | 5 sur 19 | publié |
-| Questions posées avant la première valeur | médiane 0.0 sur 14 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
+| Taux de rejet du validateur | 7 grief(s) sur 42 tour(s) — 0.17/tour | publié |
+| Taux de repli | 1 tour(s) sur 42 — 2 % | publié |
+| Itérations par tour | 1 à 4 (médiane 2.5) | publié |
+| Prises sans aucune valeur livrée | 5 sur 18 | publié |
+| Questions posées avant la première valeur | médiane 0.0 sur 13 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
 | Règles du validateur jamais déclenchées | 3 sur 6 : `id_inconnu`, `prix_etranger_au_produit`, `nom_reecrit` | publié — voir `tests/validateur/test_pieges.py` |
-| Prises où `suggest_next_question` a signalé le budget manquant | 2 sur 19 | publié — **observation, pas exigence** |
+| Prises où `suggest_next_question` a signalé le budget manquant | 2 sur 18 | publié — **observation, pas exigence** |
 
 ### Rejets par origine et par code
 
 | Origine | Code de grief | Rejets |
 |---|---|---|
 | texte | ecart_non_dit | 1 |
-| texte | montant_non_fourni | 7 |
-| texte | valeur_non_fournie | 3 |
+| texte | montant_non_fourni | 4 |
+| texte | valeur_non_fournie | 2 |
 
 ### Replis par motif
 
 | Motif | Tours repliés |
 |---|---|
-| reponse_vide | 2 |
+| reponse_vide | 1 |
 
 ## Par scénario
 
@@ -62,7 +68,6 @@
 | categorie_efface_budget | 1 | 2 | 1 | 0 | — | 0 | 0 | 2 à 3 (médiane 2.5) | ✅ |
 | changement_davis | 1 | 2 | 2 | 0 | oui | 2 | 0 | 3 à 4 (médiane 3.5) | ✅ |
 | comparaison | 1 | 2 | 1 | 0 | oui | 0 | 0 | 1 à 4 (médiane 2.5) | ✅ |
-| desserrage_refuse | 1 | 2 | 2 | 0 | — | 4 | 1 | 3 à 4 (médiane 3.5) | ✅ |
 | hors_catalogue | 1 | 2 | — | — | — | 0 | 0 | 1 | ✅ |
 | question_de_domaine | 1 | 3 | 1 | 0 | — | 0 | 0 | 1 à 3 (médiane 1.0) | ✅ |
 | question_de_domaine | 2 | 3 | 1 | 0 | — | 0 | 0 | 1 à 3 (médiane 1.0) | ✅ |
@@ -109,10 +114,6 @@ laquelle de ces formes a disparu.
 | budget_serre | 1 | 2 | texte | `valeur_non_fournie` | 24 pouces | Si vous voulez plus de choix, je peux regarder ce qui se passe en assouplissant l'un des deux critères (par exemple accepter 24 pouces, ou redescendre à 120 Hz) — c'est à vous de me dire lequel vous pèse le moins |
 | changement_davis | 1 | 2 | texte | `montant_non_fourni` | 150 $ | Si vous cherchez surtout à minimiser le prix, l'ASRock fait le travail en 240/180 Hz pour moins de 150 $ |
 | changement_davis | 1 | 2 | texte | `montant_non_fourni` | 47 $ | Si la définition d'image compte pour vous, le MSI est nettement au-dessus en QHD pour 47 $ de plus |
-| desserrage_refuse | 1 | 2 | texte | `montant_non_fourni` | 11,89 $ | Si vous voulez, je peux aussi vous montrer deux modèles juste au-dessus du budget (11,89 $ et 25 $ de plus), dont un en dalle IPS |
-| desserrage_refuse | 1 | 2 | texte | `montant_non_fourni` | 25 $ | Si vous voulez, je peux aussi vous montrer deux modèles juste au-dessus du budget (11,89 $ et 25 $ de plus), dont un en dalle IPS |
-| desserrage_refuse | 1 | 2 | texte | `montant_non_fourni` | 300 $ | J'ai baissé la fréquence à 144 Hz, mais la taille reste à 27 pouces minimum et le budget reste à 200 dollars — le passage à 300 $ et le 24 pouces n'ont pas été pris en compte |
-| desserrage_refuse | 1 | 2 | texte | `valeur_non_fournie` | 24 pouces | J'ai baissé la fréquence à 144 Hz, mais la taille reste à 27 pouces minimum et le budget reste à 200 dollars — le passage à 300 $ et le 24 pouces n'ont pas été pris en compte |
 | zero_budget_trop_bas | 1 | 2 | texte | `ecart_non_dit` | Avec les deux critères actuels (27 pouces et 144 Hz), aucun écran ne passe sous la barre des 130 dollars — le seul modèle qui coche les deux cases, l'ASRock Phantom Gaming PG27FRS1A, est à 142,99 dollars | Avec les deux critères actuels (27 pouces et 144 Hz), aucun écran ne passe sous la barre des 130 dollars — le seul modèle qui coche les deux cases, l'ASRock Phantom Gaming PG27FRS1A, est à 142,99 dollars |
 
 ## Appendice B — les tours de domaine, verbatim
@@ -213,6 +214,6 @@ Compté sur la prose **livrée**, sans seuil.
 | Forme | Occurrences |
 |---|---|
 | backtick | 44 |
-| puce | 56 |
+| puce | 52 |
 | liste numérotée | 32 |
 | titre | 0 |

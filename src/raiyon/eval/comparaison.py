@@ -298,6 +298,7 @@ def rendre(
     nom_apres: str,
     question: str,
     couverture: Couverture | None = None,
+    reserves: Sequence[str] = (),
 ) -> str:
     """La comparaison entière, en markdown. Stable octet pour octet, comme le rapport.
 
@@ -311,6 +312,7 @@ def rendre(
         "",
         f"**Ce que cette comparaison cherche à savoir.** {question}",
         "",
+        *_reserves(reserves),
         *_couverture(couverture, nom_avant, nom_apres),
         *_avertissement(avant, nom_avant),
         "",
@@ -385,6 +387,28 @@ def rendre(
         "se lisent en ouvrant les rapports, pas en lisant ce tableau.",
     ]
     return "\n".join(lignes).rstrip("\n") + "\n"
+
+
+def _reserves(reserves: Sequence[str]) -> list[str]:
+    """Ce qu'aucun des deux tableaux ne dit, et qui change leur lecture.
+
+    ⚠️ **Une prise écartée pour divergence disparaît des deux côtés en silence** : elle
+    n'est ni dans les scénarios comparés, ni dans les scénarios « écartés » de la
+    couverture, puisqu'aucun des deux jeux ne la porte plus. `Couverture` ne peut pas la
+    voir — elle compare ce qui a été mesuré. Elle se déclare donc ici, ou nulle part.
+    """
+    if not reserves:
+        return []
+    return [
+        "> ⚠️ **Ce que ces chiffres ne disent pas d'eux-mêmes.**",
+        ">",
+        *[
+            (f"> - {ligne}" if rang == 0 else f">   {ligne}")
+            for reserve in reserves
+            for rang, ligne in enumerate(reserve.splitlines())
+        ],
+        "",
+    ]
 
 
 def _couverture(couverture: Couverture | None, nom_avant: str, nom_apres: str) -> list[str]:

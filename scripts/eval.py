@@ -57,6 +57,7 @@ from raiyon.eval import comparaison
 from raiyon.eval.cassette import (
     COMMANDE_DE_REGENERATION,
     Cassette,
+    DivergenceDeRequete,
     EnTete,
     depuis_json,
     empreinte_des_outils,
@@ -82,6 +83,37 @@ RACINE = Path(__file__).resolve().parents[1]
 CASSETTES = RACINE / "evals" / "cassettes"
 RAPPORTS = RACINE / "docs" / "eval"
 
+DIVERGENCES_ATTENDUES: dict[tuple[str, str, int], str] = {
+    ("v1-etape12", "desserrage_refuse", 1): (
+        "le correctif de validateur de l'étape 13 (jalon 1, point D) fait tomber 2 des 4 "
+        "griefs de ce tour. La reprise empilée avant la régénération porte donc 2 lignes "
+        "au lieu de 4, l'empreinte de requête du tour régénéré change, et la prise 7 n'est "
+        "plus reconstituable. Le modèle aurait reçu une autre reprise : sa réponse "
+        "enregistrée n'est pas celle qu'il aurait donnée."
+    ),
+}
+"""Les cassettes dont on **sait** qu'elles divergent, et pourquoi. **Une assertion, pas un skip.**
+
+⚠️ **Une tolérance à la divergence serait le début du mode d'échec que l'arbitrage B
+ferme.** Le jour d'une vraie régression du moteur, elle serait écartée et mentionnée dans
+une ligne que personne ne lit — c'est-à-dire qu'on produirait des chiffres au lieu d'une
+erreur, exactement ce que le contrôle d'empreinte existe pour empêcher.
+
+Cette liste ne tolère rien : elle **affirme**. Trois choses la font échouer, et la
+deuxième est celle qui compte :
+
+1. une divergence **non listée** — le contrôle d'empreinte se comporte comme avant ;
+2. une cassette listée qui **cesse** de diverger — le correctif a été annulé sans que
+   personne ne retire la ligne, et la liste décrirait un monde qui n'existe plus ;
+3. une ligne qui nomme une cassette **absente** — la liste pointe dans le vide.
+
+⚠️ **Elle est tenue à la main, et c'est un choix.** *Alternative écartée — une empreinte
+de validateur dans l'en-tête de cassette*, qui rendrait la péremption automatique comme
+pour le prompt et le schéma d'outils. Écartée parce qu'il faudrait hacher du **code
+source** : un commentaire reformulé périmerait les quarante cassettes du dépôt, et une
+péremption qui se déclenche pour rien est une péremption qu'on finit par contourner.
+Voir la ligne de §7 sur la quatrième chose qui périme une cassette."""
+
 JEU_ETAPE_12 = "v1-etape12"
 """Le jeu archivé : les dix-neuf cassettes de l'étape 12, **intactes**.
 
@@ -104,17 +136,89 @@ class Jeu:
 
     nom: str
     version: str
+    sources: tuple[str, ...] = ()
+    """Les jeux qui composent celui-ci, **par ordre de priorité**. Vide = lui-même.
+
+    ### Un scénario vient d'**une seule** source, la première qui le porte
+
+    C'est la règle, et elle n'est pas arbitraire : composer prise à prise mélangerait la
+    prise 1 d'une date avec les prises 2 et 3 d'une autre **à l'intérieur d'un même
+    scénario**, et la dispersion mesurée sur ces trois prises confondrait le tirage et
+    l'écart entre deux dates. Un scénario entier vient donc d'un seul enregistrement.
+
+    ### Pourquoi une composition existe
+
+    La ligne de base du jalon 2 et l'archive de l'étape 12 sont **deux objets
+    différents**, et les confondre rendait le choix binaire. L'archive existe pour que §7
+    cite un tirage qui existe : elle est **gelée**, jamais réenregistrée. La ligne de base
+    existe pour comparer v2 : rien ne l'oblige à être exactement l'archive.
+
+    Concrètement, aucun jeu unique ne fait une bonne base. L'archive a les onze scénarios
+    mais `desserrage_refuse` n'y est plus rejouable (voir `DIVERGENCES_ATTENDUES`), et ce
+    scénario porte **4 des 11 griefs** — le perdre biaiserait la base vers ses tours
+    calmes. `v1-partielle` a des prises fraîches mais seulement sept scénarios, dont pas
+    `question_de_domaine`, qui est la cible entière du périmètre de domaine.
+
+    ⚠️ **Une base composée se déclare telle**, avec ses dates et le scénario concerné —
+    c'est ce que `rapport.py` et `comparaison.py` publient. Une base hybride tue n'est pas
+    une base, c'est un chiffre dont personne ne connaît la provenance."""
+
+    @property
+    def composants(self) -> tuple[str, ...]:
+        """Les répertoires à lire, dans l'ordre. Un jeu simple ne lit que le sien."""
+        return self.sources or (self.nom,)
+
+    @property
+    def compose(self) -> bool:
+        return len(self.composants) > 1
 
     @property
     def cassettes(self) -> Path:
-        return CASSETTES / f"{PREFIXE_SYSTEME}{self.nom}"
+        """Le répertoire d'un jeu **simple**. Un jeu composé n'en a pas un seul."""
+        return CASSETTES / f"{PREFIXE_SYSTEME}{self.composants[0]}"
 
     @property
     def rapport(self) -> Path:
         return RAPPORTS / f"rapport.{self.nom}.md"
 
+    def repertoire(self, source: str) -> Path:
+        return CASSETTES / f"{PREFIXE_SYSTEME}{source}"
+
+    def source_du_scenario(self, scenario: str) -> str | None:
+        """La première source qui porte ce scénario, ou `None` si aucune ne le porte."""
+        for source in self.composants:
+            if any(self.repertoire(source).glob(f"{scenario}.*.json")):
+                return source
+        return None
+
     def chemin(self, scenario: str, prise: int) -> Path:
-        return self.cassettes / f"{scenario}.{prise}.json"
+        """Le fichier d'une prise, cherché dans les sources **par ordre de priorité**."""
+        source = self.source_du_scenario(scenario)
+        base = self.repertoire(source if source is not None else self.composants[0])
+        return base / f"{scenario}.{prise}.json"
+
+
+LIGNE_DE_BASE = Jeu(
+    nom="v1-base",
+    version="systeme.v1",
+    sources=("v1-desserrage", "v1-partielle", "v1-etape12"),
+)
+"""La base contre laquelle v2 se compare. **Composée, et elle le dit.**
+
+Trois sources, par priorité décroissante de fraîcheur :
+
+* `v1-desserrage` — les trois prises de `desserrage_refuse` réenregistrées sous
+  `systeme.v1` avec la campagne v2. Elles ne réparent pas l'archive et ne remplacent pas
+  son tirage : elles rendent à la base le scénario qui porte **4 des 11 griefs** et que
+  l'archive ne sait plus rejouer ;
+* `v1-partielle` — les vingt et une prises payées de la campagne v1 interrompue, sept
+  scénarios à trois prises ;
+* `v1-etape12` — l'archive gelée, pour les scénarios que les deux autres ne portent pas,
+  dont `question_de_domaine`.
+
+⚠️ **Deux dates, et la réserve de dérive déjà publiée devient explicite** pour les
+scénarios qui viennent de l'archive. Le rapport et la comparaison nomment, scénario par
+scénario, d'où il vient."""
 
 
 def jeu_en_vigueur(nom: str | None, version: str) -> Jeu:
@@ -132,6 +236,11 @@ MAX_TOURS_LIVE = 8
 
 class CassetteAbsente(Exception):
     """Le fichier n'existe pas. Le message dit la commande qui le crée."""
+
+
+class DivergenceAttendueAbsente(Exception):
+    """`DIVERGENCES_ATTENDUES` décrit une divergence qui n'a pas eu lieu, ou une cassette
+    qui n'existe pas. **La liste affirme ; une liste qui n'affirme plus rien est morte.**"""
 
 
 def main() -> int:
@@ -180,7 +289,12 @@ def main() -> int:
         if arguments.mode == "comparer":
             return _comparer(arguments.avant, arguments.apres, arguments.question)
         return _live(arguments.personas)
-    except (ConfigurationError, ScenarioInconnu, CassetteAbsente) as erreur:
+    except (
+        ConfigurationError,
+        ScenarioInconnu,
+        CassetteAbsente,
+        DivergenceAttendueAbsente,
+    ) as erreur:
         print(f"\n⛔ {erreur}\n", file=sys.stderr)
         return 1
 
@@ -252,11 +366,21 @@ def prises_du_jeu(jeu: Jeu, nom: str | None = None) -> list[tuple[Scenario, int]
     `prises_attendues()`.
     """
     trouvees: list[tuple[Scenario, int]] = []
-    for chemin in sorted(jeu.cassettes.glob("*.json")):
-        scenario_nom, _, reste = chemin.stem.partition(".")
-        if nom is not None and scenario_nom != nom:
-            continue
-        trouvees.append((par_nom(scenario_nom), int(reste)))
+    vus: set[str] = set()
+    for source in jeu.composants:
+        for chemin in sorted(jeu.repertoire(source).glob("*.json")):
+            scenario_nom, _, reste = chemin.stem.partition(".")
+            if nom is not None and scenario_nom != nom:
+                continue
+            # Un scénario vient d'**une seule** source : la première qui le porte. Voir
+            # `Jeu.sources` — mélanger deux dates dans les trois prises d'un scénario
+            # ferait confondre le tirage et l'écart entre deux enregistrements.
+            if jeu.source_du_scenario(scenario_nom) != source:
+                continue
+            if (cle := f"{scenario_nom}.{reste}") in vus:
+                continue
+            vus.add(cle)
+            trouvees.append((par_nom(scenario_nom), int(reste)))
     return sorted(trouvees, key=lambda paire: (paire[0].nom, paire[1]))
 
 
@@ -275,8 +399,11 @@ def mesurer_le_jeu(
     campagne à trente-six prises ne mérite pas.
     """
     print(f"jeu {jeu.nom} — prompt {prompt.version} ({prompt.empreinte}), {len(prises)} prise(s)")
+    if jeu.compose:
+        print("  composé : " + ", ".join(jeu.composants) + " (un scénario, une source)")
     fabrique = get_sessionmaker()
     mesures: list[MesuresDunePrise] = []
+    divergences_vues: set[tuple[str, str, int]] = set()
 
     for scenario, prise in prises:
         chemin = jeu.chemin(scenario.nom, prise)
@@ -291,15 +418,27 @@ def mesurer_le_jeu(
         )
         client = ClientCassette(cassette, source=source)
 
-        with fabrique() as base:
-            jouee = jouer(
-                base,
-                scenario,
-                prise,
-                client=client,
-                depot=DepotSql(base),
-                reglages=reglages,
-            )
+        cle = (jeu.source_du_scenario(scenario.nom) or jeu.nom, scenario.nom, prise)
+        try:
+            with fabrique() as base:
+                jouee = jouer(
+                    base,
+                    scenario,
+                    prise,
+                    client=client,
+                    depot=DepotSql(base),
+                    reglages=reglages,
+                )
+        except DivergenceDeRequete:
+            # ⚠️ **Une divergence non listée remonte**, exactement comme avant : c'est le
+            # contrôle de l'arbitrage B, et il ne se relâche pas. Une divergence listée est
+            # **attendue** — on la constate, on la compte, et on continue sans cette prise.
+            if cle not in DIVERGENCES_ATTENDUES:
+                raise
+            divergences_vues.add(cle)
+            print(f"  ⊘ {scenario.nom}.{prise} — divergence attendue, prise écartée")
+            continue
+
         if not client.epuisee:
             # Le rejeu a consommé moins de prises qu'enregistré : la conversation s'est
             # arrêtée plus tôt qu'à l'enregistrement, sans qu'aucune empreinte n'ait
@@ -310,7 +449,98 @@ def mesurer_le_jeu(
             )
         mesures.append(mesurer(jouee))
         print(f"  · {scenario.nom}.{prise}")
+
+    _verifier_les_divergences_attendues(jeu, prises, divergences_vues)
     return agreger(mesures)
+
+
+def reserves_du_jeu(jeu: Jeu, prises: Sequence[tuple[Scenario, int]]) -> tuple[str, ...]:
+    """Ce que le rapport de ce jeu doit dire de lui-même avant d'afficher un chiffre.
+
+    Deux choses, et aucune ne se lit dans les tableaux : les prises **écartées** pour
+    divergence attendue, et la **composition** d'un jeu qui vient de plusieurs
+    enregistrements. Un rapport qui les tait affiche ses totaux avec l'autorité d'un
+    rapport complet.
+    """
+    lignes: list[str] = []
+    ecartees = [
+        (cle, raison)
+        for cle, raison in sorted(DIVERGENCES_ATTENDUES.items())
+        if cle[0] in jeu.composants
+        and any(scenario.nom == cle[1] and prise == cle[2] for scenario, prise in prises)
+    ]
+    for (source, scenario, prise), raison in ecartees:
+        lignes.append(
+            f"**{source}/{scenario}.{prise} est écartée de ce rapport** — divergence "
+            f"attendue au rejeu.\n{raison}\nLes tours et les griefs de cette prise ne "
+            "sont donc comptés nulle part ci-dessous."
+        )
+    if jeu.compose:
+        origines = {scenario.nom: jeu.source_du_scenario(scenario.nom) for scenario, _ in prises}
+        par_source: dict[str, list[str]] = {}
+        for nom_scenario, source in sorted(origines.items()):
+            par_source.setdefault(source or jeu.nom, []).append(nom_scenario)
+        lignes.append(
+            "**Ce jeu est composé de plusieurs enregistrements**, donc de plusieurs "
+            "dates. Un scénario vient\nd'une seule source — jamais de deux — pour que la "
+            "dispersion de ses prises reste celle d'un\ntirage et non celle d'un écart "
+            "entre deux enregistrements.\n"
+            + "\n".join(
+                f"`{source}` : " + ", ".join(f"`{nom}`" for nom in noms)
+                for source, noms in sorted(par_source.items())
+            )
+        )
+    return tuple(lignes)
+
+
+def _verifier_les_divergences_attendues(
+    jeu: Jeu,
+    prises: Sequence[tuple[Scenario, int]],
+    vues: set[tuple[str, str, int]],
+) -> None:
+    """La liste **affirme**, elle ne tolère pas. Deux façons de la prendre en défaut.
+
+    Une divergence non listée a déjà remonté plus haut. Restent les deux qui font d'une
+    liste d'exceptions une liste morte :
+
+    * une cassette listée qui **cesse** de diverger — le correctif a été annulé, ou la
+      cassette réenregistrée, et la liste décrit un monde qui n'existe plus. Sans ce
+      contrôle, elle continuerait d'excuser une divergence qui n'a plus lieu, et le jour
+      où une vraie divergence apparaîtrait au même endroit, elle serait excusée aussi ;
+    * une ligne qui nomme une cassette **absente** du jeu — elle pointe dans le vide, et
+      une ligne qui ne s'applique à rien est une ligne qu'on ne relit plus.
+    """
+    presentes = {
+        (jeu.source_du_scenario(scenario.nom) or jeu.nom, scenario.nom, prise)
+        for scenario, prise in prises
+    }
+    attendues = {cle for cle in DIVERGENCES_ATTENDUES if cle[0] in jeu.composants}
+
+    fantomes = sorted(cle for cle in attendues if cle in presentes and cle not in vues)
+    if fantomes:
+        raise DivergenceAttendueAbsente(
+            "ces cassettes sont listées comme divergentes et se rejouent pourtant sans "
+            "divergence :\n"
+            + "\n".join(f"  - {source}/{nom}.{prise}" for source, nom, prise in fantomes)
+            + "\n\nLa liste décrit un monde qui n'existe plus. Retirer la ligne de "
+            "DIVERGENCES_ATTENDUES\n(scripts/eval.py), ou comprendre pourquoi le "
+            "correctif qui la justifiait a cessé d'agir."
+        )
+
+    orphelines = sorted(
+        cle
+        for cle in attendues
+        if cle not in presentes and cle[0] in {jeu.source_du_scenario(n) for _, n, _ in attendues}
+    )
+    introuvables = sorted(cle for cle in attendues if not jeu.repertoire(cle[0]).is_dir())
+    manquantes = sorted(set(orphelines) | set(introuvables))
+    if manquantes:
+        raise DivergenceAttendueAbsente(
+            "ces cassettes sont listées comme divergentes et n'existent pas dans le jeu "
+            f"{jeu.nom} :\n"
+            + "\n".join(f"  - {source}/{nom}.{prise}" for source, nom, prise in manquantes)
+            + "\n\nUne ligne qui ne s'applique à rien est une ligne qu'on ne relit plus."
+        )
 
 
 def _prises_manquantes(jeu: Jeu, prises: Sequence[tuple[Scenario, int]]) -> str:
@@ -381,7 +611,7 @@ def _rejouer(nom: str | None = None, jeu_nomme: str | None = None) -> int:
         )
 
     agregat = mesurer_le_jeu(jeu, prises, reglages, prompt, empreinte_outils)
-    texte = rendre(agregat)
+    texte = rendre(agregat, reserves=reserves_du_jeu(jeu, prises))
     if nom is not None:
         print(f"\n(rapport partiel — {jeu.rapport.relative_to(RACINE)} n'est pas réécrit)\n")
     elif partiel := _prises_manquantes(jeu, prises):
@@ -497,8 +727,10 @@ def _comparer(avant: str, apres: str, question: str) -> int:
     """
     jeux = [_jeu_nomme(avant), _jeu_nomme(apres)]
     agregats = []
+    reserves: list[str] = []
     for jeu in jeux:
         prises = prises_du_jeu(jeu)
+        reserves.extend(reserves_du_jeu(jeu, prises))
         if not prises:
             raise CassetteAbsente(
                 f"aucune cassette dans {jeu.cassettes.relative_to(RACINE)} — "
@@ -525,6 +757,7 @@ def _comparer(avant: str, apres: str, question: str) -> int:
         nom_apres=jeux[1].nom,
         question=question,
         couverture=couverture,
+        reserves=tuple(reserves),
     )
     chemin = RAPPORTS / f"comparaison.{jeux[0].nom}-{jeux[1].nom}.md"
     chemin.parent.mkdir(parents=True, exist_ok=True)

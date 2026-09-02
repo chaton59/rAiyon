@@ -65,13 +65,24 @@ VIOLE = "❌"
 SANS_OBJET = "—"
 
 
-def rendre(mesures: Mesures) -> str:
-    """Le rapport entier. Une seule fonction publique : c'est un fichier, pas une API."""
+def rendre(mesures: Mesures, *, reserves: Sequence[str] = ()) -> str:
+    """Le rapport entier. Une seule fonction publique : c'est un fichier, pas une API.
+
+    `reserves` porte ce que les chiffres ne disent pas d'eux-mêmes — une prise écartée,
+    une base composée de deux enregistrements. **Elles vont en tête, avant les tableaux** :
+    une réserve lue après les chiffres arrive trop tard, la conclusion est déjà prise.
+
+    Sans elles, un rapport dont une cassette a été écartée affiche « 7 griefs sur 42
+    tours » avec exactement la même autorité qu'un rapport complet, et rien ne dit que la
+    prise manquante en portait quatre. C'est le mode d'échec que ce fichier existe pour
+    empêcher, appliqué à lui-même.
+    """
     sections = [
         TITRE,
         "",
         AVERTISSEMENT,
         "",
+        *_reserves(reserves),
         "## Critères d'acceptation",
         "",
         *_tableau_des_criteres(mesures),
@@ -121,6 +132,25 @@ def _tableau(entetes: Sequence[str], lignes: Sequence[Sequence[str]]) -> list[st
         "| " + " | ".join(entetes) + " |",
         "|" + "|".join("---" for _ in entetes) + "|",
         *["| " + " | ".join(ligne) + " |" for ligne in lignes],
+    ]
+
+
+def _reserves(reserves: Sequence[str]) -> list[str]:
+    """Ce que les chiffres ne disent pas d'eux-mêmes, en tête et en évidence."""
+    if not reserves:
+        return []
+    return [
+        "> ⚠️ **Ce que ces chiffres ne disent pas d'eux-mêmes.**",
+        ">",
+        *[ligne for reserve in reserves for ligne in _en_citation(reserve)],
+        "",
+    ]
+
+
+def _en_citation(reserve: str) -> list[str]:
+    return [
+        f"> - {ligne}" if rang == 0 else f">   {ligne}"
+        for rang, ligne in enumerate(reserve.splitlines())
     ]
 
 

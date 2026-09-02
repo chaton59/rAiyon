@@ -2,6 +2,12 @@
 
 **Ce que cette comparaison cherche à savoir.** une **borne supérieure** de la dérive du modèle entre les deux enregistrements — jamais la dérive elle-même. L'écart confond ce que le modèle a changé entre les deux dates et le bruit d'échantillonnage que §7 documente ; il majore le premier sans le mesurer.
 
+> ⚠️ **Ce que ces chiffres ne disent pas d'eux-mêmes.**
+>
+> - **v1-etape12/desserrage_refuse.1 est écartée de ce rapport** — divergence attendue au rejeu.
+>   le correctif de validateur de l'étape 13 (jalon 1, point D) fait tomber 2 des 4 griefs de ce tour. La reprise empilée avant la régénération porte donc 2 lignes au lieu de 4, l'empreinte de requête du tour régénéré change, et la prise 7 n'est plus reconstituable. Le modèle aurait reçu une autre reprise : sa réponse enregistrée n'est pas celle qu'il aurait donnée.
+>   Les tours et les griefs de cette prise ne sont donc comptés nulle part ci-dessous.
+
 > ⚠️ **Comparaison sur les 7 scénarios communs.** Les deux jeux ne portent pas
 > les mêmes scénarios. La comparaison est donc réduite à ceux présents des **deux**
 > côtés — 11 prises de **v1-etape12** contre 21 de **v1-partielle**.
@@ -12,11 +18,11 @@
 > comparées sont donc, par scénario, la **moyenne sur ses prises**, sommée sur les
 > scénarios : ce qu'une passe complète produit en moyenne.
 >
-> Scénarios écartés : `categorie_efface_budget`, `desserrage_refuse`, `question_de_domaine`, `zero_budget_trop_bas`.
-> Absents de **v1-partielle** : `categorie_efface_budget`, `desserrage_refuse`, `question_de_domaine`, `zero_budget_trop_bas`.
+> Scénarios écartés : `categorie_efface_budget`, `question_de_domaine`, `zero_budget_trop_bas`.
+> Absents de **v1-partielle** : `categorie_efface_budget`, `question_de_domaine`, `zero_budget_trop_bas`.
 >
 > ⚠️ **L'exclusion n'est pas neutre, et voici de combien** : les prises écartées
-> portaient **5 des 11 rejets** de v1-etape12. La comparaison porte donc sur ses
+> portaient **1 des 7 rejets** de v1-etape12. La comparaison porte donc sur ses
 > scénarios les plus **calmes**, où tout écart est mécaniquement plus petit. Ce qui
 > est publié ici **sous-estime** vraisemblablement l'écart réel entre les deux
 > campagnes ; ce n'est pas une borne inférieure démontrée, c'est une raison de ne

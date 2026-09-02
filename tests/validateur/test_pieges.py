@@ -1,4 +1,4 @@
-"""Douze sorties LLM **délibérément piégeuses**, toutes détectées. La porte de sortie.
+"""Quatorze sorties LLM **délibérément piégeuses**, toutes détectées. La porte de sortie.
 
 Chaque test est nommé d'après **ce qu'il empêche**, pas d'après ce qu'il exerce. Le
 décor est celui de `contexte_de_test.py` : une conversation d'écrans où le sondage a vu
@@ -11,9 +11,13 @@ collé à un modèle nommé — c'est l'oracle à prix du §7, et c'est la raiso
 provenance (arbitrage B).
 """
 
+from dataclasses import replace as _remplacer
+from decimal import Decimal
+
 import pytest
 from contexte_de_test import contexte_complet
 
+from raiyon.validateur.contexte import ContexteFourni
 from raiyon.validateur.validateur import CodeGrief, valider
 
 
@@ -24,6 +28,11 @@ def contexte():
 
 def codes(texte, contexte) -> set[CodeGrief]:
     return {grief.code for grief in valider(texte, contexte).griefs}
+
+
+def remplacer(contexte: ContexteFourni, valeurs_refusees: set) -> ContexteFourni:
+    """Le même contexte, avec des valeurs de mouvements refusés. Sert aux pièges 13 et 14."""
+    return _remplacer(contexte, valeurs_refusees=frozenset(valeurs_refusees))
 
 
 # --------------------------------------------------------------------------- #
@@ -206,8 +215,53 @@ def test_une_borne_basse_arrondie_dans_un_intervalle_est_detectee(contexte):
     assert CodeGrief.MONTANT_NON_FOURNI in codes(texte, contexte)
 
 
-def test_les_douze_pieges_sont_tous_couverts():
-    """Garde de complétude : la porte de sortie en demande douze, ce fichier en tient douze."""
+# --------------------------------------------------------------------------- #
+# 13 et 14 — le nombre que le modèle s'est fabriqué (étape 13, jalon 1)
+# --------------------------------------------------------------------------- #
+
+
+def test_un_montant_de_mouvement_refuse_reste_refuse_a_cote_dun_produit(contexte):
+    """**Le sondage qui a décidé de la forme du correctif, figé en test.**
+
+    `valeurs_refusees` porte les valeurs qu'un mouvement refusé demandait, pour que le
+    modèle puisse obéir à la section 9 du prompt — « dites au client ce qui a été
+    refusé ». Mais **la provenance est un refus du moteur, la valeur est écrite par le
+    modèle** : rien n'empêche un modèle de passer 50 à `record_criteria`, de se le faire
+    refuser, et d'obtenir ainsi un nombre « fourni ».
+
+    Ce qu'il en obtient doit rester ce qu'un entier nu lui donne déjà. Coller ce nombre à
+    un produit nommé rouvrirait `prix_etranger_au_produit`, c'est-à-dire l'oracle à prix
+    du §7 — et c'est le grief avec lequel l'alternative « tous les nombres que le client a
+    écrits » a été sondée puis écartée.
+    """
+    produit = next(iter(contexte.produits.values()))
+    fabrique = remplacer(contexte, {Decimal("50")})
+
+    texte = f"Le {produit.nom} est à 50 $."
+
+    assert CodeGrief.PRIX_ETRANGER_AU_PRODUIT in codes(texte, fabrique)
+
+
+def test_une_valeur_de_mouvement_refuse_reste_refusee_a_cote_dun_produit(contexte):
+    """Le pendant du piège 13 pour la règle 5, et **c'est lui qui justifie un compartiment
+    à part plutôt que les agrégats.**
+
+    La règle 2 traite déjà correctement un agrégat dans une phrase à produit : elle le
+    refuse. La règle 5, elle, consulte `agregats` **sans condition** — un `refresh_rate`
+    refusé à 999 y deviendrait citable en « cet écran est à 999 Hz ». `valeurs_refusees`
+    suit donc la discipline de `valeurs_de_distribution` : admise seulement là où aucun
+    produit n'est nommé.
+    """
+    produit = next(iter(contexte.produits.values()))
+    fabrique = remplacer(contexte, {Decimal("999")})
+
+    texte = f"Le {produit.nom} est à 999 Hz."
+
+    assert CodeGrief.VALEUR_NON_FOURNIE in codes(texte, fabrique)
+
+
+def test_les_quatorze_pieges_sont_tous_couverts():
+    """Garde de complétude : douze à l'étape 9, deux à l'étape 13."""
     pieges = [nom for nom in globals() if nom.startswith("test_") and "couverts" not in nom]
 
-    assert len(pieges) == 12
+    assert len(pieges) == 14

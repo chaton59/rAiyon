@@ -258,3 +258,139 @@ def test_un_jeu_archive_nest_jamais_declare_incomplet():
     archive = Jeu(nom=JEU_ETAPE_12, version="systeme.v1")
 
     assert _prises_manquantes(archive, prises_du_jeu(archive)) == ""
+
+
+# --------------------------------------------------------------------------- #
+# La liste des divergences attendues — elle affirme, elle ne tolère pas
+# --------------------------------------------------------------------------- #
+
+
+def test_la_divergence_attendue_a_bien_lieu(base_seedee):
+    """**Le premier des trois contrôles : la ligne décrit un fait.**
+
+    `v1-etape12/desserrage_refuse.1` doit diverger sous le validateur courant. Si elle
+    cesse de diverger, le correctif du jalon 1 a été annulé — et la liste continuerait
+    d'excuser une divergence qui n'a plus lieu, y compris le jour où une **vraie**
+    divergence apparaîtrait au même endroit.
+    """
+    from raiyon.eval.cassette import DivergenceDeRequete
+
+    archive = Jeu(nom=JEU_ETAPE_12, version="systeme.v1")
+    prompt = prompt_systeme()
+    outils = schema_des_outils()
+    chemin = archive.chemin("desserrage_refuse", 1)
+    cassette = depuis_json(chemin.read_text(encoding="utf-8"))
+
+    with pytest.raises(DivergenceDeRequete):
+        jouer(
+            base_seedee,
+            par_nom("desserrage_refuse"),
+            1,
+            client=ClientCassette(cassette, source=str(chemin)),
+            depot=DepotSql(base_seedee),
+            reglages=Reglages(
+                systeme=prompt.texte, outils=outils, max_iterations=8, max_regenerations=1
+            ),
+        )
+
+
+def test_une_divergence_non_listee_remonte_toujours():
+    """**Le contrôle ne se relâche pas.** Une tolérance à la divergence serait le début du
+    mode d'échec que l'arbitrage B ferme : le jour d'une vraie régression du moteur, elle
+    serait écartée et nommée dans une ligne que personne ne lit.
+
+    Le code n'attrape `DivergenceDeRequete` que pour une clé **listée** ; toute autre
+    remonte. Ce test lit la condition dans la source plutôt que de provoquer une
+    divergence réelle, qui coûterait un enregistrement.
+    """
+    from pathlib import Path
+
+    import eval as module
+
+    source = Path(module.__file__).read_text(encoding="utf-8")
+
+    assert "if cle not in DIVERGENCES_ATTENDUES:\n                raise" in source, (
+        "la seule porte de sortie d'une divergence doit rester la liste ; un `continue` "
+        "inconditionnel ici transformerait une régression moteur en chiffre silencieux"
+    )
+
+
+def test_chaque_ligne_de_la_liste_nomme_une_cassette_qui_existe():
+    """**Le troisième contrôle.** Une ligne qui ne s'applique à rien est une ligne qu'on ne
+    relit plus — et qui reste là quand la cassette qu'elle excusait a été renommée."""
+    from eval import DIVERGENCES_ATTENDUES, Jeu
+
+    for source, scenario, prise in DIVERGENCES_ATTENDUES:
+        chemin = Jeu(nom=source, version="systeme.v1").chemin(scenario, prise)
+        assert chemin.is_file(), (
+            f"DIVERGENCES_ATTENDUES nomme {source}/{scenario}.{prise}, absente du dépôt"
+        )
+
+
+def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu():
+    """La contre-épreuve du premier contrôle : sans elle, `_verifier_les_divergences_attendues`
+    pourrait ne rien vérifier — le mode d'échec réel d'une garde de ce genre."""
+    from eval import DivergenceAttendueAbsente, Jeu, _verifier_les_divergences_attendues
+
+    archive = Jeu(nom=JEU_ETAPE_12, version="systeme.v1")
+    prises = [(par_nom("desserrage_refuse"), 1)]
+
+    with pytest.raises(DivergenceAttendueAbsente) as erreur:
+        _verifier_les_divergences_attendues(archive, prises, vues=set())
+
+    message = str(erreur.value)
+    assert "se rejouent pourtant sans divergence" in message
+    assert "v1-etape12/desserrage_refuse.1" in message
+    assert "DIVERGENCES_ATTENDUES" in message
+
+
+def test_le_rapport_du_jeu_archive_declare_la_prise_ecartee():
+    """Un rapport dont une cassette a été écartée affiche ses totaux avec **exactement la
+    même autorité** qu'un rapport complet. La prise écartée portait 4 des 11 griefs de
+    l'étape 12 : la taire ferait lire « 7 griefs » comme une amélioration."""
+    from eval import Jeu, prises_du_jeu, reserves_du_jeu
+
+    archive = Jeu(nom=JEU_ETAPE_12, version="systeme.v1")
+
+    reserves = reserves_du_jeu(archive, prises_du_jeu(archive))
+
+    assert any("desserrage_refuse.1 est écartée" in reserve for reserve in reserves)
+    assert archive.rapport.read_text(encoding="utf-8").count("est écartée de ce rapport") == 1
+
+
+# --------------------------------------------------------------------------- #
+# La ligne de base composée
+# --------------------------------------------------------------------------- #
+
+
+def test_un_scenario_de_la_ligne_de_base_vient_dune_seule_source():
+    """**La règle de composition, et elle n'est pas arbitraire.**
+
+    Mélanger la prise 1 d'une date avec les prises 2 et 3 d'une autre, dans un même
+    scénario, ferait confondre la dispersion du tirage avec l'écart entre deux
+    enregistrements — c'est-à-dire exactement ce que la comparaison cherche à distinguer.
+    """
+    from eval import LIGNE_DE_BASE, prises_du_jeu
+
+    prises = prises_du_jeu(LIGNE_DE_BASE)
+    sources = {}
+    for scenario, prise in prises:
+        chemin = LIGNE_DE_BASE.chemin(scenario.nom, prise)
+        sources.setdefault(scenario.nom, set()).add(chemin.parent.name)
+
+    for nom, repertoires in sources.items():
+        assert len(repertoires) == 1, f"{nom} vient de deux sources : {repertoires}"
+
+
+def test_la_ligne_de_base_prefere_les_prises_fraiches_a_larchive():
+    """L'archive de l'étape 12 ne sert qu'aux scénarios que les enregistrements plus
+    récents ne portent pas — `question_de_domaine` au premier chef, qui est la cible
+    entière du périmètre de domaine et que la campagne interrompue n'a pas atteint."""
+    from eval import LIGNE_DE_BASE
+
+    assert LIGNE_DE_BASE.compose
+    assert LIGNE_DE_BASE.composants.index("v1-partielle") < LIGNE_DE_BASE.composants.index(
+        JEU_ETAPE_12
+    )
+    assert LIGNE_DE_BASE.source_du_scenario("budget_serre") == "v1-partielle"
+    assert LIGNE_DE_BASE.source_du_scenario("question_de_domaine") == JEU_ETAPE_12

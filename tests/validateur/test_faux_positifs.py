@@ -181,3 +181,70 @@ def test_decrire_le_catalogue_apres_un_sondage_passe(contexte_du_sondage):
     texte = "Sur cette gamme, les fréquences vont de 144 à 165 Hz."
 
     assert sans_grief(texte, contexte_du_sondage)
+
+
+# --------------------------------------------------------------------------- #
+# 12 — dire au client ce qui a été refusé (étape 13, jalon 1)
+# --------------------------------------------------------------------------- #
+
+
+def test_dire_au_client_le_mouvement_refuse_passe(contexte):
+    """**Le validateur punissait l'obéissance à la section 9 du prompt.**
+
+    « Assouplir coûte une parole du client : un seul assouplissement par message. Quand
+    `record_criteria` refuse un mouvement, **dites-le au client** au lieu de réessayer
+    autrement. Un refus visible vaut mieux qu'un refus contourné. »
+
+    Le modèle a obéi, mot pour mot — « le passage à 300 $ et le 24 pouces n'ont pas été
+    pris en compte » — et le validateur a levé deux griefs, parce que 300 et 24 n'ont été
+    appliqués par rien et n'apparaissent donc dans aucun `tool_result`.
+
+    Ce n'est pas le cas d'une règle qui ne sait pas trancher et s'abstient : c'est une
+    règle qui tranche **contre** le comportement demandé. Les pièges 13 et 14 sont le
+    pendant : ces valeurs restent refusées dès qu'un produit est nommé.
+    """
+    from dataclasses import replace
+    from decimal import Decimal
+
+    fabrique = replace(contexte, valeurs_refusees=frozenset({Decimal("300"), Decimal("24")}))
+    texte = "Le passage à 300 $ et le 24 pouces n'ont pas été pris en compte"
+
+    assert sans_grief(texte, fabrique)
+
+
+def test_la_reprise_ne_fournit_jamais_un_fait(contexte):
+    """⚠️ **Le piège le plus coûteux de l'étape 13, et il est invisible à la lecture.**
+
+    Le message de reprise de l'étape 9 est un bloc de rôle `user`, de la **même forme
+    qu'un tour client** : un seul bloc `text`, sans `tool_result`. Et il **cite les
+    extraits refusés**, puisque c'est sa fonction — dire au modèle ce qui n'allait pas.
+
+    Une provenance qui tirerait des faits « des messages utilisateur » y prendrait donc
+    les nombres que le validateur vient de refuser, et les rendrait citables au tour
+    suivant. **Le validateur s'annulerait lui-même.** Mesuré sur les quarante cassettes du
+    dépôt : **18 griefs sur 19** disparaissaient.
+
+    Ce test est la garde. Il construit une conversation où le seul endroit qui porte
+    « 4242 » est un message de reprise, et exige que 4242 reste refusé. Il échoue si
+    quelqu'un réintroduit une provenance « texte du client » ou « messages utilisateur »
+    — la rédaction naïve de l'alternative écartée au jalon 1.
+    """
+    from raiyon.agent.prompts import message_de_grief
+    from raiyon.validateur.contexte import contexte_des_messages
+
+    reprise = message_de_grief(["- **montant_non_fourni** — « 4242 $ » : ne pas le citer."])
+    messages = [
+        {"role": "user", "content": [{"type": "text", "text": "Un écran à 4242 dollars."}]},
+        {"role": "user", "content": [{"type": "text", "text": reprise}]},
+    ]
+
+    fourni = contexte_des_messages(messages)
+
+    assert fourni.agregats == frozenset()
+    assert fourni.valeurs_refusees == frozenset()
+    # `sans_grief` affirme l'absence de grief ; ici on en veut un, donc on lit le verdict.
+    verdict = valider("Je vous propose un modèle à 4242 $.", fourni)
+    assert not verdict.valide, (
+        "un nombre écrit dans un message `user` — tour client ou message de reprise — "
+        "n'est jamais un fait fourni. Voir la docstring."
+    )
