@@ -253,12 +253,29 @@ scénarios qui viennent de l'archive. Le rapport et la comparaison nomment, scé
 scénario, d'où il vient."""
 
 
+JEUX_DECLARES: dict[str, Jeu] = {LIGNE_DE_BASE.nom: LIGNE_DE_BASE}
+"""Les jeux qui ne se déduisent pas de leur nom. **Un seul aujourd'hui**, et c'est bien.
+
+Un jeu ordinaire est un répertoire ; son nom suffit à le trouver. Un jeu **composé** n'a
+pas de répertoire, et rien dans son nom ne dit de quoi il est fait — il doit donc être
+écrit quelque part, une seule fois, avec sa raison."""
+
+
 def jeu_en_vigueur(nom: str | None, version: str) -> Jeu:
     """Le jeu visé. Par défaut, celui de la version de prompt en vigueur.
 
     `systeme.v2` → le jeu `v2`. Nommer un jeu explicitement sert à rejouer une campagne
     archivée sans changer de prompt — `--jeu v1-etape12` avec `systeme.v1` en vigueur.
+
+    ⚠️ **Elle consulte `JEUX_DECLARES` comme `_jeu_nomme`, et il a fallu deux passages
+    pour le faire aux deux endroits.** Un jeu composé n'a pas de répertoire : le construire
+    depuis son nom donnait `evals/cassettes/systeme.v1-base/` et un « aucune cassette » qui
+    désigne un chemin n'ayant jamais dû exister. Le défaut avait été corrigé sur le chemin
+    de `comparer` et laissé sur celui de `rejouer` — deux portes vers la même donnée, une
+    seule refermée, ce qui est le mode d'échec ordinaire de ce genre de résolution.
     """
+    if nom is not None and (declare := JEUX_DECLARES.get(nom)) is not None:
+        return declare
     return Jeu(nom=nom or version.removeprefix(PREFIXE_SYSTEME), version=version)
 
 
@@ -811,10 +828,20 @@ def _comparer(avant: str, apres: str, question: str) -> int:
 
 
 def _jeu_nomme(nom: str) -> Jeu:
-    """Un jeu par son nom court. Sa version de prompt est `systeme.<nom>`, sauf pour les
-    jeux archivés dont le nom porte un suffixe — `v1-etape12` tourne sous `systeme.v1`."""
-    version = f"{PREFIXE_SYSTEME}{nom.split('-')[0]}"
-    return Jeu(nom=nom, version=version)
+    """Un jeu par son nom court, **déclaré s'il l'est**, sinon simple.
+
+    Un jeu composé n'a pas de répertoire à lui : le construire à la volée depuis son nom
+    donnerait `evals/cassettes/systeme.v1-base/`, qui n'existe pas, et la comparaison
+    échouerait sur « aucune cassette » en désignant un chemin qui n'a jamais dû exister.
+    Les compositions sont donc **déclarées**, et `JEUX_DECLARES` est le seul endroit où
+    elles le sont.
+
+    Pour les autres, la version de prompt se déduit du nom — `v1-etape12` et
+    `v1-partielle` tournent tous deux sous `systeme.v1`.
+    """
+    if (declare := JEUX_DECLARES.get(nom)) is not None:
+        return declare
+    return Jeu(nom=nom, version=f"{PREFIXE_SYSTEME}{nom.split('-')[0]}")
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,164 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "budget_absent",
+    "prise": 1,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.v2",
+    "prompt_empreinte": "61b474af9184",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-02",
+    "usage": {
+      "appels": 5,
+      "jetons_entree": 9339,
+      "jetons_sortie": 883,
+      "cache_ecrit": 0,
+      "cache_lu": 48720
+    }
+  },
+  "prises": [
+    {
+      "requete": "e0c571d8b776",
+      "apercu": [
+        " 1 user text «Je cherche un écran pour jouer, 27 pouces au minimum, 144 Hz au moins.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "ErgHCpABCBEYAipArKp48LfM9kAqxGYweYdlwMVg6Nmz3LYAzkzTo0MdxekvqKbXnkf+vd1swpvpm5YA7B3HheRPDqebo3lfN0KCCjIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAYaY4NQGEgwI/Vn4a/91XL0p+J0aDF+d43S4CpZA9SBxZCIwH/pPrY+f9tCK32Wz1+kgu+NnOTABpY/COQVWzGiKAEL2p+3mISlZ2fZYNYL/iIB1KtQFVUPWt7s7W1wihJ7wDhudenw/5PcIoOO2RUeF5hS0EzGn0Zqh/22lwHnC/qY0qP0IHTqkQkZFy+lO2jRP01kOyrN9TmtFA1BbPMevIsA/DrM2HALnnqtt162ykXzpC3vZgxZ1qMytQfVh4YceGERSWOGfgDZp5Q3XjhLhdqROme6z9P5nQJQpbmXfktycK84w4blRLeW1cu1/+NBxKmC1RHwq9nqaWAK4WiNpciqVtHkzSZxX8MA9A8LaZEHAPTaCkDgqmedfeuGYKQ6CoIG0PLjh+1dEUQca1L9NAgf/qiZpwQv1r6HGv5N6lC9jKsbhspG0KsAygPRuIiKjFWaCXLGuCFbA97+GaXfGhx+cAD2M7fFHn990BWxfvhyAyOlT2ORLCzfv4v/aYoH3jvbAjoUyQQrEnfIGVRqB5wBKrG6kxVb9hHFoEFP2Qf4t+3ss2LQz7g0ZUFVOT4Bi9aE67G6HhWgvxngb35rnLK13lVz5Ds3lwdQRTlrKJC0SCPwkdg1MtnLkArUug2Tr3+YUhc6F1g9j1f+z7IXodsQYldFB8D3vMrgam294suyQlWWvCzrxQSQHEmeW59OxPwb0rsSbDzDj1y6CQrequ6XC9cMv1TxbP/vd3w/hgn2qfSQm7zPUYHY5Tzt7RL0JzHxArYEEWI06oM70jQ/GhDXdlSHUcRvMXANAx90YOtpbRrM3bpOmsumhWBqVJly8uXVvyQub4f6arrHfAa40RFLeMLn+WjVn4ggn8xMwgGoUI7e50A7Cd49hJRjNAswn9CRgfmS7cAVl8CM4n2VXLp+Ao4LXzw6sSM8oTDgCJV7xmAcuaQQsw1KLCAo741nNiY045XKcOZ2jFmM6oKvgn+zoD/CV1AMep83PzM997cnQuj1SN8lDJSgyEfg/5qu68eSDphWcGZscxYfLLQ5rernqs6KzIG5vVFxvhcCOTRBJ9DZHqD/qvRgB",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01DYh7S7DmcVtguyX4x6E6yj",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "criteres": [
+              {
+                "champ": "screen_size",
+                "operateur": "au_moins",
+                "valeur": "27",
+                "importance": "bloquant"
+              },
+              {
+                "champ": "refresh_rate",
+                "operateur": "au_moins",
+                "valeur": "144",
+                "importance": "bloquant"
+              }
+            ]
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "3e1526aa8cdc",
+      "apercu": [
+        " 1 user text «Je cherche un écran pour jouer, 27 pouces au minimum, 144 Hz au moins.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "EtMCCpABCBEYAipABs8k7W9lQsN16wGodfGQTpT3+RtPzKaol3QiA5aW2US5oJsxYiMpX9PMdLwKKmvwhjaUN+yf7O1L6YVCj6LohjIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAYmY4NQGEgztUhx9CAW9sCfvD7UaDKwa+wsbFoKblSCSXiIwjRplcoxi8V0bLx0QvKkkHAzd0C5w5YaDv0wBeTn6GkmNjSRYhJ+MNZU5quOFPf1gKnAA2wfL9ZNAt00uYq0KxetTibQVaemr2MX7TMivT5sD7cxglk9DZE0cxenEJzaGJtszs+4Dec6Ad15SA/VqzX6Mxh19Molm7+rg+E/DD9SV3hlbmj5ND/qYtshDZvRqg3zBxwp0KGncDacX6oLDVtXxGAE=",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01Eiw2igBxZU8p1n9TG5aWVg",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "probe_catalog",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "11dcde0ca5ee",
+      "apercu": [
+        " 1 user text «Je cherche un écran pour jouer, 27 pouces au minimum, 144 Hz au moins.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        " 4 assistant thinking | tool_use probe_catalog {}",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 46, \"…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "46 écrans correspondent déjà à vos critères, entre 142,99 $ et 1599,99 $. Vous avez un budget en tête, pour que je resserre la sélection ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "1c74bb2cc66d",
+      "apercu": [
+        " 1 user text «Je cherche un écran pour jouer, 27 pouces au minimum, 144 Hz au moins.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        " 4 assistant thinking | tool_use probe_catalog {}",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 46, \"…»",
+        " 6 assistant text «46 écrans correspondent déjà à vos critères, entre 142,99 $ et 1599,99 $. Vous a…»",
+        " 7 user text «Mon plafond est de 145 dollars.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "EtcCCpABCBEYAipAy/SNFxRbHoW8tlPDF5GxuX90vO7u0/o/9FwrQCoJb+FCmu8PqoaSArTbNeYmi2TuvM6d0p/BbjHGGOJTlUNXsTIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAY2Y4NQGEgy/C42jMWJ6mL2TAnkaDPS0owgwy5teCpsEwCIwqS03cp2dV6Stdk76MM+ZF6b7dy0B7Def1FRDwOIpUlM7KdqLRD0XZwE2m/fagWPpKnTwv2+GuH9pYaIg6oZOHROxAyOl3LOyDhtBY1AgBRcZEpOZ5br5y5SFu6hVzPnTyPkZVl28cJ4vL5lz6P+1yB5a78pmVuaaPCPJ6bj9A5dW6r2Mji9kl4YyqtnS9ahlM43hnsnKBal3AgkGAYY1mWintLOayxgB",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_016p4YENahaHJ32FaizpAhC5",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "budget_usd": "145"
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01Gu14kAbQKEmRKDoPD5MoiM",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "search_products",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "cbb7ba63a2d1",
+      "apercu": [
+        " 1 user text «Je cherche un écran pour jouer, 27 pouces au minimum, 144 Hz au moins.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"bloquant…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        " 4 assistant thinking | tool_use probe_catalog {}",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 46, \"…»",
+        " 6 assistant text «46 écrans correspondent déjà à vos critères, entre 142,99 $ et 1599,99 $. Vous a…»",
+        " 7 user text «Mon plafond est de 145 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"145\",\"categorie\":\"monitor\"} | tool_use search_products {}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 1, \"produits\": [{\"id\":…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Avec un plafond à 145 dollars, il ne reste qu'un seul écran qui respecte vos deux critères :\n\n**ASRock Phantom Gaming PG27FRS1A** — id monitor-ba17c6131b — 142,99 $\n27 pouces, dalle VA, 180 Hz (donc au-dessus de votre minimum de 144 Hz).\n\nC'est une résolution 1920x1080, pas plus. Si vous voulez du choix supplémentaire ou une définition plus haute, il faudra soit relever le budget, soit me dire ce qui compte le plus pour vous entre les deux.",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

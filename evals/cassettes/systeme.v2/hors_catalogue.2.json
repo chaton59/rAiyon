@@ -1,0 +1,54 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "hors_catalogue",
+    "prise": 2,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.v2",
+    "prompt_empreinte": "61b474af9184",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-02",
+    "usage": {
+      "appels": 2,
+      "jetons_entree": 431,
+      "jetons_sortie": 326,
+      "cache_ecrit": 0,
+      "cache_lu": 19488
+    }
+  },
+  "prises": [
+    {
+      "requete": "64ca0a97c045",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "signature": "EukDCpABCBEYAipAWVKhAW045I4LrqXrVlFCeYOZv20do6T8X2a4dsnIv3V9xdHLThKYUA2/m9AyFj1jsftPiURyJxpZmWlGmgRHcDIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAZmb4NQGEgzvmE4Hv/gwdkxkd0waDJ/4KxzY55+FYcKNXiIwGQSTQ3zlKGOSPAdX/oe6wOGP2crnw7WOTuFMn+PFq1cWWBRGDGfT708z+WT3QVFTKoUCzUqnVpiZefmu0v23GhJ/ic2JDoeA5tA/btBq3xD7A5mDy0DqKe0AtVYA979eReYEEz51B+rX+fgyW3kTP6krIZ7UH+lZ7+EKR31/QBZejPgLDjlfNlNdsidMdyAXO1CnqYcOqk/Y2AZeK0RJnR7eI2n6CGgHYa6cnh7MiiJeUnJVRULufHr3M5nvMMM1wtvPy97Y81JwprksRw6M0t7tF2HoShPVsLvAiaqLmmpsGBaCbl3O95JFRyVV31j3KI6ZeFjX0aH67qzyiBKDEhSriJ+6gM8YRQ2uKrFraI5GiBd1m/Z+RbVIzQrus2CCFqcZ5FGVyb2fnTw4nV7NfArRazCoSvFtGAE=",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "text": "Je suis désolé, mais je ne vends pas d'outillage comme des perceuses. Mon catalogue couvre les composants et périphériques PC : processeurs, écrans, cartes graphiques, mémoire vive, stockage interne et casques.\n\nEst-ce que je peux vous aider sur l'un de ces produits ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "791fd6188a67",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
+        " 2 assistant thinking | text «Je suis désolé, mais je ne vends pas d'outillage comme des perceuses. Mon catalo…»",
+        " 3 user text «Vraiment rien ? C'est pour percer du béton.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Vraiment rien, désolé. Je ne vends que des composants et périphériques informatiques : processeurs, écrans, cartes graphiques, mémoire vive, stockage interne et casques. Pas d'outillage, même pour du béton.\n\nSi vous avez besoin d'un PC ou d'un accessoire informatique, je suis là pour ça.",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

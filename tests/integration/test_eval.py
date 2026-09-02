@@ -394,3 +394,18 @@ def test_la_ligne_de_base_prefere_les_prises_fraiches_a_larchive():
     )
     assert LIGNE_DE_BASE.source_du_scenario("budget_serre") == "v1-partielle"
     assert LIGNE_DE_BASE.source_du_scenario("question_de_domaine") == JEU_ETAPE_12
+
+
+def test_un_jeu_compose_se_resout_par_son_nom():
+    """Un jeu composé n'a **pas** de répertoire à lui. Le construire à la volée depuis son
+    nom donnerait `evals/cassettes/systeme.v1-base/`, qui n'existe pas, et la comparaison
+    échouerait sur « aucune cassette » en désignant un chemin qui n'a jamais dû exister.
+
+    C'est un défaut que le typage ne voit pas : `Jeu("v1-base", "systeme.v1")` est
+    parfaitement valide, il ne pointe simplement nulle part.
+    """
+    from eval import LIGNE_DE_BASE, _jeu_nomme
+
+    assert _jeu_nomme(LIGNE_DE_BASE.nom) is LIGNE_DE_BASE
+    assert _jeu_nomme("v1-etape12").composants == ("v1-etape12",)
+    assert _jeu_nomme("v1-partielle").version == "systeme.v1"
