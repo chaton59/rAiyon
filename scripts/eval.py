@@ -42,7 +42,7 @@ from pathlib import Path
 import structlog
 from sqlalchemy.orm import Session
 
-from raiyon.agent.client import ClientLLM
+from raiyon.agent.client import USAGE_NUL, ClientLLM
 from raiyon.agent.prompts import (
     PREFIXE_SYSTEME,
     SystemeEnVigueur,
@@ -426,6 +426,10 @@ def _enregistrer(nom: str | None) -> int:
         f"prompt {prompt.version} ({prompt.empreinte})"
     )
 
+    total = USAGE_NUL
+    attendues = sum(scenario.prises for scenario in scenarios)
+    faites = 0
+
     for scenario, prise in _prises(scenarios):
         enregistreur = ClientEnregistreur(reel)
         with fabrique() as base:
@@ -437,6 +441,8 @@ def _enregistrer(nom: str | None) -> int:
                 depot=DepotSql(base),
                 reglages=reglages,
             )
+        total = total + enregistreur.usage
+        faites += 1
         cassette = enregistreur.en_cassette(
             EnTete(
                 scenario=scenario.nom,
@@ -450,10 +456,19 @@ def _enregistrer(nom: str | None) -> int:
         )
         chemin = jeu.chemin(scenario.nom, prise)
         chemin.write_text(en_json(cassette), encoding="utf-8")
+        # ⚠️ **Le cumul s'affiche à chaque prise, pas à la fin.** La campagne v1 de
+        # l'étape 13 s'est arrêtée au milieu, crédits épuisés, et un récapitulatif de fin
+        # n'aurait jamais été atteint. Ce qu'on veut savoir d'une campagne interrompue,
+        # c'est ce qu'elle avait consommé **jusque-là**.
         print(
-            f"  · {chemin.relative_to(RACINE)} — {len(cassette.prises)} prise(s), "
-            f"{chemin.stat().st_size} octets"
+            f"  · [{faites}/{attendues}] {chemin.relative_to(RACINE)} — "
+            f"{len(cassette.prises)} prise(s), {chemin.stat().st_size} octets\n"
+            f"      cette prise : {enregistreur.usage.en_ligne()}\n"
+            f"      cumul      : {total.en_ligne()}",
+            flush=True,
         )
+    print(f"\n{faites} prise(s) enregistrée(s) dans {jeu.cassettes.relative_to(RACINE)}")
+    print(f"Consommation totale : {total.en_ligne()}\n")
     return 0
 
 
@@ -493,12 +508,23 @@ def _comparer(avant: str, apres: str, question: str) -> int:
         reglages, _, empreinte_outils = _reglages_pour(prompt)
         agregats.append(mesurer_le_jeu(jeu, prises, reglages, prompt, empreinte_outils))
 
+    # Chaque jeu est rejoué **en entier**, puis réduit à l'intersection. L'ordre compte :
+    # la réserve d'échantillon se chiffre sur la référence complète — « les prises
+    # écartées portaient N des M rejets » n'est calculable que si on a mesuré les M.
+    couverture, reduit_avant, reduit_apres = comparaison.couvrir(agregats[0], agregats[1])
+    if not couverture.scenarios:
+        raise CassetteAbsente(
+            f"{jeux[0].nom} et {jeux[1].nom} n'ont aucun scénario en commun : il n'y a "
+            "rien à comparer."
+        )
+
     texte = comparaison.rendre(
-        agregats[0],
-        agregats[1],
+        reduit_avant,
+        reduit_apres,
         nom_avant=jeux[0].nom,
         nom_apres=jeux[1].nom,
         question=question,
+        couverture=couverture,
     )
     chemin = RAPPORTS / f"comparaison.{jeux[0].nom}-{jeux[1].nom}.md"
     chemin.parent.mkdir(parents=True, exist_ok=True)

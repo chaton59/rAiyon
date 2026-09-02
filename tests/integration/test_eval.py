@@ -70,6 +70,22 @@ def base_seedee(moteur_agregats: Engine) -> Iterator[Session]:
         connexion.close()
 
 
+JEU_ANCRE = Jeu(nom=JEU_ETAPE_12, version="systeme.v1")
+"""Le jeu sur lequel les tests de harnais s'appuient, et **pourquoi celui-là**.
+
+Ils visaient le jeu de la version en vigueur jusqu'à l'étape 13. Ça ne tient plus : les
+jeux vont et viennent au fil des campagnes — `systeme.v1/` a existé le temps d'une
+campagne interrompue, puis a été archivé sous un autre nom —, et un test de harnais qui
+dépend d'un jeu en cours échoue pour une raison qui n'a rien à voir avec le harnais.
+
+Le jeu archivé de l'étape 12, lui, est **committé et permanent**. Il tourne sous
+`systeme.v1`, dont l'empreinte ne change pas : le contrôle de péremption y est donc
+exercé pour de vrai, ce qui est tout ce qu'on demande à ces tests.
+
+⚠️ **La complétude du jeu en cours n'est pas vérifiée ici** — c'est `_prises_manquantes`
+qui la vérifie, au moment d'écrire le rapport, c'est-à-dire à l'endroit où elle compte."""
+
+
 def _jeu_courant() -> Jeu:
     return jeu_en_vigueur(None, prompt_systeme().version)
 
@@ -80,7 +96,7 @@ def test_une_cassette_committee_se_rejoue_et_se_mesure(base_seedee):
     prompt = prompt_systeme()
     outils = schema_des_outils()
 
-    chemin = _jeu_courant().chemin(SCENARIO, PRISE)
+    chemin = JEU_ANCRE.chemin(SCENARIO, PRISE)
     assert chemin.is_file(), f"{chemin} est absente — lancer `make eval-enregistrer`."
     cassette = depuis_json(chemin.read_text(encoding="utf-8"))
 
@@ -129,7 +145,7 @@ def test_un_prompt_modifie_fait_echouer_le_rejeu_en_disant_de_regenerer(base_see
     """
     from raiyon.eval.cassette import CassettePerimee
 
-    chemin = _jeu_courant().chemin(SCENARIO, PRISE)
+    chemin = JEU_ANCRE.chemin(SCENARIO, PRISE)
     cassette = depuis_json(chemin.read_text(encoding="utf-8"))
     with pytest.raises(CassettePerimee) as erreur:
         verifier(
@@ -159,19 +175,25 @@ def test_le_jeu_archive_de_letape_12_porte_bien_ses_dix_neuf_prises():
     assert archive.rapport.is_file(), f"{archive.rapport} a disparu"
 
 
-def test_une_cassette_du_jeu_archive_se_rejoue_encore(base_seedee):
-    """**Ce qui fait que « conservé » ne veut pas dire « pas effacé ».**
+def test_les_vingt_et_une_prises_payees_restent_rejouables(base_seedee):
+    """**Le jeu partiel de l'étape 13, et pourquoi il est committé plutôt que jeté.**
 
-    `systeme.v1.md` ne change pas de l'étape 13 : le jeu de l'étape 12 reste donc
-    rejouable, et le tirage que §7 cite reste reconstituable. Le jour où quelqu'un
-    modifierait v1 en place, c'est ici que ça se verrait — et c'est exactement ce que la
-    contrainte « v1 ne se modifie pas en place » protège.
+    La campagne v1 s'est arrêtée à 21 prises sur 36, crédits épuisés. Ces 21 prises sont
+    payées, et elles ne sont pas perdues : elles couvrent sept scénarios que le jeu de
+    l'étape 12 couvre aussi, ce qui suffit à borner la dérive du modèle entre les deux
+    dates. **Une mesure de dérive n'a pas besoin d'un jeu complet, elle a besoin de
+    scénarios comparables.**
+
+    Le jour où quelqu'un modifierait `systeme.v1.md` en place, c'est ici que ça se
+    verrait — et c'est exactement ce que la contrainte « v1 ne se modifie pas en place »
+    protège. Le jeu est archivé sous un nom qui dit ce qu'il est : `v1-partielle`.
     """
     scenario = par_nom(SCENARIO)
     prompt = prompt_systeme()
     outils = schema_des_outils()
-    archive = Jeu(nom=JEU_ETAPE_12, version="systeme.v1")
+    archive = Jeu(nom="v1-partielle", version="systeme.v1")
 
+    assert len(prises_du_jeu(archive)) == 21
     chemin = archive.chemin(SCENARIO, PRISE)
     cassette = depuis_json(chemin.read_text(encoding="utf-8"))
     verifier(

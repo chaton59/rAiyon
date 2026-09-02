@@ -16,10 +16,12 @@ from raiyon.eval.comparaison import (
     IDENTIQUE,
     SIGNAL,
     Compteur,
+    couvrir,
     ecarts,
     etendue_par_scenario,
     rendre,
     scenarios_a_une_prise,
+    valeur_par_passe,
 )
 from raiyon.eval.metriques import PriseJouee, TourJoue, agreger, mesurer
 from raiyon.validateur.regles import CodeGrief, Grief
@@ -106,21 +108,32 @@ def test_une_dispersion_nulle_ne_se_presente_jamais_comme_une_stabilite():
 
 def test_un_ecart_inferieur_a_la_dispersion_nest_pas_un_signal():
     """**La règle du brief, appliquée plutôt que rappelée.**"""
-    avant = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 2))  # dispersion 2, total 2
-    apres = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 0))  # total 0, écart -2
+    avant = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 6))  # étendue 6, moyenne 2,0
+    apres = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 0))  # moyenne 0, écart -2,0
 
     (ecart,) = [e for e in ecarts(avant, apres) if e.libelle == "Rejets du validateur"]
-    assert (ecart.avant, ecart.apres, ecart.delta) == (2, 0, -2)
-    assert ecart.dispersion == 2
-    assert ecart.verdict == BRUIT, "un écart égal à la dispersion n'est pas au-delà d'elle"
+    assert (ecart.avant, ecart.apres, ecart.delta) == (2.0, 0.0, -2.0)
+    assert ecart.dispersion == 6.0
+    assert ecart.verdict == BRUIT
+
+
+def test_un_ecart_egal_a_la_dispersion_nest_pas_au_dela_delle():
+    """La frontière est stricte, et elle penche du côté prudent : « supérieur à », pas
+    « supérieur ou égal ». Un écart qui vaut exactement le bruit observé est du bruit."""
+    avant = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 3))  # étendue 3, moyenne 1,0
+    apres = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 0))  # moyenne 0, écart -1,0
+
+    (ecart,) = [e for e in ecarts(avant, apres) if e.libelle == "Rejets du validateur"]
+    assert ecart.dispersion == 3.0
+    assert ecart.verdict == BRUIT
 
 
 def test_un_ecart_strictement_superieur_a_la_dispersion_est_un_signal():
-    avant = campagne(("a", 1, 3), ("a", 2, 3), ("a", 3, 4))  # dispersion 1, total 10
-    apres = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 0))  # total 0, écart -10
+    avant = campagne(("a", 1, 3), ("a", 2, 3), ("a", 3, 4))  # étendue 1, moyenne 3,33
+    apres = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 0))  # moyenne 0
 
     (ecart,) = [e for e in ecarts(avant, apres) if e.libelle == "Rejets du validateur"]
-    assert ecart.dispersion == 1
+    assert ecart.dispersion == 1.0
     assert ecart.verdict == SIGNAL
 
 
@@ -136,8 +149,8 @@ def test_la_dispersion_vient_de_la_campagne_de_reference_et_non_de_lautre():
     """La question posée est « le nouveau prompt a-t-il fait quelque chose que l'ancien ne
     faisait pas ? » : l'étalon de bruit est celui du monde d'avant. Le prendre après ferait
     dépendre le verdict de ce qu'on mesure — et un prompt instable s'auto-absoudrait."""
-    stable = campagne(("a", 1, 4), ("a", 2, 4), ("a", 3, 4))  # dispersion 0, total 12
-    instable = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 9))  # dispersion 9, total 9
+    stable = campagne(("a", 1, 4), ("a", 2, 4), ("a", 3, 4))  # étendue 0, moyenne 4,0
+    instable = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 9))  # étendue 9, moyenne 3,0
 
     (depuis_stable,) = [e for e in ecarts(stable, instable) if e.libelle == "Rejets du validateur"]
     (depuis_instable,) = [
@@ -214,7 +227,7 @@ def test_le_tableau_des_codes_est_derive_des_rejets_et_non_dune_liste():
 
     texte = rendre(avec_un_code, vide, nom_avant="v1", nom_apres="v2", question="?")
 
-    assert "| `nom_reecrit` | 1 | 0 | -1 |" in texte
+    assert "| `nom_reecrit` | 1.00 | 0.00 | -1.00 | 1 → 0 |" in texte
 
 
 def test_la_comparaison_rappelle_que_le_numero_3_est_un_garde_fou():
@@ -248,4 +261,95 @@ def test_un_repli_compte_dans_la_comparaison():
     )
 
     (ecart,) = [e for e in ecarts(sans, avec) if e.libelle == "Tours repliés"]
-    assert (ecart.avant, ecart.apres, ecart.verdict) == (0, 2, SIGNAL)
+    assert (ecart.avant, ecart.apres, ecart.verdict) == (0.0, 1.0, SIGNAL)
+
+
+# --------------------------------------------------------------------------- #
+# La couverture — ce que l'intersection compare, et ce qu'elle coûte
+# --------------------------------------------------------------------------- #
+
+
+def test_lintersection_porte_sur_les_scenarios_et_non_sur_les_numeros_de_prise():
+    """**La première rédaction de ce module était fausse, et voici le cas qui l'a dit.**
+
+    Elle appariait `(scénario, prise)`. Or un numéro de prise est un **index**, pas une
+    identité : la température n'est pas fixée, et la prise 2 d'une campagne n'a aucun lien
+    avec la prise 2 d'une autre. L'appariement ne rapprochait rien, et il **jetait des
+    données payées** — sur les jeux réels de l'étape 13, il réduisait 21 prises à 11 en
+    écartant les prises 2 et 3 des scénarios que l'étape 12 n'avait tirés qu'une fois.
+    """
+    reference = campagne(("a", 1, 0), ("b", 1, 0))
+    campagne_neuve = campagne(("a", 1, 0), ("a", 2, 0), ("a", 3, 0), ("b", 1, 0), ("b", 2, 0))
+
+    couverture, _, reduit_apres = couvrir(reference, campagne_neuve)
+
+    assert couverture.scenarios == ("a", "b")
+    assert (couverture.prises_avant, couverture.prises_apres) == (2, 5)
+    assert len(reduit_apres.prises) == 5, "aucune prise du jeu neuf n'est jetée"
+
+
+def test_un_scenario_absent_dun_cote_sort_de_la_comparaison_et_est_nomme():
+    reference = campagne(("a", 1, 0), ("absent_apres", 1, 0))
+    autre = campagne(("a", 1, 0), ("absent_avant", 1, 0))
+
+    couverture, reduit_avant, reduit_apres = couvrir(reference, autre)
+
+    assert couverture.scenarios == ("a",)
+    assert couverture.absents_apres == ("absent_apres",)
+    assert couverture.absents_avant == ("absent_avant",)
+    assert not couverture.complete
+    assert {prise.scenario for prise in reduit_avant.prises} == {"a"}
+    assert {prise.scenario for prise in reduit_apres.prises} == {"a"}
+
+
+def test_lexclusion_est_chiffree_et_non_seulement_signalee():
+    """⚠️ **Le point qui décide de ce que la comparaison a le droit de conclure.**
+
+    Les scénarios écartés ne sont pas un échantillon au hasard : ce sont ceux qui manquent
+    d'un côté. S'ils portaient l'essentiel des griefs de la référence, la comparaison porte
+    sur ses scénarios les plus **calmes**, et tout écart y est mécaniquement plus petit.
+
+    Le dire ne suffit pas — il faut le chiffrer, à côté du tableau, avant que le lecteur
+    ait conclu. C'est le cas réel de l'étape 13 : les scénarios manquants de la campagne v1
+    portaient 5 des 11 rejets de l'étape 12.
+    """
+    reference = campagne(("calme", 1, 0), ("bruyant", 1, 5))
+    autre = campagne(("calme", 1, 0))
+
+    couverture, _, _ = couvrir(reference, autre)
+
+    assert (couverture.rejets_exclus, couverture.rejets_total) == (5, 5)
+    texte = rendre(
+        *couvrir(reference, autre)[1:],
+        nom_avant="ref",
+        nom_apres="autre",
+        question="?",
+        couverture=couverture,
+    )
+    assert "portaient **5 des 5 rejets** de ref" in texte
+    assert "sous-estime" in texte
+
+
+def test_deux_jeux_de_meme_couverture_le_disent_sans_reserve():
+    """Une réserve affichée quand il n'y en a pas est une réserve qu'on cesse de lire."""
+    mesures = campagne(("a", 1, 0), ("a", 2, 0))
+    couverture, avant, apres = couvrir(mesures, mesures)
+
+    texte = rendre(
+        avant, apres, nom_avant="v1", nom_apres="v2", question="?", couverture=couverture
+    )
+
+    assert couverture.complete
+    assert "La comparaison est complète." in texte
+    assert "sous-estime" not in texte
+
+
+def test_une_moyenne_par_scenario_ne_laisse_pas_un_scenario_peser_plus_que_les_autres():
+    """`question_de_domaine` porte **six** prises quand les autres en portent trois. Une
+    moyenne prise sur toutes les prises confondues le ferait peser deux fois plus, et la
+    comparaison bougerait quand on change le nombre de prises d'un seul scénario — ce que
+    l'étape 13 a précisément fait."""
+    trois = campagne(("a", 1, 3), ("a", 2, 3), ("a", 3, 3), ("b", 1, 0))
+    six = campagne(*[("a", numero, 3) for numero in range(1, 7)], ("b", 1, 0))
+
+    assert valeur_par_passe(trois, REJETS) == valeur_par_passe(six, REJETS) == 3.0

@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "hors_catalogue",
+    "prise": 2,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.v1",
+    "prompt_empreinte": "6da03a675684",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-02"
+  },
+  "prises": [
+    {
+      "requete": "20d6fbb272e1",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Bonjour ! Je suis désolé, mais je ne vends pas d'outillage — je suis spécialisé en composants et périphériques informatiques : processeurs, cartes graphiques, mémoire, stockage, écrans et casques.\n\nEst-ce que je peux vous aider sur l'un de ces produits ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "7c17f9a6b711",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
+        " 2 assistant text «Bonjour ! Je suis désolé, mais je ne vends pas d'outillage — je suis spécialisé …»",
+        " 3 user text «Vraiment rien ? C'est pour percer du béton.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Vraiment rien de ce côté-là, désolé — je ne référence que du matériel informatique (processeur, carte graphique, mémoire, stockage, écran, casque). Pour une perceuse, il vous faudra un magasin d'outillage.\n\nPuis-je vous aider à trouver un composant ou un périphérique PC ?",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

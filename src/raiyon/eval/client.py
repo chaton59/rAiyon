@@ -36,10 +36,10 @@ personne, un mardi soir.
 
 import difflib
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
-from raiyon.agent.client import ClientLLM, ReponseLLM
+from raiyon.agent.client import USAGE_NUL, ClientLLM, ReponseLLM, Usage
 from raiyon.eval.cassette import (
     COMMANDE_DE_REGENERATION,
     Cassette,
@@ -204,6 +204,13 @@ class ClientEnregistreur:
 
     reel: ClientLLM
     prises: list[Prise] = field(default_factory=list)
+    usage: Usage = USAGE_NUL
+    """Ce que **cette prise** a consommé, cumulé appel par appel (étape 13, jalon 1).
+
+    Lu sur le client enveloppé par `getattr`, jamais par le `Protocol` : `ClientLLM` ne
+    connaît pas le coût, et l'y mettre obligerait le faux client de l'étape 8 et les
+    surcharges de l'API à fabriquer une valeur qu'ils ne possèdent pas. Un client qui
+    n'expose rien laisse le cumul à zéro, ce qui est exact — il n'a rien coûté."""
 
     def repondre(
         self,
@@ -221,6 +228,11 @@ class ClientEnregistreur:
         empreinte = empreinte_de_requete(systeme=systeme, outils=outils, messages=messages)
         apercu = apercu_de_requete(messages)
         reponse = self.reel.repondre(systeme=systeme, outils=outils, messages=messages)
+        # Après l'appel, et seulement s'il a abouti : un appel qui lève n'a pas de
+        # `dernier_usage` à lui, et compter celui du précédent le compterait deux fois.
+        consomme = getattr(self.reel, "dernier_usage", None)
+        if isinstance(consomme, Usage):
+            self.usage = self.usage + consomme
         self.prises.append(
             Prise(
                 requete=empreinte,
@@ -232,7 +244,11 @@ class ClientEnregistreur:
         return reponse
 
     def en_cassette(self, entete: EnTete) -> Cassette:
-        return Cassette(entete=entete, prises=tuple(self.prises))
+        """La cassette, **avec ce qu'elle a coûté**. L'en-tête reçoit le cumul de la prise."""
+        return Cassette(
+            entete=replace(entete, usage=self.usage if self.usage.appels else None),
+            prises=tuple(self.prises),
+        )
 
 
 _: type[ClientLLM] = ClientCassette

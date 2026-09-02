@@ -46,12 +46,113 @@ import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from raiyon.eval.metriques import Mesures, MesuresDunePrise
+from raiyon.eval.metriques import Mesures, MesuresDunePrise, agreger
 
 SIGNAL = "au-delà"
 BRUIT = "dans le bruit"
 IDENTIQUE = "identique"
 SANS_OBJET = "—"
+
+
+@dataclass(frozen=True, slots=True)
+class Couverture:
+    """Sur quelles prises la comparaison porte réellement, et **ce que ça lui coûte**.
+
+    Deux campagnes n'ont pas forcément les mêmes prises. La comparaison porte alors sur
+    leur **intersection** — comparer un total de 36 prises à un total de 21 comparerait
+    deux tailles d'échantillon, et l'écart mesurerait surtout la différence de taille.
+
+    ### L'intersection porte sur les **scénarios**, jamais sur les numéros de prise
+
+    C'est la première rédaction de ce module, et elle était fausse. Elle appariait
+    `(scénario, prise)` — la prise 2 de `besoin_flou` d'un jeu avec la prise 2 de l'autre.
+
+    ⚠️ **Un numéro de prise n'est pas une identité, c'est un index.** La température n'est
+    pas fixée : la prise 2 est un tirage de plus, sans aucun lien avec la prise 2 d'une
+    autre campagne. Les apparier ne rapproche rien, et cela **jette des données payées** —
+    sur les jeux réels de l'étape 13, l'appariement par numéro réduisait 21 prises à 11,
+    en écartant les prises 2 et 3 de cinq scénarios que l'étape 12 n'avait tirés qu'une
+    fois.
+
+    Ce qui se compare est donc le **scénario**, avec toutes ses prises de chaque côté.
+
+    ### Et la grandeur comparée est une moyenne par prise, jamais un total
+
+    Les deux côtés n'ont pas le même nombre de prises — 1 d'un côté, 3 de l'autre sur cinq
+    scénarios. Comparer des totaux comparerait des tailles d'échantillon, et l'écart
+    mesurerait surtout combien de fois on a tiré.
+
+    La valeur publiée est donc, **par scénario, la moyenne sur ses prises**, sommée sur les
+    scénarios communs : *ce qu'une passe complète des scénarios comparés produit en
+    moyenne*. C'est la même unité que la dispersion, qui est l'étendue `max - min` par
+    scénario sommée — l'une et l'autre valent « pour une passe », et sont donc comparables.
+
+    ⚠️ **Une intersection n'est pas neutre, et le dire ne suffit pas : il faut le
+    chiffrer.** Les scénarios exclus ne sont pas un échantillon au hasard ; ce sont ceux
+    qui manquent d'un côté, et rien ne garantit qu'ils ressemblaient aux autres. S'ils
+    portaient l'essentiel des griefs de la campagne de référence, la comparaison porte sur
+    ses scénarios les plus **calmes** — et tout écart y est mécaniquement plus petit.
+    `rejets_exclus` sur `rejets_total` le dit en chiffres, à côté du tableau, plutôt que
+    dans une note qu'on lira après avoir conclu.
+    """
+
+    scenarios: tuple[str, ...]
+    """Les scénarios présents des deux côtés. L'unité de la comparaison."""
+
+    prises_avant: int
+    prises_apres: int
+    """Combien de prises chaque côté apporte sur ces scénarios. Ils peuvent différer :
+    c'est précisément pourquoi on compare des moyennes."""
+
+    absents_avant: tuple[str, ...]
+    """Scénarios de la campagne comparée que la référence ne porte pas."""
+
+    absents_apres: tuple[str, ...]
+    """Scénarios de la référence que la campagne comparée ne porte pas."""
+
+    rejets_exclus: int
+    """Rejets portés par les prises de la **référence** sur les scénarios écartés."""
+
+    rejets_total: int
+    """Rejets de la référence **entière**. Le dénominateur de la réserve ci-dessus."""
+
+    @property
+    def complete(self) -> bool:
+        return not self.absents_avant and not self.absents_apres
+
+    @property
+    def scenarios_exclus(self) -> tuple[str, ...]:
+        return tuple(sorted(set(self.absents_avant) | set(self.absents_apres)))
+
+
+def couvrir(avant: Mesures, apres: Mesures) -> tuple[Couverture, Mesures, Mesures]:
+    """Réduit deux campagnes à leurs **scénarios communs**, et dit ce que l'exclusion emporte.
+
+    Rend la couverture et les deux agrégats réduits, **toutes prises conservées** de
+    chaque côté. Le filtrage se fait sur les mesures déjà calculées — aucun rejeu
+    supplémentaire : une `MesuresDunePrise` porte son scénario, et `agreger()` accepte
+    n'importe quel sous-ensemble.
+    """
+    noms_avant = {prise.scenario for prise in avant.prises}
+    noms_apres = {prise.scenario for prise in apres.prises}
+    communs = noms_avant & noms_apres
+
+    couverture = Couverture(
+        scenarios=tuple(sorted(communs)),
+        prises_avant=sum(1 for prise in avant.prises if prise.scenario in communs),
+        prises_apres=sum(1 for prise in apres.prises if prise.scenario in communs),
+        absents_avant=tuple(sorted(noms_apres - noms_avant)),
+        absents_apres=tuple(sorted(noms_avant - noms_apres)),
+        rejets_exclus=sum(
+            len(prise.rejets) for prise in avant.prises if prise.scenario not in communs
+        ),
+        rejets_total=len(avant.rejets),
+    )
+    return (
+        couverture,
+        agreger(prise for prise in avant.prises if prise.scenario in communs),
+        agreger(prise for prise in apres.prises if prise.scenario in communs),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,38 +195,72 @@ stable et qui bouge est une information, même quand elle bouge « dans le bon s
 
 @dataclass(frozen=True, slots=True)
 class Ecart:
-    """Un compteur, ses deux totaux, l'étendue de référence, et le verdict."""
+    """Un compteur, ses deux valeurs **par passe**, l'étendue de référence, le verdict."""
 
     libelle: str
-    avant: int
-    apres: int
-    dispersion: int
+    avant: float
+    apres: float
+    dispersion: float
     sens: str
 
     @property
-    def delta(self) -> int:
+    def delta(self) -> float:
         return self.apres - self.avant
 
     @property
     def verdict(self) -> str:
-        """**La phrase que le brief exige, calculée plutôt que rédigée.**"""
-        if self.delta == 0:
+        """**La phrase que le brief exige, calculée plutôt que rédigée.**
+
+        La comparaison se fait à `PRECISION` près : les valeurs sont des moyennes, et
+        `0.30000000000000004 > 0.3` est un artefact de flottant, pas un signal.
+        """
+        if abs(self.delta) < PRECISION:
             return IDENTIQUE
-        return SIGNAL if abs(self.delta) > self.dispersion else BRUIT
+        return SIGNAL if abs(self.delta) - self.dispersion > PRECISION else BRUIT
 
 
-def etendue_par_scenario(mesures: Mesures, compteur: Compteur) -> int:
+PRECISION = 1e-9
+"""En deçà, deux moyennes sont la même. Les valeurs comparées sont des flottants issus de
+divisions ; sans ce seuil, un verdict dépendrait d'un bit de mantisse."""
+
+
+def _par_scenario(mesures: Mesures, compteur: Compteur) -> dict[str, list[int]]:
+    groupes: dict[str, list[int]] = {}
+    for prise in mesures.prises:
+        groupes.setdefault(prise.scenario, []).append(compteur.par_prise(prise))
+    return groupes
+
+
+def valeur_par_passe(mesures: Mesures, compteur: Compteur) -> float:
+    """La moyenne par prise de chaque scénario, sommée : **ce qu'une passe produit**.
+
+    ⚠️ **Une somme de moyennes, jamais un total.** Les deux campagnes n'ont pas forcément
+    le même nombre de prises par scénario — l'étape 12 en a tiré une là où l'étape 13 en
+    tire trois. Comparer des totaux comparerait des tailles d'échantillon, et l'écart
+    mesurerait surtout combien de fois on a tiré.
+
+    La moyenne est prise **par scénario** et non sur toutes les prises confondues : sans
+    cela, un scénario à six prises pèserait deux fois celui qui en a trois, et la
+    comparaison bougerait quand on change le nombre de prises d'un seul scénario — ce que
+    l'étape 13 a fait sur `question_de_domaine`.
+    """
+    return sum(sum(valeurs) / len(valeurs) for valeurs in _par_scenario(mesures, compteur).values())
+
+
+def etendue_par_scenario(mesures: Mesures, compteur: Compteur) -> float:
     """La somme, sur les scénarios, de `max - min` des prises. Voir la docstring du module.
+
+    **Même unité que `valeur_par_passe`** : l'une et l'autre valent « pour une passe
+    complète des scénarios », et sont donc comparables. C'est ce qui autorise le verdict.
 
     Un scénario à une seule prise contribue **zéro** : son étendue n'est pas nulle, elle
     est **inconnue**. La sous-estimer rendrait la dispersion trop petite, donc le verdict
     trop généreux — c'est pourquoi l'étape 13 paie trois prises partout, et pourquoi
-    `_avertissement()` dit combien de scénarios n'en ont qu'une.
+    `_avertissement()` dit lesquels n'en ont qu'une.
     """
-    groupes: dict[str, list[int]] = {}
-    for prise in mesures.prises:
-        groupes.setdefault(prise.scenario, []).append(compteur.par_prise(prise))
-    return sum(max(valeurs) - min(valeurs) for valeurs in groupes.values())
+    return float(
+        sum(max(valeurs) - min(valeurs) for valeurs in _par_scenario(mesures, compteur).values())
+    )
 
 
 def scenarios_a_une_prise(mesures: Mesures) -> tuple[str, ...]:
@@ -146,8 +281,8 @@ def ecarts(avant: Mesures, apres: Mesures) -> tuple[Ecart, ...]:
     return tuple(
         Ecart(
             libelle=compteur.libelle,
-            avant=sum(compteur.par_prise(prise) for prise in avant.prises),
-            apres=sum(compteur.par_prise(prise) for prise in apres.prises),
+            avant=valeur_par_passe(avant, compteur),
+            apres=valeur_par_passe(apres, compteur),
             dispersion=etendue_par_scenario(avant, compteur),
             sens=compteur.sens,
         )
@@ -162,6 +297,7 @@ def rendre(
     nom_avant: str,
     nom_apres: str,
     question: str,
+    couverture: Couverture | None = None,
 ) -> str:
     """La comparaison entière, en markdown. Stable octet pour octet, comme le rapport.
 
@@ -175,6 +311,7 @@ def rendre(
         "",
         f"**Ce que cette comparaison cherche à savoir.** {question}",
         "",
+        *_couverture(couverture, nom_avant, nom_apres),
         *_avertissement(avant, nom_avant),
         "",
         "## Les mesures qui bougent",
@@ -192,10 +329,10 @@ def rendre(
             [
                 (
                     ecart.libelle,
-                    str(ecart.avant),
-                    str(ecart.apres),
-                    f"{ecart.delta:+d}",
-                    f"± {ecart.dispersion}",
+                    f"{ecart.avant:.2f}",
+                    f"{ecart.apres:.2f}",
+                    f"{ecart.delta:+.2f}",
+                    f"± {ecart.dispersion:.2f}",
                     ecart.verdict,
                     ecart.sens,
                 )
@@ -250,6 +387,73 @@ def rendre(
     return "\n".join(lignes).rstrip("\n") + "\n"
 
 
+def _couverture(couverture: Couverture | None, nom_avant: str, nom_apres: str) -> list[str]:
+    """Sur quoi la comparaison porte, **et ce que l'intersection lui a coûté**.
+
+    En tête du fichier, avant les tableaux : une réserve d'échantillon lue après les
+    chiffres arrive trop tard — la conclusion est déjà prise.
+    """
+    if couverture is None:
+        return []
+    if couverture.complete:
+        return [
+            f"**Couverture.** Les deux jeux portent les mêmes {len(couverture.scenarios)} "
+            f"scénarios — {couverture.prises_avant} prises contre {couverture.prises_apres}. "
+            "La comparaison est complète.",
+            "",
+            "Les valeurs comparées sont, par scénario, la **moyenne sur ses prises**, sommée",
+            "sur les scénarios : ce qu'une passe complète produit en moyenne. Un total comparerait",
+            "des tailles d'échantillon.",
+            "",
+        ]
+
+    part = (
+        f"{couverture.rejets_exclus} des {couverture.rejets_total}"
+        if couverture.rejets_total
+        else "0 des 0"
+    )
+    lignes = [
+        f"> ⚠️ **Comparaison sur les {len(couverture.scenarios)} scénarios communs.** Les deux "
+        "jeux ne portent pas",
+        "> les mêmes scénarios. La comparaison est donc réduite à ceux présents des **deux**",
+        f"> côtés — {couverture.prises_avant} prises de **{nom_avant}** contre "
+        f"{couverture.prises_apres} de **{nom_apres}**.",
+        ">",
+        "> ⚠️ **Les prises ne sont pas appariées, et elles ne peuvent pas l'être** : un numéro",
+        "> de prise est un index, pas une identité. La température n'est pas fixée, et la",
+        "> prise 2 d'une campagne n'a aucun lien avec la prise 2 de l'autre. Les valeurs",
+        "> comparées sont donc, par scénario, la **moyenne sur ses prises**, sommée sur les",
+        "> scénarios : ce qu'une passe complète produit en moyenne.",
+        ">",
+        "> Scénarios écartés : "
+        + ", ".join(f"`{nom}`" for nom in couverture.scenarios_exclus)
+        + ".",
+    ]
+    if couverture.absents_apres:
+        lignes.append(
+            f"> Absents de **{nom_apres}** : "
+            + ", ".join(f"`{nom}`" for nom in couverture.absents_apres)
+            + "."
+        )
+    if couverture.absents_avant:
+        lignes.append(
+            f"> Absents de **{nom_avant}** : "
+            + ", ".join(f"`{nom}`" for nom in couverture.absents_avant)
+            + "."
+        )
+    lignes += [
+        ">",
+        "> ⚠️ **L'exclusion n'est pas neutre, et voici de combien** : les prises écartées",
+        f"> portaient **{part} rejets** de {nom_avant}. La comparaison porte donc sur ses",
+        "> scénarios les plus **calmes**, où tout écart est mécaniquement plus petit. Ce qui",
+        "> est publié ici **sous-estime** vraisemblablement l'écart réel entre les deux",
+        "> campagnes ; ce n'est pas une borne inférieure démontrée, c'est une raison de ne",
+        "> pas lire un petit écart comme une absence d'effet.",
+        "",
+    ]
+    return lignes
+
+
 def _avertissement(reference: Mesures, nom: str) -> list[str]:
     """Ce que la dispersion vaut, **dans le fichier**, pas seulement dans une docstring."""
     solitaires = scenarios_a_une_prise(reference)
@@ -278,22 +482,41 @@ def _avertissement(reference: Mesures, nom: str) -> list[str]:
 
 
 def _tableau_des_codes(avant: Mesures, apres: Mesures, nom_avant: str, nom_apres: str) -> list[str]:
-    """Par code, des deux côtés. **Dérivé des rejets**, jamais d'une liste écrite ici."""
+    """Par code, des deux côtés. **Dérivé des rejets**, jamais d'une liste écrite ici.
+
+    ⚠️ **Dans la même unité que le tableau du dessus — par passe, pas en total.** Deux
+    campagnes de tailles différentes affichées l'une en total et l'autre en moyenne se
+    contrediraient à l'œil : « 4 contre 8 » d'un côté et « 3,33 contre 2,67 » de l'autre
+    décrivent pourtant les mêmes rejets. La ligne des totaux bruts est en dessous, dite
+    comme telle.
+    """
     codes = sorted({rejet.code for rejet in avant.rejets} | {rejet.code for rejet in apres.rejets})
     if not codes:
         return ["Aucun texte refusé, ni d'un côté ni de l'autre."]
     return _tableau(
-        ("Code de grief", nom_avant, nom_apres, "Écart"),
+        ("Code de grief", f"{nom_avant} /passe", f"{nom_apres} /passe", "Écart", "Bruts"),
         [
             (
                 f"`{code.value}`",
-                str(gauche := sum(1 for rejet in avant.rejets if rejet.code is code)),
-                str(droite := sum(1 for rejet in apres.rejets if rejet.code is code)),
-                f"{droite - gauche:+d}",
+                f"{(gauche := _code_par_passe(avant, code)):.2f}",
+                f"{(droite := _code_par_passe(apres, code)):.2f}",
+                f"{droite - gauche:+.2f}",
+                f"{sum(1 for rejet in avant.rejets if rejet.code is code)} → "
+                f"{sum(1 for rejet in apres.rejets if rejet.code is code)}",
             )
             for code in codes
         ],
     )
+
+
+def _code_par_passe(mesures: Mesures, code: object) -> float:
+    """La moyenne par scénario des rejets d'un code, sommée. Même unité que le reste."""
+    groupes: dict[str, list[int]] = {}
+    for prise in mesures.prises:
+        groupes.setdefault(prise.scenario, []).append(
+            sum(1 for rejet in prise.rejets if rejet.code is code)
+        )
+    return sum(sum(valeurs) / len(valeurs) for valeurs in groupes.values())
 
 
 def _tableau(entetes: Sequence[str], lignes: Sequence[Sequence[str]]) -> list[str]:
@@ -317,4 +540,13 @@ def _top3(mesures: Mesures) -> str:
     return f"{mesures.attendus_en_top3}/{mesures.prises_avec_attendu}"
 
 
-__all__ = ["COMPTEURS", "Ecart", "ecarts", "etendue_par_scenario", "rendre"]
+__all__ = [
+    "COMPTEURS",
+    "Couverture",
+    "Ecart",
+    "couvrir",
+    "ecarts",
+    "etendue_par_scenario",
+    "rendre",
+    "valeur_par_passe",
+]

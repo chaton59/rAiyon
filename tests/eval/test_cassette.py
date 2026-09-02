@@ -338,3 +338,59 @@ def test_une_cassette_enregistree_se_rejoue():
 
     assert reponse.blocs == [{"type": "text", "text": "ok"}]
     assert rejoueur.epuisee
+
+
+# --------------------------------------------------------------------------- #
+# Le coût d'enregistrement — étape 13, jalon 1, point C
+# --------------------------------------------------------------------------- #
+
+
+def test_lusage_fait_laller_retour_quand_il_est_mesure():
+    """Une cassette n'écrit que ce qu'elle relirait à l'identique — l'usage compris."""
+    from raiyon.agent.client import Usage
+
+    usage = Usage(appels=7, jetons_entree=1787, jetons_sortie=382, cache_ecrit=0, cache_lu=8076)
+    cassette = Cassette(entete=entete(usage=usage), prises=())
+
+    assert depuis_json(en_json(cassette)).entete.usage == usage
+
+
+def test_une_cassette_sans_usage_se_relit_sans_erreur():
+    """**Les dix-neuf cassettes de l'étape 12 n'en portent pas**, et les périmer pour cela
+    ferait dépendre leur validité d'une information qui ne décide de rien : ni le rejeu,
+    ni les métriques, ni la péremption ne lisent l'usage."""
+    cassette = Cassette(entete=entete(), prises=())
+    texte = en_json(cassette)
+
+    assert "usage" not in texte, "un champ absent ne s'écrit pas à `null`"
+    assert depuis_json(texte).entete.usage is None
+
+
+def test_un_usage_present_mais_incomplet_est_refuse_en_nommant_le_champ():
+    """Absent n'est pas une erreur ; **mal formé en est une**. C'est la même règle que
+    partout dans ce format : on refuse ce qu'on ne saurait pas relire à l'identique."""
+    charge = json.loads(en_json(Cassette(entete=entete(), prises=())))
+    charge["entete"]["usage"] = {"appels": 3}
+
+    with pytest.raises(CassetteInvalide) as erreur:
+        depuis_json(json.dumps(charge))
+
+    assert "jetons_entree" in str(erreur.value)
+
+
+def test_lusage_ne_perime_pas_une_cassette():
+    """⚠️ **Il n'est pas une quatrième empreinte, et c'est délibéré.** Deux enregistrements
+    du même préfixe ne consomment pas la même chose — le cache, les régénérations — et
+    faire dépendre la validité d'un coût rendrait toute cassette invalide au
+    réenregistrement suivant."""
+    from raiyon.agent.client import Usage
+    from raiyon.eval.client import verifier
+
+    autre_cout = Usage(appels=99, jetons_entree=1, jetons_sortie=1, cache_ecrit=0, cache_lu=0)
+
+    verifier(
+        Cassette(entete=entete(usage=autre_cout), prises=()),
+        prompt_version="systeme.v1",
+        prompt_empreinte="aaaaaaaaaaaa",
+        outils_empreinte="bbbbbbbbbbbb",
+    )

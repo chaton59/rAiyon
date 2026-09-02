@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "hors_catalogue",
+    "prise": 3,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.v1",
+    "prompt_empreinte": "6da03a675684",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-02"
+  },
+  "prises": [
+    {
+      "requete": "20d6fbb272e1",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Bonjour, malheureusement je suis spécialisé en composants et périphériques informatiques : processeurs, cartes graphiques, écrans, mémoire, stockage et casques. Je n'ai pas de perceuse à vous proposer.\n\nEst-ce que je peux vous aider pour un équipement PC à la place ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "0dd0bece8598",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
+        " 2 assistant text «Bonjour, malheureusement je suis spécialisé en composants et périphériques infor…»",
+        " 3 user text «Vraiment rien ? C'est pour percer du béton.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Non, vraiment rien de ce côté-là — mon catalogue ne couvre que l'informatique (processeurs, cartes graphiques, écrans, mémoire, stockage, casques), pas l'outillage.\n\nSi un besoin PC se présente, je suis là.",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

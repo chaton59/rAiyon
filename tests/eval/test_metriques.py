@@ -772,3 +772,43 @@ def test_un_extrait_introuvable_publie_le_texte_entier_plutot_que_rien():
     )
 
     assert mesuree.refus[0].phrase == "Une phrase. Une autre."
+
+
+def test_lusage_ne_traverse_jamais_le_protocol_du_client():
+    """⚠️ **La contrainte du jalon 1, point C, vérifiée sur le disque.**
+
+    Le coût d'un appel est posé sur `ClientAnthropic`, pas dans `ReponseLLM` ni dans le
+    `Protocol` `ClientLLM`. L'y mettre obligerait le faux client de l'étape 8, le client de
+    cassette et les surcharges de l'API à fabriquer une valeur qu'aucun d'eux ne possède —
+    exactement la raison qui a fait écarter la capture de l'identifiant de modèle résolu.
+
+    Ce test constate que le contrat de la boucle n'a pas bougé. Sans lui, la prochaine
+    information « utile » qu'on veut faire remonter passera par là, et la couture qui rend
+    `make eval` possible sans clé se refermera un champ à la fois.
+    """
+    from dataclasses import fields
+
+    from raiyon.agent.client import ReponseLLM
+
+    assert {champ.name for champ in fields(ReponseLLM)} == {"blocs", "fin"}
+
+
+def test_un_client_qui_ne_mesure_rien_laisse_le_cumul_a_zero():
+    """Le rejeu n'a pas d'usage, et c'est **exact** : une cassette rejouée ne consomme rien.
+
+    L'enregistreur lit `dernier_usage` par `getattr` sur le client qu'il enveloppe. Un
+    client qui n'en expose pas — le faux client, le client de cassette — laisse le cumul à
+    zéro plutôt que de faire échouer l'enregistrement.
+    """
+    from raiyon.agent.client import ReponseLLM
+    from raiyon.eval.client import ClientEnregistreur
+
+    class SansUsage:
+        def repondre(self, *, systeme, outils, messages):
+            return ReponseLLM(blocs=[{"type": "text", "text": "bonjour"}], fin="end_turn")
+
+    enregistreur = ClientEnregistreur(SansUsage())
+    enregistreur.repondre(systeme="s", outils=[], messages=[])
+
+    assert enregistreur.usage.appels == 0
+    assert enregistreur.en_cassette.__doc__ is not None

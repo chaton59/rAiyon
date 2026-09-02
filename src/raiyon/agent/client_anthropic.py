@@ -55,7 +55,7 @@ import anthropic
 import structlog
 from anthropic.types import MessageParam, ToolParam
 
-from raiyon.agent.client import MAX_TOKENS, ReponseLLM
+from raiyon.agent.client import MAX_TOKENS, ReponseLLM, Usage
 from raiyon.config import cle_api, get_settings
 
 logueur = structlog.get_logger(__name__)
@@ -89,6 +89,13 @@ class ClientAnthropic:
 
         self._mode_etabli = False
         """Vrai dès qu'un appel a abouti. Après quoi un `BadRequestError` remonte."""
+
+        self.dernier_usage: Usage | None = None
+        """Ce que le **dernier** appel a consommé, ou `None` avant le premier.
+
+        Public et mutable, contrairement au reste de cet objet : c'est une sortie
+        d'observation, pas un réglage. Lue par `ClientEnregistreur` via `getattr`, donc
+        sans que le `Protocol` `ClientLLM` en entende parler."""
 
     @property
     def strict(self) -> bool:
@@ -135,6 +142,17 @@ class ClientAnthropic:
         self._mode_etabli = True
 
         usage = message.usage
+        # Posé sur le client, **jamais dans `ReponseLLM`** : la boucle n'a que faire du
+        # coût, et l'y mettre obligerait le faux client, le client de cassette et les
+        # surcharges de l'API à fabriquer une valeur qu'aucun d'eux ne possède. Seul
+        # l'enregistreur de cassettes le lit, par `getattr`. Voir `Usage`.
+        self.dernier_usage = Usage(
+            appels=1,
+            jetons_entree=usage.input_tokens,
+            jetons_sortie=usage.output_tokens,
+            cache_ecrit=usage.cache_creation_input_tokens or 0,
+            cache_lu=usage.cache_read_input_tokens or 0,
+        )
         logueur.info(
             "client_anthropic.reponse",
             modele=self._modele,

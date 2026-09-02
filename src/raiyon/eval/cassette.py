@@ -74,7 +74,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from raiyon.agent.client import ReponseLLM
+from raiyon.agent.client import ReponseLLM, Usage
 from raiyon.agent.prompts import empreinte
 
 FORMAT = 1
@@ -129,6 +129,22 @@ class EnTete:
     outils_empreinte: str
     enregistree_le: str
     """Date ISO, sans heure. Elle situe l'enregistrement ; elle ne sert à aucun contrôle."""
+
+    usage: Usage | None = None
+    """Ce que l'enregistrement de cette prise a consommé. **Facultatif, et il le reste.**
+
+    `None` sur les cassettes antérieures à l'étape 13, et sur toute cassette produite par
+    un client qui ne mesure rien. Le rendre obligatoire périmerait les dix-neuf cassettes
+    de l'étape 12 pour une information qui ne décide de rien — ni le rejeu, ni les
+    métriques, ni la péremption ne le lisent.
+
+    ⚠️ **Il ne périme pas la cassette**, contrairement aux trois empreintes : deux
+    enregistrements du même préfixe ne consomment pas la même chose (le cache, les
+    régénérations), et faire dépendre la validité d'un coût rendrait toute cassette
+    invalide au réenregistrement suivant.
+
+    Il existe parce que la campagne v1 de l'étape 13 s'est arrêtée au milieu, crédits
+    épuisés, et que personne ne pouvait dire ce qu'elle avait consommé."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -268,6 +284,19 @@ def en_json(cassette: Cassette) -> str:
             "prompt_empreinte": cassette.entete.prompt_empreinte,
             "outils_empreinte": cassette.entete.outils_empreinte,
             "enregistree_le": cassette.entete.enregistree_le,
+            **(
+                {}
+                if cassette.entete.usage is None
+                else {
+                    "usage": {
+                        "appels": cassette.entete.usage.appels,
+                        "jetons_entree": cassette.entete.usage.jetons_entree,
+                        "jetons_sortie": cassette.entete.usage.jetons_sortie,
+                        "cache_ecrit": cassette.entete.usage.cache_ecrit,
+                        "cache_lu": cassette.entete.usage.cache_lu,
+                    }
+                }
+            ),
         },
         "prises": [
             {
@@ -323,6 +352,35 @@ def _entete(brut: object) -> EnTete:
         prompt_empreinte=str(brut["prompt_empreinte"]),
         outils_empreinte=str(brut["outils_empreinte"]),
         enregistree_le=str(brut["enregistree_le"]),
+        usage=_usage(brut.get("usage")),
+    )
+
+
+def _usage(brut: object) -> Usage | None:
+    """Le coût d'enregistrement, s'il a été mesuré. **Absent n'est pas une erreur.**
+
+    Un champ manquant vaut `None` — les cassettes de l'étape 12 n'en portent pas, et les
+    périmer pour cela reviendrait à faire dépendre la validité d'une information qui ne
+    décide de rien. Un champ **présent mais mal formé**, en revanche, est refusé comme le
+    reste : une cassette n'écrit que ce qu'elle relirait à l'identique.
+    """
+    if brut is None:
+        return None
+    if not isinstance(brut, dict):
+        raise CassetteInvalide("`usage` est présent mais n'est pas un objet.")
+    manquants = sorted(
+        champ
+        for champ in ("appels", "jetons_entree", "jetons_sortie", "cache_ecrit", "cache_lu")
+        if champ not in brut
+    )
+    if manquants:
+        raise CassetteInvalide(f"`usage` incomplet — champs absents : {', '.join(manquants)}.")
+    return Usage(
+        appels=int(brut["appels"]),
+        jetons_entree=int(brut["jetons_entree"]),
+        jetons_sortie=int(brut["jetons_sortie"]),
+        cache_ecrit=int(brut["cache_ecrit"]),
+        cache_lu=int(brut["cache_lu"]),
     )
 
 

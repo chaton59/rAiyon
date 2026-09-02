@@ -1,0 +1,293 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "besoin_flou",
+    "prise": 1,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.v1",
+    "prompt_empreinte": "6da03a675684",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-02"
+  },
+  "prises": [
+    {
+      "requete": "1a4498bc9b4a",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "Eu0ECpABCBEYAipAYMN5wcVb/nY9/rJUhF35u7/zS68EEsbE/Js1tq3ohLpwPdRkBxoM0RQLFAmEKbUhsdGudl41U1mPYabpjs/KsDIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAebQ3dQGEgzQIzhCtRyZAcO51DIaDHHHlJk4Tdfdq12gsCIwnvsPQKcnWaUzmGSHiammg6r/rqHP08vfclfaj3Sd/dj/OUIF1PsT5zGlULjiNgCVKokD0XjKo8HyXsHHzxiQS3LSqyoHyVu7uAZ12TiD6EISVkshNiPlJketNkeyX8eAXv+MncSKDFLE9MWIc9RaLmAZ/d2qPEntJj5I22GRuLXhPt2aX8/WAC+APCkhPv4hhxaChQtJji6iufFkXZVltWMmagEt8/Q9sciWcBJoAyKVImBSZ67x78g8/VKHxk5qJa4QvDwpmxD+tAZVAqNgc30lhbG2AZNK7W5Wuy3CHP2a1Kil/phb/ARsJQQ/XsnLjGY24a/lP72YsCoHy4afrbxre+M9TRjRpK6ATm9lk7gMJlKrgW1Fg8TMV28uH5Nx5BPwMdjUiMJOUJR/OKYfF5H8AEi8bvKaa9IN+13Wrrti+tYPU2Rf8kQZY9Hs5X/A8cFW30VzQQ9xe86xpW0PNYl+rC6PTFOSPvMrskvpW73IrIE6IuUpnwztG1X9nwsK7sgKh+uUhlevrpCfPMQFzQGGPcmvtq94HTk1IGUriXyHVip+mBMF2/j7v55RNIQDWyt/uV5M/sXa2hJOGAE=",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01ETPVZQxf1RWJ97jQ6siurz",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor"
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_019cWrwzpna5tjXV4P3Q8r1W",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "probe_catalog",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "21712438ef9d",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "J'ai 171 écrans au catalogue, de 65 $ à plus de 9000 $ pour les modèles très haut de gamme — la plupart des bons modèles 27 pouces se trouvent plutôt entre 200 et 500 $.\n\nPour vous orienter juste : c'est pour jouer, pour du travail bureautique, ou de la création (montage, retouche) ? Et vous avez un budget en tête ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "a09a56791330",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «J'ai 171 écrans au catalogue, de 65 $ à plus de 9000 $ pour les modèles très hau…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "J'ai 171 écrans au catalogue, avec des prix allant de 64,98 $ à 9333,00 $ selon les modèles.\n\nPour vous orienter juste : c'est pour jouer, pour du travail bureautique, ou de la création (montage, retouche) ? Et vous avez un budget en tête ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "b7d3e368601a",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «J'ai 171 écrans au catalogue, de 65 $ à plus de 9000 $ pour les modèles très hau…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «J'ai 171 écrans au catalogue, avec des prix allant de 64,98 $ à 9333,00 $ selon …»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "EuwGCpABCBEYAipAQF5IEEGAevSHtadRMKzmyW04NdkgPU2yK1zReyglGBrko3jw8wmZuHXD7IeorjQ9Oh66meOCpzJGCh27xF5cPzIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAfDQ3dQGEgzrtAyCEAHNRqwLzvIaDASy8lQJyhV3ZWQ5iyIwT0ik9LQjtL8Y38qwt0TPuTHGqG4mK2/zktb3UOnX3m9dY/SDHxNaWRWo0iGgTe5lKogFP8RMk0wEmI7YQ7ui+DG5+RbVjUd31Zt4tUWMCxqCJRRhhWQ0EPf/ji8mnIxnPD6o+wmwcugpFXM866dz3rCS/sHXSqv91TnieEINZJtMVeCalaGivT01G+VuNLd3FU2k5u+w2+9428FmECYE9X6Ydc+lBRvPFsA3+XY5YU0FWpCkFjHkyatQwmrUiklKswLR+0u+h+Umejr+7Ed7K0aIob1c1z40KpJYqy5ryYDIUGDxgYRoRxP1R6opIJn1XkHt4e5EFe9+n0rX2kC3JmYJQeOMZ+N8JVkz4zhCJJS3wmFFbKcO4ygOa1jfGrzKv5+TD36MQ5hf+7Kmpe9Gpah/p/JEHxTlNf5Npyx2l9A+7BPACpoWjXSU60t6hlQUMrr+FIr6XVEn2aeJUDkg4iVQlJfrK52JjnF4ZIucKLRItvff0/+JKegorOx3wx6LgEOce5YnWUzkIucKVEuQtKESM3a0aLQWcfOhvrjJ16Vsbe86RZ+SjPA48g/rk0gNOqjCfWzgAEyrb7qSHrQONG9mV28ptgnJm/6fCmPae3nWUzv2Ayr6GsA9m0yhe5I35LW1O/ByzG8kbgO1D4cP0CMVjR0zBPoITQRDDYxc2vJ+Hhar0XBAmTAr9Yzde3pzYnjcOI+5NCQFpaSKdWi2WHd0Ob3sCRo+1sGHtpP89gVgqKHWYNIhPf7fTEOYXWvtCnvLYFAOpiRbYNxsIsBhZ3WzGeuZ9BZydhqRC77eARNXzFk6S/ud+KdeDxH+5yFjWsBljYkSBw9h8DFKXRU1+HfnFlj7MHVQn34oWPYgOgYDqUYhkF0LeIuXVv9e9s4ULL7q197neImQ+wy09R5Y/WsvlW417HD66mBrGAE=",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01DjBXKqYcrC3YDnCABY51NF",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "budget_usd": "250"
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01EWRSyMTPskdZ38xAkrfyRA",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "suggest_next_question",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "6f4c97d12cd8",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «J'ai 171 écrans au catalogue, de 65 $ à plus de 9000 $ pour les modèles très hau…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «J'ai 171 écrans au catalogue, avec des prix allant de 64,98 $ à 9333,00 $ selon …»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\"} | tool_use suggest_next_question {}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"250.00\", \"op…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats\": 75, \"budget\": null, \"champ\": {…»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "EoAFCpABCBEYAipAnnwTO3hiTtHgbDiGPlgpElgBx+wUTdLb9lVsVKQld+eWG3ZkhC/vbsZbUg05xo3a1YarMq74H0gHCfamXDk7hDIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAfbQ3dQGEgzl42fQwDyyFhtJEqwaDIxM9fwD0Ha54Ib8jiIwaBK9rUQhm40CC2Wc2qY3DtEHwZKQiXcLRmymnkUY47ZcS+Min5MCr6xEzEW4LMrzKpwDzxf5AWtRxmyDj8gtou66/G1ATutJE1MV0mF9nOnC7PjHoso07h2S5+YzApmBaf+MeK6UNO+MnWoqrVl5hEXFfm2GmiMrFBBYCx7d5a+suz8nC5bHFTpNELa2OlNrcYoCwdFOxG3BgrJO0rqsi4iAWi21NTHrJH8f4kv9mYux1FzuLoup0lBnr3PBJ1oKHge3yd5wsJTNuMS3s7pKCTDvwFmK9iJRIWx8wIiNNr9hvnaaqBWqUoMg/Un2+RuDPoRBGTqLZEnicwIRJTIBg9rJo7H4P1avDIVOtjwIJqmErjbJRyp+3lgPEAO2iyKoVh+BH9vEFz21tTR+2EMSu9DKvBGzP/giFRQN9ZRoyKMgBIjL6NhPDPkMxfUf01NT9oyW57Sz7tfUXh6gK3zHAMEVqZyOkweU5+3OQfiCTPicY5hUA66XqO0STH9uZrtoIGMqfYoyQiernPQOcwYCJPB1jB4zc5p7gz6WjfVds1p8XE0U5QTV27cQLPEqY1cXpAs66P16cTcoV7Jzwy3MImjN0OJGUaCk84NnzNglExgB",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01TDDi1L4QwXd5zzoocsGAhr",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "champs": [
+              "refresh_rate",
+              "panel_type",
+              "screen_size"
+            ]
+          },
+          "name": "probe_catalog",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "13b432a47f72",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «J'ai 171 écrans au catalogue, de 65 $ à plus de 9000 $ pour les modèles très hau…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «J'ai 171 écrans au catalogue, avec des prix allant de 64,98 $ à 9333,00 $ selon …»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\"} | tool_use suggest_next_question {}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"250.00\", \"op…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats\": 75, \"budget\": null, \"champ\": {…»",
+        "10 assistant thinking | tool_use probe_catalog {\"champs\":[\"refresh_rate\",\"panel_type\",\"screen_size\"]}",
+        "11 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 7…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Avec 250 $, j'ai 75 écrans à vous proposer (et 10 de plus juste un peu au-dessus si besoin). Pour du jeu, on trouve pas mal de choix en 75 Hz, mais aussi des modèles plus rapides : 100 Hz, 144 Hz, jusqu'à 165-180 Hz voire plus, avec des dalles IPS ou VA principalement.\n\nVous cherchez plutôt de la fluidité (144 Hz et plus, pour du compétitif), ou une taille d'écran confortable (27 pouces par exemple) compte plus pour vous ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "8538e4d51e46",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «J'ai 171 écrans au catalogue, de 65 $ à plus de 9000 $ pour les modèles très hau…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «J'ai 171 écrans au catalogue, avec des prix allant de 64,98 $ à 9333,00 $ selon …»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\"} | tool_use suggest_next_question {}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"250.00\", \"op…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats\": 75, \"budget\": null, \"champ\": {…»",
+        "10 assistant thinking | tool_use probe_catalog {\"champs\":[\"refresh_rate\",\"panel_type\",\"screen_size\"]}",
+        "11 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 7…»",
+        "12 assistant text «Avec 250 $, j'ai 75 écrans à vous proposer (et 10 de plus juste un peu au-dessus…»",
+        "13 user text «Je suis plutôt sur du 27 pouces, et il me faut au moins 144 Hz.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "EqkFCpABCBEYAipAB+pQJ/mOvhhtperFkI4TmNWGpgyb3+M0ezU3B7ChWku7f255363rF/hL7O7P/NToUTluX/gIYG6/9PqAzyPNDzIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAf/Q3dQGEgwgjLb8svROK1TCthYaDAx+mZRqLzVHzGD8TyIwBIAQIPql3jBK883NF7wF+ftHMOjry3SkhRa0i6SgDy7qDRRwXgay13CVLYQcU8NwKsUD4g0J2T3yi2xfKPB9aNo9K2MXUK8NIyKEcC+vnE8dAFBfNpLgsLXgt3Yq0NoNUhdAVdUIvIU56+yuYXCbz+Bm0+oY9mRm+tlxIMD6FXBylHjicCg35xba+CzjfBmYDHbcCSByND8YhVRsF75W6jlj5cYzaEJxIUy0lJC0nKyJIaO8yJg2kBuc+D3N0AP3Paxwx10eOYwbNFBk4XdUZnV8lb045YmZS++VivjlojdI1DuU4pcQ/jKskcCBB0Zf0GskMH8gS9AMddO/LeErEvB3smvMspB7pzCtTcZTScc7aqpXVFYenycgVlmdEg3sz0MzqT9VNw487NiuxDbKy8hMsCcdkZoqdWwnHZUgMJjpf0raCoaOKmOp4O0/+jgN4xoPLdBDfK7zaDfnuaYlvs/jBKOQ3ZVlX4YKHxlT7/3em+Vh/9wT3W01SYtWQqEUnETpBgByEMrMe6h6AZsolf+4X0HP5tkJ9Ohh1SiYueHZyB4PUGMHZSagN186rDsQUip5++PdL46SEtweWYYQnI3x3f06kjwjm7WCES/NqVXN1ILhHSuZ/EGuMoIvg5gVo2jzcQSV4mhM9UJA58H9/uQw1b9PF0y2GAE=",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_018ErxrHeWXh4QDSucj1d8cw",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "criteres": [
+              {
+                "champ": "screen_size",
+                "operateur": "egal",
+                "valeur": "27",
+                "importance": "important"
+              },
+              {
+                "champ": "refresh_rate",
+                "operateur": "au_moins",
+                "valeur": "144",
+                "importance": "bloquant"
+              }
+            ]
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "d41468ee73dd",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «J'ai 171 écrans au catalogue, de 65 $ à plus de 9000 $ pour les modèles très hau…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «J'ai 171 écrans au catalogue, avec des prix allant de 64,98 $ à 9333,00 $ selon …»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\"} | tool_use suggest_next_question {}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"250.00\", \"op…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats\": 75, \"budget\": null, \"champ\": {…»",
+        "10 assistant thinking | tool_use probe_catalog {\"champs\":[\"refresh_rate\",\"panel_type\",\"screen_size\"]}",
+        "11 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 7…»",
+        "12 assistant text «Avec 250 $, j'ai 75 écrans à vous proposer (et 10 de plus juste un peu au-dessus…»",
+        "13 user text «Je suis plutôt sur du 27 pouces, et il me faut au moins 144 Hz.»",
+        "14 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"importan…",
+        "15 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "id": "toolu_015NY3vukeFVwUXmWaDyP3LN",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "search_products",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "10c117b20ff4",
+      "apercu": [
+        " 1 user text «Bonjour, je voudrais un bon écran.»",
+        " 2 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\"} | tool_use probe_catalog {}",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": null, \"optimi…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": null, \"dans_le_budget\": 171, …»",
+        " 4 assistant text «J'ai 171 écrans au catalogue, de 65 $ à plus de 9000 $ pour les modèles très hau…»",
+        " 5 user text «# Reprise — votre dernier message affirme des faits que les outils n'ont pas fou…»",
+        " 6 assistant text «J'ai 171 écrans au catalogue, avec des prix allant de 64,98 $ à 9333,00 $ selon …»",
+        " 7 user text «C'est surtout pour jouer, et j'ai environ 250 dollars.»",
+        " 8 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\"} | tool_use suggest_next_question {}",
+        " 9 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [], \"budget_usd\": \"250.00\", \"op…» | tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats\": 75, \"budget\": null, \"champ\": {…»",
+        "10 assistant thinking | tool_use probe_catalog {\"champs\":[\"refresh_rate\",\"panel_type\",\"screen_size\"]}",
+        "11 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 7…»",
+        "12 assistant text «Avec 250 $, j'ai 75 écrans à vous proposer (et 10 de plus juste un peu au-dessus…»",
+        "13 user text «Je suis plutôt sur du 27 pouces, et il me faut au moins 144 Hz.»",
+        "14 assistant thinking | tool_use record_criteria {\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"importance\":\"importan…",
+        "15 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        "16 assistant tool_use search_products {}",
+        "17 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 8, \"produits\": [{\"id\":…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Avec 27 pouces et 144 Hz minimum, il reste 3 écrans dans votre budget de 250 $ :\n\n1. **MSI MAG 274CQF** (monitor-6794f9ca20) — 189,99 $. Dalle VA en 2560×1440 (QHD), 180 Hz, temps de réponse 0,5 ms. C'est le plus complet des trois : résolution plus élevée et très réactif.\n\n2. **Acer Nitro EDA270U P** (monitor-a075f4505b) — 179,99 $. Dalle VA en 2560×1440 également, 170 Hz.\n\n3. **ASRock Phantom Gaming PG27FRS1A** (monitor-ba17c6131b) — 142,99 $. Le moins cher, mais en Full HD (1920×1080) et dalle VA, 180 Hz.\n\nSi vous êtes prêt à dépasser un peu le budget, deux options juste au-dessus :\n- **MSI G27C4 E3** — 258,00 $, soit 8 $ de plus que votre plafond. Full HD, 180 Hz.\n- **Samsung Odyssey G55A** — 259,00 $, soit 9 $ de plus. QHD, 165 Hz.\n\nPour du jeu, je recommande le **MSI MAG 274CQF** : meilleur compromis résolution/fluidité/prix dans votre budget. Voulez-vous que je reste sur ces trois-là, ou je regarde aussi les deux légèrement au-dessus ?",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

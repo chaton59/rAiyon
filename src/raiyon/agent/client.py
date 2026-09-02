@@ -47,6 +47,63 @@ class ReponseLLM:
     """Le `stop_reason` de l'API : `end_turn`, `tool_use`, `max_tokens`, `stop_sequence`."""
 
 
+@dataclass(frozen=True, slots=True)
+class Usage:
+    """Ce qu'un appel a consommé. **Hors du `Protocol`, et hors de `ReponseLLM`.**
+
+    ### Pourquoi elle n'entre pas dans `ReponseLLM` (étape 13, jalon 1)
+
+    `ReponseLLM` est ce que la **boucle** reçoit, et la boucle n'a que faire du coût : y
+    ajouter un champ obligerait le faux client de l'étape 8, le client de cassette et les
+    surcharges de l'API à le fabriquer, pour une information qu'aucun d'eux ne possède ni
+    n'utilise. C'est la raison qui a fait écarter la capture de l'identifiant de modèle
+    résolu au jalon 0, et elle vaut toujours.
+
+    Elle vit donc **à côté** : `ClientAnthropic` pose son dernier `Usage` sur lui-même, et
+    seul l'enregistreur de cassettes le lit — par `getattr`, sur un client qui peut ne pas
+    en avoir. Le rejeu n'en a jamais, et c'est correct : une cassette rejouée ne consomme
+    rien.
+
+    ### Ce qu'elle sert, et ce n'est pas de la curiosité
+
+    La campagne v1 de l'étape 13 s'est arrêtée au milieu — crédits épuisés — et **personne
+    ne pouvait dire ce qu'elle avait consommé**. Les jetons étaient dans les logs, ligne
+    par ligne, sans cumul et sans rien qui les rattache à une prise. Une campagne coûte
+    deux cents appels : savoir où on en est pendant qu'elle tourne n'est pas un confort.
+    """
+
+    appels: int
+    jetons_entree: int
+    jetons_sortie: int
+    cache_ecrit: int
+    cache_lu: int
+    """Les deux compteurs de cache sont l'unique façon de constater que l'arbitrage 7
+    produit son effet. Une campagne dont `cache_lu` s'effondre a repayé son préfixe, ce
+    qui arrive quand on enregistre par petits bouts espacés."""
+
+    def __add__(self, autre: "Usage") -> "Usage":
+        """Le cumul d'une campagne. `sum()` n'est pas utilisé : il partirait de `0`."""
+        return Usage(
+            appels=self.appels + autre.appels,
+            jetons_entree=self.jetons_entree + autre.jetons_entree,
+            jetons_sortie=self.jetons_sortie + autre.jetons_sortie,
+            cache_ecrit=self.cache_ecrit + autre.cache_ecrit,
+            cache_lu=self.cache_lu + autre.cache_lu,
+        )
+
+    def en_ligne(self) -> str:
+        """Une ligne lisible en cours de campagne. Pas un format de fichier."""
+        return (
+            f"{self.appels} appel(s) · {self.jetons_entree} jetons entrants "
+            f"({self.cache_lu} lus du cache, {self.cache_ecrit} écrits) · "
+            f"{self.jetons_sortie} sortants"
+        )
+
+
+USAGE_NUL = Usage(appels=0, jetons_entree=0, jetons_sortie=0, cache_ecrit=0, cache_lu=0)
+"""Le neutre du cumul. Nommé plutôt que reconstruit à chaque campagne."""
+
+
 class ClientLLM(Protocol):
     """Ce que la boucle attend d'un modèle. Rien de plus, et surtout rien du SDK.
 
