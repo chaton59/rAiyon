@@ -74,6 +74,41 @@ _ESPACES_A_RETIRER = str.maketrans("", "", ESPACES)
 NOMBRE = rf"\d+(?:[{ESPACES}]\d{{3}})*(?:[.,]\d+)?"
 """Un nombre tel qu'un modèle l'écrit : `144`, `417.14`, `417,14`, `1 299,99`."""
 
+MOTIF_NOMBRE = re.compile(NOMBRE)
+"""`NOMBRE` compilé, **sans unité ni symbole devant ou derrière**.
+
+Il n'a aucun usage dans les règles : elles n'ont jamais besoin d'un nombre nu, elles
+lisent un montant (règle 2) ou une valeur unitaire (règle 5), et l'entier nu est
+l'exemption assumée du §7. Il existe pour le harnais d'éval de l'étape 13, qui compte
+**combien de valeurs chiffrées** une prose de domaine contient — une observation publiée
+sans seuil, pas une règle.
+
+⚠️ **Il est ici et pas dans `raiyon.eval` pour une raison, et c'est la même que partout
+dans ce module** : le jour où l'écriture d'un nombre change — un séparateur de milliers
+de plus, une notation qu'un modèle emploie —, les deux lectures doivent changer ensemble.
+Deux extractions de nombre dans un même dépôt finissent par en dire deux choses, et l'une
+des deux devient fausse sans que rien ne le signale. Un test du harnais vérifie qu'il n'en
+existe pas de seconde."""
+
+
+def nombres(texte: str) -> tuple[Decimal, ...]:
+    """Tous les nombres du texte, dans l'ordre, **doublons compris**.
+
+    Compter et non dédoublonner : « 3000:1 à 6000:1 » porte deux valeurs, et les réduire
+    à un ensemble ferait passer une prose plus chiffrée pour une prose qui l'est moins.
+
+    ⚠️ **Ce que ce compte vaut réellement**, à écrire là où il est publié : il lit des
+    nombres, pas des faits. Un ratio écrit `3000:1` compte pour deux, une année compte
+    pour une, et « 27 pouces » recopié d'un `tool_result` compte comme un chiffre inventé
+    le compterait. C'est une observation sur la **forme** de la prose ; ce qui tranche sur
+    le fond est l'appendice verbatim, qu'un humain relit.
+    """
+    return tuple(
+        valeur
+        for occurrence in MOTIF_NOMBRE.finditer(texte)
+        if (valeur := en_decimal(occurrence.group(0))) is not None
+    )
+
 
 def en_decimal(texte: str) -> Decimal | None:
     """Lit un nombre écrit en français ou en anglais. `None` si ce n'en est pas un.

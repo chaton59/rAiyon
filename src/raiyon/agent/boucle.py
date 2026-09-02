@@ -315,7 +315,7 @@ def repondre(
 
         if verdict.griefs:
             regenerations += 1
-            yield TexteRejete(verdict.griefs, regenerations, OrigineRejet.TEXTE)
+            yield TexteRejete(message.texte, verdict.griefs, regenerations, OrigineRejet.TEXTE)
             _journaliser_le_rejet(
                 verdict, OrigineRejet.TEXTE, iteration, regenerations, max_regenerations
             )
@@ -422,14 +422,23 @@ def repondre(
         # La validation vit ici et pas dans `demander_precision` : lui passer un
         # `ContexteFourni` casserait l'arbitrage C de l'étape 7 — un outil ne prend que
         # ce qu'il lit dans l'état — et ferait entrer le validateur dans `raiyon.tools`.
+        # Le texte est nommé avant la validation : c'est lui qui part dans `TexteRejete`
+        # si le verdict tombe, et le lire une seconde fois par `executions.question`
+        # obligerait à redire qu'il n'est pas `None` là où le verdict le garantit déjà.
+        question_posee = "" if executions.question is None else executions.question.question
         verdict_question = (
-            valider(executions.question.question, fourni)
+            valider(question_posee, fourni)
             if executions.question is not None
             else VERDICT_SANS_GRIEF
         )
         if verdict_question.griefs:
             regenerations += 1
-            yield TexteRejete(verdict_question.griefs, regenerations, OrigineRejet.QUESTION)
+            yield TexteRejete(
+                question_posee,
+                verdict_question.griefs,
+                regenerations,
+                OrigineRejet.QUESTION,
+            )
             _journaliser_le_rejet(
                 verdict_question, OrigineRejet.QUESTION, iteration, regenerations, max_regenerations
             )

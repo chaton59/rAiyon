@@ -18,10 +18,13 @@ prétendre à une propriété cryptographique dont on n'a pas l'usage.
 
 import hashlib
 from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 import structlog
+
+from raiyon.config import get_settings
 
 logueur = structlog.get_logger(__name__)
 
@@ -32,8 +35,46 @@ Une installation figée en `site-packages` ne verrait pas `prompts/` — le jour
 projet s'empaquette, les prompts deviennent des données de paquet ; il n'y a pas de
 raison de payer cette complexité avant."""
 
-SYSTEME_V1 = "systeme.v1"
-"""La version en vigueur, nommée une fois. La boucle ne cite pas de nom de fichier."""
+PREFIXE_SYSTEME = "systeme."
+"""Ce qui distingue un prompt système d'un autre prompt de `prompts/`. Le préfixe est
+lu par `versions_systeme()`, qui découvre les fichiers plutôt que de les lister."""
+
+SYSTEME_PAR_DEFAUT = "systeme.v1"
+"""La version servie quand rien n'est configuré. **C'est le défaut du code, pas un
+choix arbitré** : le jalon 3 de l'étape 13 le déplacera sur la version retenue, et
+d'ici là toute campagne v2 ou v3 se lance en nommant sa version."""
+
+
+def version_systeme() -> str:
+    """Le nom du fichier de prompt système en vigueur, sans extension.
+
+    **Une sélection de fichier, pas une interpolation** (§3.13). Le préfixe mis en
+    cache est `tools` + `system` et doit rester identique octet pour octet d'un appel
+    à l'autre : ce qui viole cette règle, c'est un texte qui change, pas le fait de
+    choisir lequel des trois textes envoyer. Chacun des trois reste, lui, immuable.
+
+    La valeur vient de `Settings`, donc de `RAIYON_PROMPT_SYSTEME`, parce que
+    `config.py` est le point unique de lecture de l'environnement dans ce projet.
+    """
+    return get_settings().prompt_systeme
+
+
+def versions_systeme() -> tuple[str, ...]:
+    """Les prompts système présents sur le disque, triés. **Découverts, pas listés.**
+
+    Le test d'interpolation de l'arbitrage 7 balaie ce que cette fonction rend, et non
+    la seule version en vigueur : à l'étape 13, trois fichiers coexistent, et deux
+    d'entre eux ne sont sélectionnés par personne pendant la campagne du troisième. Un
+    `{quelque_chose}` glissé dans le fichier au repos ne se verrait qu'au moment de
+    lancer sa campagne, c'est-à-dire au moment de dépenser trente-six prises.
+
+    Découvrir plutôt qu'écrire une liste : une `systeme.v4.md` ajoutée demain est
+    balayée sans que personne n'ait à s'en souvenir. C'est le même geste que
+    `codes_jamais_declenches`, qui dérive de `CodeGrief` au lieu d'une liste tenue à
+    la main.
+    """
+    return tuple(sorted(chemin.stem for chemin in REPERTOIRE.glob(f"{PREFIXE_SYSTEME}*.md")))
+
 
 GRIEF_V1 = "grief.v1"
 """Le message de reprise de l'étape 9, versionné **comme le prompt système** (§3.14).
@@ -79,16 +120,34 @@ def empreinte(texte: str) -> str:
     return hashlib.sha256(texte.encode("utf-8")).hexdigest()[:12]
 
 
-def prompt_systeme() -> tuple[str, str]:
-    """Le prompt système en vigueur et son empreinte, et il les loggue.
+@dataclass(frozen=True, slots=True)
+class SystemeEnVigueur:
+    """Le prompt système servi à cet appel : sa version, son texte, son empreinte.
 
-    Rendre les deux ensemble plutôt que de laisser l'appelant recalculer l'empreinte :
-    c'est ce qui garantit que ce qui est logué est bien ce qui est envoyé.
+    Les trois voyagent ensemble depuis que la version est **choisie** et non plus
+    écrite en constante. Les séparer laisserait un appelant loguer `systeme.v1` en
+    envoyant `systeme.v3` — exactement la faute que l'empreinte de cassette existe
+    pour rendre impossible, réintroduite un cran plus haut.
     """
-    texte = charger(SYSTEME_V1)
+
+    version: str
+    texte: str
+    empreinte: str
+
+
+def prompt_systeme() -> SystemeEnVigueur:
+    """Le prompt système en vigueur, et il le loggue.
+
+    Rendre la version, le texte et l'empreinte ensemble plutôt que de laisser
+    l'appelant les recomposer : c'est ce qui garantit que ce qui est logué, ce qui est
+    écrit dans l'en-tête d'une cassette et ce qui est envoyé au modèle sont le même
+    fichier.
+    """
+    version = version_systeme()
+    texte = charger(version)
     signature = empreinte(texte)
-    logueur.info("prompts.systeme", version=SYSTEME_V1, empreinte=signature, octets=len(texte))
-    return texte, signature
+    logueur.info("prompts.systeme", version=version, empreinte=signature, octets=len(texte))
+    return SystemeEnVigueur(version=version, texte=texte, empreinte=signature)
 
 
 class GriefMalForme(Exception):

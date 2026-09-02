@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install up down logs psql migrate revision seed-build seed calibrer fumee chat api eval eval-enregistrer eval-live fmt lint typecheck test test-int check clean
+.PHONY: help install up down logs psql migrate revision seed-build seed calibrer fumee chat api eval eval-etape12 eval-comparer eval-enregistrer eval-live fmt lint typecheck test test-int check clean
 
 help: ## Liste les cibles disponibles
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -82,7 +82,7 @@ api: ## Serveur HTTP + interface web — nécessite base + seed + clé API
 	@# d'environnement n'a été ajoutée pour eux (étape 10, arbitrage K).
 	uv run uvicorn raiyon.api.app:app --reload --host 127.0.0.1 --port 8000
 
-eval: ## Rejoue les cassettes, écrit docs/eval/rapport.md — base requise, clé NON requise
+eval: ## Rejoue le jeu en vigueur, écrit docs/eval/rapport.<jeu>.md — base requise, clé NON requise
 	@# Le rejeu n'appelle aucun modèle : `raiyon/eval/client.py` n'importe pas le
 	@# SDK, et un test d'isolation le vérifie sur le disque. Il a en revanche besoin
 	@# de la base et du seed, et c'est assumé (étape 12, arbitrage A) : les
@@ -91,11 +91,39 @@ eval: ## Rejoue les cassettes, écrit docs/eval/rapport.md — base requise, cl�
 	@#
 	@# Sort en code non nul si un critère bloquant est violé — c'est la porte de
 	@# sortie, pas un document à relire.
+	@# RAIYON_PROMPT_SYSTEME choisit la version, donc le jeu : `systeme.v2` rejoue
+	@# evals/cassettes/systeme.v2/ et écrit docs/eval/rapport.v2.md.
 	uv run python scripts/eval.py rejouer
 
-eval-enregistrer: ## (Ré)enregistre les cassettes — consomme la clé et des jetons
+eval-etape12: ## Rejoue le jeu archivé de l'étape 12 et réécrit son rapport
+	@# Étape 13, jalon 0, point B. Sans cette cible, « les cassettes de l'étape 12 sont
+	@# conservées » voudrait seulement dire « pas effacées ». Ce qui est promis est plus
+	@# fort : systeme.v1.md ne changeant pas, le tirage que §7 cite reste
+	@# **reconstituable**. La cible échoue le jour où quelqu'un modifie v1 en place.
+	@#
+	@# Elle réécrit docs/eval/rapport.v1-etape12.md, donc `git diff` après coup est la
+	@# vérification : un fichier inchangé veut dire que le jeu se rejoue à l'identique.
+	RAIYON_PROMPT_SYSTEME=systeme.v1 uv run python scripts/eval.py rejouer --jeu v1-etape12
+
+eval-comparer: ## Deux jeux côte à côte — make eval-comparer AVANT=v1 APRES=v2 Q="ce qu'on cherche"
+	@# Rejeu, donc aucune clé API. Les deux jeux sont rejoués dans le **même** processus :
+	@# la version de prompt de chacun est chargée par son nom, pas lue dans
+	@# l'environnement. Écrit docs/eval/comparaison.<avant>-<apres>.md.
+	@#
+	@# La dispersion vient du jeu AVANT — c'est l'étalon de bruit du monde d'avant, et
+	@# chaque écart porte son verdict : au-delà d'elle, ou dans le bruit.
+	@test -n '$(AVANT)' -a -n '$(APRES)' -a -n '$(Q)' || { \
+		echo 'ERREUR : make eval-comparer AVANT=v1 APRES=v2 Q="ce que la comparaison cherche"'; \
+		exit 1; }
+	uv run python scripts/eval.py comparer $(AVANT) $(APRES) --question '$(Q)'
+
+eval-enregistrer: ## (Ré)enregistre les cassettes du jeu en vigueur — consomme la clé et des jetons
 	@# SCENARIO=<nom> n'en refait qu'un. À lancer à chaque changement de prompt ou de
 	@# schéma d'outils : l'écart d'empreinte fait échouer `make eval` en le disant.
+	@#
+	@# ⚠️ RAIYON_PROMPT_SYSTEME décide **où les cassettes atterrissent**. Sans elle, une
+	@# campagne v2 écrirait dans evals/cassettes/systeme.v1/ et périmerait le jeu v1 :
+	@#   RAIYON_PROMPT_SYSTEME=systeme.v2 make eval-enregistrer
 	uv run python scripts/eval.py enregistrer $(if $(SCENARIO),--scenario $(SCENARIO),)
 
 eval-live: ## 2-3 conversations avec le client simulé — clé requise, hors CI, rien n'est écrit

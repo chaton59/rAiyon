@@ -21,6 +21,7 @@ from raiyon.agent.evenements import (
     Texte,
     TexteRejete,
 )
+from raiyon.eval import metriques
 from raiyon.eval.metriques import (
     Attente,
     PriseJouee,
@@ -235,6 +236,7 @@ def test_un_code_declenche_sort_de_la_liste_des_muettes():
     mesuree = mesurer(
         prise(
             TexteRejete(
+                "Je vous propose l'Odyssée de Samsung.",
                 (Grief(CodeGrief.NOM_REECRIT, "l'Odyssée de Samsung", "recopier"),),
                 1,
                 OrigineRejet.TEXTE,
@@ -253,7 +255,9 @@ def test_les_deux_ensembles_partitionnent_toujours_lenumeration():
         [
             mesurer(
                 prise(
-                    TexteRejete((Grief(CodeGrief.ID_INCONNU, "x", "y"),), 1, OrigineRejet.QUESTION)
+                    TexteRejete(
+                        "x", (Grief(CodeGrief.ID_INCONNU, "x", "y"),), 1, OrigineRejet.QUESTION
+                    )
                 )
             )
         ]
@@ -278,6 +282,7 @@ def test_un_repli_de_validation_compte_comme_repli_et_non_comme_reponse():
     mesuree = mesurer(
         prise(
             TexteRejete(
+                texte="Voici le monitor-inconnu.",
                 griefs=(Grief(CodeGrief.ID_INCONNU, "monitor-inconnu", "chercher d'abord"),),
                 tentative=1,
                 origine=OrigineRejet.TEXTE,
@@ -314,12 +319,16 @@ def test_les_rejets_sont_comptes_par_origine_et_par_code():
     mesuree = mesurer(
         prise(
             TexteRejete(
+                "x puis z",
                 (Grief(CodeGrief.ID_INCONNU, "x", "y"), Grief(CodeGrief.NOM_REECRIT, "z", "w")),
                 1,
                 OrigineRejet.TEXTE,
             ),
             TexteRejete(
-                (Grief(CodeGrief.MONTANT_NON_FOURNI, "180 $", "y"),), 2, OrigineRejet.QUESTION
+                "Il est à 180 $ ?",
+                (Grief(CodeGrief.MONTANT_NON_FOURNI, "180 $", "y"),),
+                2,
+                OrigineRejet.QUESTION,
             ),
         )
     )
@@ -606,3 +615,160 @@ def test_les_iterations_par_tour_sont_publiees_telles_quelles(iterations):
     )
     assert mesuree.iterations == iterations
     assert agreger([mesuree]).tours == len(iterations)
+
+
+# --------------------------------------------------------------------------- #
+# Les deux observations de l'étape 13 — et ce qui les empêche de devenir des règles
+# --------------------------------------------------------------------------- #
+
+
+def test_le_compteur_de_chiffres_reutilise_lextraction_du_validateur():
+    """**Une seule lecture de nombre dans ce dépôt** (jalon 0, point D).
+
+    Le jour où l'écriture d'un nombre change — un séparateur de milliers de plus, une
+    notation qu'un modèle emploie —, les deux lectures doivent changer ensemble. Deux
+    extractions finissent par en dire deux choses, et l'une des deux devient fausse sans
+    que rien ne le signale.
+    """
+    from raiyon.validateur import extraction
+
+    assert metriques.nombres is extraction.nombres
+
+
+CLASSES_DE_CHIFFRES_TOLEREES = {
+    ('("liste numérotée", r"(?m)^[ \\t]*\\d+\\.[ \\t]+"),', "raiyon/eval/metriques.py"),
+}
+"""La **seule** classe de chiffres admise dans `raiyon.eval`, et ce qu'elle fait.
+
+Elle reconnaît un **marqueur de liste markdown** — « 1. », « 2. » en début de ligne —,
+c'est-à-dire une forme de rédaction que le front n'affiche pas. Elle ne lit aucune valeur :
+le chiffre y est un caractère de mise en forme, jamais un nombre qu'on compare à un
+`tool_result`.
+
+Toute autre serait une seconde lecture de nombre, et le jour où l'écriture d'un nombre
+change, l'une des deux deviendrait fausse en silence."""
+
+
+def test_aucun_module_du_harnais_ne_reecrit_une_extraction_de_nombre():
+    """La contre-épreuve du test ci-dessus, **sur le disque**.
+
+    Le test précédent constate que le bon appel existe ; celui-ci constate qu'aucun autre
+    n'a été écrit à côté. C'est le même geste que `test_isolation_eval` : la propriété se
+    vérifie sur les fichiers, pas sur les intentions.
+    """
+    from pathlib import Path
+
+    racine = Path(metriques.__file__).parent
+    trouvees = {
+        (ligne.strip(), f"raiyon/eval/{chemin.name}")
+        for chemin in sorted(racine.glob("*.py"))
+        for ligne in chemin.read_text(encoding="utf-8").splitlines()
+        if r"\d" in ligne or "[0-9]" in ligne
+    }
+    assert trouvees == CLASSES_DE_CHIFFRES_TOLEREES, (
+        "une classe de chiffres non déclarée dans `raiyon.eval` : "
+        f"{sorted(trouvees - CLASSES_DE_CHIFFRES_TOLEREES)}. Les nombres se lisent par "
+        "`extraction.nombres`, une seule fois — voir CLASSES_DE_CHIFFRES_TOLEREES."
+    )
+
+
+def test_une_prose_de_domaine_chiffree_ne_fait_pas_echouer_leval():
+    """**Le test qui empêche de repromouvoir le compteur en attente** (jalon 0, point D).
+
+    L'attente évidente — « aucun chiffre sur un tour de domaine » — a été écrite puis
+    refusée : elle est vraie sur v1 et deviendrait fausse dès qu'on demande au modèle de
+    basculer sur ce que le catalogue contient, ce qui est le bon comportement. Elle
+    pénaliserait le changement qu'elle évalue.
+
+    Six mois plus tard, personne ne relira ce paragraphe. Ce test, si.
+    """
+    chiffree = PriseJouee(
+        scenario="question_de_domaine",
+        prise=1,
+        tours=(TourJoue("IPS ou VA ?", (Texte("VA : environ 3000:1 à 6000:1."),), 1),),
+        messages=(),
+        tours_de_domaine=frozenset({1}),
+    )
+    mesures = agreger([mesurer(chiffree)])
+
+    assert mesures.chiffres_de_domaine == 4
+    assert mesures.prises[0].conforme is True
+    assert mesures.bloquants_tenus is True, (
+        "le compteur de chiffres est une observation : il ne décide de rien, et surtout "
+        "pas du code de sortie de `make eval`"
+    )
+
+
+def test_un_tour_non_declare_de_domaine_nentre_pas_dans_le_compteur():
+    """Le scénario **déclare** ses tours de domaine ; le harnais ne les devine pas."""
+    prose = "Voici 3 écrans entre 142,99 $ et 229,00 $."
+    tours = (TourJoue("un écran ?", (Texte(prose),), 1),)
+
+    sans = mesurer(PriseJouee("essai", 1, tours, ()))
+    avec = mesurer(PriseJouee("essai", 1, tours, (), tours_de_domaine=frozenset({1})))
+
+    assert sans.chiffres_de_domaine == 0
+    assert sans.prose_de_domaine == ()
+    assert avec.chiffres_de_domaine == 3, "3, 142,99 et 229,00 — une virgule décimale, un nombre"
+    assert avec.prose_de_domaine == ((1, (prose,)),)
+
+
+def test_le_texte_refuse_porte_son_tour_et_sa_phrase():
+    """Onze griefs dans cinq tours et onze griefs dans onze tours ne décrivent pas le même
+    défaut — d'où le rang du tour, que l'agrégat plat des événements ne porte pas."""
+    mesuree = mesurer(
+        PriseJouee(
+            scenario="changement_davis",
+            prise=2,
+            tours=(
+                TourJoue("un écran ?", (), 1),
+                TourJoue(
+                    "et en QHD ?",
+                    (
+                        TexteRejete(
+                            "Le MSI existe en QHD. Il est à 47 $ de plus.",
+                            (Grief(CodeGrief.MONTANT_NON_FOURNI, "47 $", "reprendre `prix_usd`"),),
+                            1,
+                            OrigineRejet.TEXTE,
+                        ),
+                    ),
+                    2,
+                ),
+            ),
+            messages=(),
+        )
+    )
+
+    (refus,) = mesuree.refus
+    assert (refus.scenario, refus.prise, refus.tour) == ("changement_davis", 2, 2)
+    assert refus.extrait == "47 $"
+    assert refus.phrase == "Il est à 47 $ de plus"
+    assert len(mesuree.refus) == len(mesuree.rejets)
+
+
+def test_un_extrait_introuvable_publie_le_texte_entier_plutot_que_rien():
+    """Publier trop de contexte est sans danger ; en publier trop peu perdrait l'opération
+    que l'appendice existe pour nommer."""
+    mesuree = mesurer(
+        PriseJouee(
+            scenario="essai",
+            prise=1,
+            tours=(
+                TourJoue(
+                    "?",
+                    (
+                        TexteRejete(
+                            "Une phrase. Une autre.",
+                            (Grief(CodeGrief.NOM_REECRIT, "absent du texte", "recopier"),),
+                            1,
+                            OrigineRejet.TEXTE,
+                        ),
+                    ),
+                    1,
+                ),
+            ),
+            messages=(),
+        )
+    )
+
+    assert mesuree.refus[0].phrase == "Une phrase. Une autre."

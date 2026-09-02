@@ -94,6 +94,18 @@ class Settings(BaseSettings):
     # régénération rattrape réellement.
     max_regenerations: int = Field(default=1, ge=0)
 
+    # Version du prompt système en vigueur — cf. PROJET.md §3.14 et l'étape 13.
+    # C'est une **sélection de fichier**, pas une interpolation : la valeur nomme un
+    # fichier de `prompts/`, et rien n'entre dans le texte. La distinction n'est pas
+    # rhétorique — §3.13 interdit qu'une variable entre dans le préfixe mis en cache,
+    # et choisir lequel des trois fichiers envoyer laisse chacun identique octet pour
+    # octet d'un appel à l'autre.
+    #
+    # Le motif refuse tout ce qui n'est pas un nom de fichier nu : sans lui,
+    # `RAIYON_PROMPT_SYSTEME=../../etc/passwd` ferait lire un chemin arbitraire à
+    # `prompts.charger()`, qui concatène sans vérifier.
+    prompt_systeme: str = Field(default="systeme.v1", pattern=r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     app_env: Literal["dev", "test", "prod"] = "dev"
 

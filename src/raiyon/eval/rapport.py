@@ -38,9 +38,16 @@ from raiyon.eval.metriques import (
     Attente,
     Mesures,
     MesuresDunePrise,
+    chiffres_de_la_prose,
 )
 
 TITRE = "# Rapport d'éval — rAiyon"
+
+LARGEUR_DE_CELLULE = 400
+"""Au-delà, une phrase est tronquée dans un tableau markdown. C'est haut exprès : une
+prose de recommandation entière doit tenir, et seul un texte manifestement anormal est
+coupé. La prose des tours de domaine, elle, n'est **jamais** tronquée — elle est publiée
+en bloc de citation, hors tableau, parce qu'elle est la preuve."""
 
 AVERTISSEMENT = """> ⚠️ **Comment lire ce tableau.** Les critères nº1 et nº2 sont garantis **par
 > construction** depuis l'étape 9 : le validateur refuse le texte fautif, régénère une
@@ -88,6 +95,12 @@ def rendre(mesures: Mesures) -> str:
         *_ecarts(mesures),
         "",
         *_manquements(mesures),
+        "",
+        *_appendice_des_refus(mesures),
+        "",
+        *_appendice_du_domaine(mesures),
+        "",
+        *_appendice_du_markdown(mesures),
     ]
     return "\n".join(sections).rstrip("\n") + "\n"
 
@@ -326,8 +339,148 @@ def _manquements(mesures: Mesures) -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
+# Les trois appendices — étape 13, jalon 0
+# --------------------------------------------------------------------------- #
+
+
+def _appendice_des_refus(mesures: Mesures) -> list[str]:
+    """Une ligne par grief, **avec la phrase que le validateur a refusée** (point A).
+
+    Sans cet appendice, l'étape 13 itérerait sur des compteurs : un taux qui descend de 11
+    à 5 ne dit pas **quelle forme** a disparu, et c'est la seule chose qu'on veuille savoir
+    d'un changement de prompt.
+
+    ⚠️ **Il est dérivé du verdict du validateur, jamais d'une liste écrite ici.** Un
+    sixième code de `CodeGrief` y apparaît sans qu'on touche à ce fichier — même raison
+    qu'à la ligne « règles jamais déclenchées », et le même mode d'échec évité : un
+    appendice qui mentirait par omission sur exactement ce qu'il existe pour montrer.
+
+    ⚠️ **Ces phrases n'ont jamais atteint le client.** Elles ont été refusées, puis
+    régénérées ou repliées. Les publier ici mesure ce que le modèle a **tenté**.
+    """
+    lignes = [
+        "## Appendice A — les phrases refusées",
+        "",
+        "Une ligne par grief. ⚠️ **Aucune de ces phrases n'a atteint le client** : elles ont",
+        "été refusées, puis régénérées ou repliées. Ce que cet appendice montre est ce que le",
+        "modèle a **tenté**, et sous quelle forme — un taux de rejet qui baisse ne dit pas",
+        "laquelle de ces formes a disparu.",
+        "",
+    ]
+    if not mesures.refus:
+        return [*lignes, "Aucun texte refusé par le validateur sur cette exécution."]
+    return [
+        *lignes,
+        *_tableau(
+            ("Scénario", "Prise", "Tour", "Origine", "Code", "Extrait", "Phrase refusée"),
+            [
+                (
+                    refus.scenario,
+                    str(refus.prise),
+                    str(refus.tour),
+                    refus.origine.value,
+                    f"`{refus.code.value}`",
+                    _cellule(refus.extrait),
+                    _cellule(refus.phrase),
+                )
+                for refus in mesures.refus
+            ],
+        ),
+    ]
+
+
+def _appendice_du_domaine(mesures: Mesures) -> list[str]:
+    """La prose **entière** des tours déclarés de domaine, et son compte de chiffres.
+
+    C'est le point D du jalon 0, et sa moitié la plus importante : **l'appendice verbatim
+    est la preuve, le compteur n'en est que le résumé.** La cible « ne pas affirmer un fait
+    de domaine » se compare en lisant, sur un artefact committé que n'importe qui peut
+    relire ; un compteur seul ne tranche rien.
+
+    ⚠️ **Aucun seuil, et c'est délibéré.** L'attente évidente — « aucun chiffre sur un tour
+    de domaine » — a été écrite puis refusée : elle est vraie sur v1 et deviendrait fausse
+    dès qu'on demande au modèle de basculer sur ce que le catalogue contient, ce qui est
+    précisément le bon comportement. Elle pénaliserait le changement qu'elle évalue. Voir
+    la docstring de `scenario.py`.
+    """
+    lignes = [
+        "## Appendice B — les tours de domaine, verbatim",
+        "",
+        "Les tours que les scénarios **déclarent** de domaine : le client y demande une",
+        "explication technique que le catalogue ne porte pas. §2 borne ce que l'assistant",
+        "sait faire — il conseille à partir du catalogue, il n'enseigne pas la technologie",
+        "d'affichage.",
+        "",
+        "⚠️ **Aucun seuil ici, et le compteur de chiffres n'en est pas un.** Il lit des",
+        "nombres, pas des faits : un ratio écrit `3000:1` compte pour **deux**, et « 32 de ces",
+        "écrans sont en VA » compte pour un chiffre alors que c'est un fait **fourni**, donc",
+        "exactement ce qu'on veut voir. La prose ci-dessous est la preuve ; le compte n'en est",
+        "que le résumé.",
+        "",
+        f"**{mesures.chiffres_de_domaine} valeur(s) chiffrée(s)** sur "
+        f"{mesures.tours_de_domaine} tour(s) de domaine.",
+        "",
+    ]
+    blocs = [
+        (prise.scenario, prise.prise, rang, ligne)
+        for prise in sorted(mesures.prises, key=lambda prise: (prise.scenario, prise.prise))
+        for rang, prose in prise.prose_de_domaine
+        for ligne in prose
+    ]
+    if not blocs:
+        return [*lignes, "Aucun scénario ne déclare de tour de domaine sur cette exécution."]
+    for scenario, numero, rang, ligne in blocs:
+        lignes.append(
+            f"**{scenario}.{numero}, tour {rang}** — {chiffres_de_la_prose((ligne,))} chiffre(s)"
+        )
+        lignes.append("")
+        lignes.extend(f"> {morceau}" if morceau else ">" for morceau in ligne.split("\n"))
+        lignes.append("")
+    return lignes[:-1]
+
+
+def _appendice_du_markdown(mesures: Mesures) -> list[str]:
+    """Les formes que le front n'interprète pas, comptées dans la prose **livrée** (point E).
+
+    Mesuré sur v1 **avant** que v3 y touche : sans le point de départ, la baisse ne se lit
+    pas. Publié sans seuil — c'est de l'affichage, pas un critère d'acceptation.
+    """
+    return [
+        "## Appendice C — le markdown que le front ne rend pas",
+        "",
+        "`web/rendu.js` rend **deux formes et pas une de plus** : le gras `**…**` et les sauts",
+        "de ligne. Le reste s'affiche tel quel — les backticks autour d'un identifiant sont",
+        "visibles à l'écran, constaté en démonstration (§7). Le correctif est **au prompt**,",
+        "pas au front : armer le front d'un parseur markdown rouvrirait la surface d'injection",
+        "que l'arbitrage B de l'étape 11 ferme.",
+        "",
+        "Compté sur la prose **livrée**, sans seuil.",
+        "",
+        *_tableau(
+            ("Forme", "Occurrences"),
+            [(nom, str(compte)) for nom, compte in mesures.formes_markdown],
+        ),
+    ]
+
+
+# --------------------------------------------------------------------------- #
 # Formatage — chaque fonction rend la **même** chaîne pour la même entrée
 # --------------------------------------------------------------------------- #
+
+
+def _cellule(texte: str) -> str:
+    """Un texte libre dans une cellule de tableau markdown, sans casser le tableau.
+
+    Trois gestes, et chacun ferme un défaut réel du rendu : les sauts de ligne deviennent
+    des espaces (un `\n` couperait la ligne du tableau en deux), les barres verticales sont
+    échappées (une barre non échappée ouvrirait une colonne fantôme), et un texte
+    manifestement anormal est tronqué.
+
+    ⚠️ **La troncature ne s'applique pas à l'appendice B**, dont la prose est publiée en
+    bloc de citation, hors tableau. Une preuve tronquée n'est plus une preuve.
+    """
+    plat = " ".join(texte.split()).replace("|", "\\|")
+    return plat if len(plat) <= LARGEUR_DE_CELLULE else plat[:LARGEUR_DE_CELLULE] + "…"
 
 
 def _verdict(tenu: bool | None) -> str:

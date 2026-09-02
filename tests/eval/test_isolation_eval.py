@@ -44,6 +44,7 @@ MODULES_PURS = (
     "raiyon.eval.scenario",
     "raiyon.eval.metriques",
     "raiyon.eval.rapport",
+    "raiyon.eval.comparaison",
     "raiyon.eval.client",
 )
 """Les quatre du §5, plus `client` — voir la docstring : c'est lui qui fait que `make eval`

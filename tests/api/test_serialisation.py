@@ -301,6 +301,7 @@ def test_message_porte_le_texte_entier():
 
 def test_text_rejected_porte_les_griefs_et_lorigine():
     evenement = TexteRejete(
+        texte="Le monitor-0000000000 vous conviendrait-il ?",
         griefs=(Grief(CodeGrief.ID_INCONNU, "monitor-0000000000", "citer un id fourni"),),
         tentative=1,
         origine=OrigineRejet.QUESTION,
@@ -685,7 +686,7 @@ def test_lexhaustivite_de_lunion_est_tenue_par_mypy():
             ProduitsTrouves(ResultatMatching("monitor", (), ())),
             QuestionPosee("?", None),
             Texte("."),
-            TexteRejete((), 1, OrigineRejet.TEXTE),
+            TexteRejete("", (), 1, OrigineRejet.TEXTE),
             Repli(".", 1, (), MotifDeRepli.VALIDATION),
         )
     }
@@ -693,3 +694,29 @@ def test_lexhaustivite_de_lunion_est_tenue_par_mypy():
     assert len(noms) == 8
     assert NomEvenement.ERREUR not in noms
     assert NomEvenement.FIN not in noms
+
+
+def test_le_texte_refuse_ne_part_jamais_au_client():
+    """**Un texte refusé n'a pas atteint le client, et il ne doit pas l'atteindre ici.**
+
+    `TexteRejete` porte le texte refusé depuis l'étape 13 : c'est ce qui permet au rapport
+    d'éval de publier *quelle forme* de phrase le validateur a repoussée, au lieu d'un code
+    seul. Le fil SSE, lui, n'a rien à en faire — et le lui donner ressusciterait exactement
+    le défaut que le correctif de l'étape 11 a fermé : le dernier refus d'un tour ne revient
+    pas au client, pas même par une porte dérobée.
+
+    `_texte_rejete` choisit ses champs un par un, donc l'ajout ne fuit pas. Ce test le
+    **constate**, parce qu'un jour quelqu'un remplacera cette fonction par un `asdict()`.
+    """
+    secret = "Celui-ci est à 230 $, une affaire que personne n'a fournie."
+    _, donnees = nom_et_donnees(
+        TexteRejete(
+            texte=secret,
+            griefs=(Grief(CodeGrief.MONTANT_NON_FOURNI, "230 $", "reprendre `prix_usd`"),),
+            tentative=1,
+            origine=OrigineRejet.TEXTE,
+        )
+    )
+
+    assert set(donnees) == {"origine", "tentative", "griefs"}
+    assert secret not in json.dumps(donnees, ensure_ascii=False)

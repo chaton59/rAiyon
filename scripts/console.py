@@ -52,7 +52,7 @@ from raiyon.agent.evenements import (
     Texte,
     TexteRejete,
 )
-from raiyon.agent.prompts import prompt_systeme
+from raiyon.agent.prompts import SystemeEnVigueur, prompt_systeme
 from raiyon.agent.session import SessionIntrouvable, creer_session, lire_session, tour
 from raiyon.catalogue.schemas import LIBELLES_CATEGORIE, Categorie
 from raiyon.config import ConfigurationError, get_settings
@@ -78,7 +78,7 @@ def main() -> int:
 
     try:
         client = ClientAnthropic()
-        systeme, signature = prompt_systeme()
+        prompt = prompt_systeme()
         reglages = get_settings()
     except ConfigurationError as erreur:
         print(f"\n⛔ {erreur}\n", file=sys.stderr)
@@ -101,7 +101,7 @@ def main() -> int:
             base.commit()
 
         depot = DepotSql(base)
-        _entete(conversation.id, signature, client.strict, reprise=arguments.session is not None)
+        _entete(conversation.id, prompt, client.strict, reprise=arguments.session is not None)
         _rappeler_letat(conversation)
 
         for ligne in _lignes_de_stdin():
@@ -109,7 +109,7 @@ def main() -> int:
                 base,
                 conversation,
                 client=client,
-                systeme=systeme,
+                systeme=prompt.texte,
                 outils=outils,
                 message_client=ligne,
                 depot=depot,
@@ -344,11 +344,19 @@ def _rappeler_letat(conversation: SessionConversation) -> None:
     print(f"\033[36m[repris]\033[0m {libelle} · {nombre} critère(s) · budget {budget}")
 
 
-def _entete(identifiant: uuid.UUID, signature: str, strict: bool, *, reprise: bool) -> None:
+def _entete(
+    identifiant: uuid.UUID, prompt: SystemeEnVigueur, strict: bool, *, reprise: bool
+) -> None:
+    """L'en-tête dit **quelle version tourne**, et il la lit au lieu de l'écrire.
+
+    Le nom de fichier était en dur ici jusqu'à l'étape 13. Depuis que la version se
+    choisit par variable d'environnement, un littéral dirait `systeme.v1` pendant qu'une
+    campagne v3 tourne — une console qui ment sur ce qu'elle envoie.
+    """
     mode = "strict" if strict else "repli sans strict"
     print(f"\n\033[1mrAiyon\033[0m — {'session reprise' if reprise else 'nouvelle session'}")
     print(f"session : {identifiant}")
-    print(f"prompt  : systeme.v1 ({signature}) · outils : {mode}")
+    print(f"prompt  : {prompt.version} ({prompt.empreinte}) · outils : {mode}")
     print(f'Ctrl-D pour sortir. Pour reprendre : make chat ARGS="--session {identifiant}"')
 
 

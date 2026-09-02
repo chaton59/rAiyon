@@ -129,7 +129,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from raiyon.agent.client import ClientLLM
 from raiyon.agent.client_anthropic import ClientAnthropic
-from raiyon.agent.prompts import SYSTEME_V1, prompt_systeme
+from raiyon.agent.prompts import SystemeEnVigueur, prompt_systeme
 from raiyon.agent.session import (
     SessionIntrouvable,
     creer_session,
@@ -228,8 +228,13 @@ class Ressources:
     """Ce que tout tour partage. Construit au `lifespan`, jamais par requête (piège 4)."""
 
     client: ClientLLM
-    systeme: str
-    signature: str
+    prompt: SystemeEnVigueur
+    """La version en vigueur, son texte et son empreinte, **d'un seul tenant**.
+
+    Elles étaient deux champs jusqu'à l'étape 13, la version étant une constante. Depuis
+    qu'elle se choisit par variable d'environnement, les séparer laisserait `/health`
+    annoncer une version et la boucle en envoyer une autre."""
+
     outils: tuple[dict[str, Any], ...]
     fabrique: sessionmaker[Session]
     reglages: Settings
@@ -245,20 +250,24 @@ async def duree_de_vie(application: FastAPI) -> AsyncIterator[None]:
     """
     try:
         client = ClientAnthropic()
-        systeme, signature = prompt_systeme()
+        prompt = prompt_systeme()
     except ConfigurationError as erreur:
         logueur.error("api.demarrage_impossible", message=str(erreur))
         raise
 
     application.state.ressources = Ressources(
         client=client,
-        systeme=systeme,
-        signature=signature,
+        prompt=prompt,
         outils=tuple(schema_des_outils()),
         fabrique=get_sessionmaker(),
         reglages=get_settings(),
     )
-    logueur.info("api.demarree", prompt=SYSTEME_V1, empreinte=signature, strict=client.strict)
+    logueur.info(
+        "api.demarree",
+        prompt=prompt.version,
+        empreinte=prompt.empreinte,
+        strict=client.strict,
+    )
     yield
 
 
@@ -457,7 +466,7 @@ def sante(reponse: Response, partagees: Partagees, fabrique: Fabrique) -> Sante:
 
     return Sante(
         base=joignable,
-        prompt=PromptExpose(version=SYSTEME_V1, empreinte=partagees.signature),
+        prompt=PromptExpose(version=partagees.prompt.version, empreinte=partagees.prompt.empreinte),
         strict=getattr(partagees.client, "strict", False),
     )
 
@@ -492,7 +501,7 @@ def _flux(
             base,
             conversation,
             client=modele,
-            systeme=partagees.systeme,
+            systeme=partagees.prompt.texte,
             outils=partagees.outils,
             message_client=message,
             depot=DepotSql(base),

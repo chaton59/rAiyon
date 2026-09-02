@@ -4,9 +4,22 @@ Trois modes, trois besoins différents, et c'est **ce qu'ils exigent** qui les s
 
 | Mode | Base | Clé API | Écrit |
 |---|---|---|---|
-| `rejouer` | oui | **non** | `docs/eval/rapport.md`, et le code de sortie |
-| `enregistrer` | oui | oui | `evals/cassettes/*.json` |
+| `rejouer` | oui | **non** | `docs/eval/rapport.<jeu>.md`, et le code de sortie |
+| `enregistrer` | oui | oui | `evals/cassettes/systeme.<jeu>/*.json` |
 | `live` | oui | oui | rien |
+
+### Un **jeu** par version de prompt (étape 13, jalon 0, point B)
+
+Trois prompts coexistent, et comparer deux versions suppose de garder les deux jeux de
+cassettes — pas seulement les deux rapports. Un jeu porte un nom court (`v1`, `v2`, `v3`,
+`v1-etape12`), ses cassettes vivent sous `evals/cassettes/systeme.<nom>/` et son rapport
+s'écrit dans `docs/eval/rapport.<nom>.md`.
+
+*Alternative écartée — n'écraser et ne garder que les rapports.* Moins cher. Écartée parce
+qu'elle fait décrire par §7 et par le correctif de l'étape 12 un **tirage qui n'existerait
+plus nulle part**, et parce qu'un changement de moteur ultérieur ne se rejouerait plus
+contre v1 : la comparaison cesserait d'être reproductible, ce qui est précisément la
+propriété que l'arbitrage A achète en ne figeant pas les `tool_result`.
 
 Le rejeu n'a pas besoin de clé : c'est la propriété que `raiyon/eval/client.py` achète, et
 un test d'isolation la vérifie sur le disque. Il a en revanche besoin de la base et du
@@ -22,17 +35,25 @@ que dix scénarios scriptés ne produisent pas, pas à mesurer.
 import argparse
 import datetime as dt
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import structlog
 from sqlalchemy.orm import Session
 
 from raiyon.agent.client import ClientLLM
-from raiyon.agent.prompts import SYSTEME_V1, prompt_systeme
+from raiyon.agent.prompts import (
+    PREFIXE_SYSTEME,
+    SystemeEnVigueur,
+    charger,
+    empreinte,
+    prompt_systeme,
+)
 from raiyon.agent.session import creer_session
 from raiyon.config import ConfigurationError, get_settings
 from raiyon.db.engine import get_sessionmaker
+from raiyon.eval import comparaison
 from raiyon.eval.cassette import (
     COMMANDE_DE_REGENERATION,
     Cassette,
@@ -48,8 +69,8 @@ from raiyon.eval.client_simule import (
     a_termine,
     sans_le_mot_de_fin,
 )
-from raiyon.eval.executeur import Reglages, jouer, jouer_un_tour, prose_livree
-from raiyon.eval.metriques import MesuresDunePrise, agreger, mesurer
+from raiyon.eval.executeur import Reglages, jouer, jouer_un_tour
+from raiyon.eval.metriques import Mesures, MesuresDunePrise, agreger, mesurer, prose_livree
 from raiyon.eval.rapport import rendre
 from raiyon.eval.scenario import SCENARIOS, Scenario, ScenarioInconnu, par_nom
 from raiyon.matching.depot import DepotSql
@@ -59,7 +80,51 @@ logueur = structlog.get_logger(__name__)
 
 RACINE = Path(__file__).resolve().parents[1]
 CASSETTES = RACINE / "evals" / "cassettes"
-RAPPORT = RACINE / "docs" / "eval" / "rapport.md"
+RAPPORTS = RACINE / "docs" / "eval"
+
+JEU_ETAPE_12 = "v1-etape12"
+"""Le jeu archivé : les dix-neuf cassettes de l'étape 12, **intactes**.
+
+Il est nommé ici parce que c'est le seul jeu dont le nom ne se déduit pas d'une version en
+vigueur. `systeme.v1.md` ne changeant pas, il reste rejouable : le tirage que §7 et le
+correctif de l'étape 12 citent reste **reconstituable**, et pas seulement lisible."""
+
+
+@dataclass(frozen=True, slots=True)
+class Jeu:
+    """Où vivent les cassettes d'une campagne, et où va son rapport.
+
+    Le nom est court (`v1`, `v2`, `v3`, `v1-etape12`) et la version de prompt est celle
+    **en vigueur** : les deux ne coïncident pas toujours, et `v1-etape12` est exactement
+    ce cas — un jeu enregistré contre `systeme.v1`, rangé à part parce qu'il date d'une
+    autre campagne. C'est pourquoi le nom du répertoire n'est pas dérivé de l'en-tête des
+    cassettes : c'est un **rangement**, pas une empreinte, et l'empreinte reste le seul
+    contrôle de péremption.
+    """
+
+    nom: str
+    version: str
+
+    @property
+    def cassettes(self) -> Path:
+        return CASSETTES / f"{PREFIXE_SYSTEME}{self.nom}"
+
+    @property
+    def rapport(self) -> Path:
+        return RAPPORTS / f"rapport.{self.nom}.md"
+
+    def chemin(self, scenario: str, prise: int) -> Path:
+        return self.cassettes / f"{scenario}.{prise}.json"
+
+
+def jeu_en_vigueur(nom: str | None, version: str) -> Jeu:
+    """Le jeu visé. Par défaut, celui de la version de prompt en vigueur.
+
+    `systeme.v2` → le jeu `v2`. Nommer un jeu explicitement sert à rejouer une campagne
+    archivée sans changer de prompt — `--jeu v1-etape12` avec `systeme.v1` en vigueur.
+    """
+    return Jeu(nom=nom or version.removeprefix(PREFIXE_SYSTEME), version=version)
+
 
 MAX_TOURS_LIVE = 8
 """Un client simulé qui ne dit jamais `FIN` coûterait des jetons jusqu'à l'ennui."""
@@ -79,12 +144,29 @@ def main() -> int:
         default=None,
         help=(
             "n'en rejouer qu'un, par son nom. Le rapport est alors affiché mais **non "
-            "écrit** : un docs/eval/rapport.md partiel serait un faux."
+            "écrit** : un rapport partiel serait un faux."
+        ),
+    )
+    rejouer.add_argument(
+        "--jeu",
+        default=None,
+        help=(
+            "le jeu de cassettes à rejouer. Par défaut celui de la version de prompt en "
+            f"vigueur ; `--jeu {JEU_ETAPE_12}` rejoue la campagne archivée de l'étape 12."
         ),
     )
 
     enregistrer = sous.add_parser("enregistrer", help="(ré)enregistre les cassettes — clé requise")
     enregistrer.add_argument("--scenario", default=None, help="n'en refaire qu'un, par son nom")
+
+    comparer = sous.add_parser("comparer", help="deux jeux côte à côte, avec la dispersion")
+    comparer.add_argument("avant", help="le jeu de référence — c'est lui qui donne la dispersion")
+    comparer.add_argument("apres", help="le jeu comparé")
+    comparer.add_argument(
+        "--question",
+        required=True,
+        help="ce que cette comparaison cherche à savoir — écrit dans le fichier produit",
+    )
 
     live = sous.add_parser("live", help="conversations avec le client simulé — rien n'est écrit")
     live.add_argument("--personas", nargs="*", default=None, help="par leur nom ; tous par défaut")
@@ -92,9 +174,11 @@ def main() -> int:
     arguments = analyseur.parse_args()
     try:
         if arguments.mode == "rejouer":
-            return _rejouer(arguments.scenario)
+            return _rejouer(arguments.scenario, arguments.jeu)
         if arguments.mode == "enregistrer":
             return _enregistrer(arguments.scenario)
+        if arguments.mode == "comparer":
+            return _comparer(arguments.avant, arguments.apres, arguments.question)
         return _live(arguments.personas)
     except (ConfigurationError, ScenarioInconnu, CassetteAbsente) as erreur:
         print(f"\n⛔ {erreur}\n", file=sys.stderr)
@@ -106,26 +190,41 @@ def main() -> int:
 # --------------------------------------------------------------------------- #
 
 
-def _reglages() -> tuple[Reglages, str, str]:
-    """Les réglages de la boucle, l'empreinte du prompt et celle du schéma d'outils.
+def _reglages() -> tuple[Reglages, SystemeEnVigueur, str]:
+    """Les réglages de la boucle pour le prompt **en vigueur**, son identité, les outils."""
+    return _reglages_pour(prompt_systeme())
 
-    Les deux empreintes sont calculées **ici et une seule fois** : les recalculer par
+
+def _reglages_pour(prompt: SystemeEnVigueur) -> tuple[Reglages, SystemeEnVigueur, str]:
+    """Les mêmes, pour une version **nommée** plutôt que pour celle en vigueur.
+
+    C'est ce que `comparer` exige : deux campagnes se rejouent dans le **même processus**,
+    contre deux prompts différents. Lire la version dans l'environnement à cet endroit
+    obligerait à relancer un processus par jeu, donc à recomposer la comparaison à la main —
+    et c'est justement le geste que l'étape 13 fait trois fois.
+
+    Les empreintes sont calculées **ici et une seule fois par jeu** : les recalculer par
     cassette ferait dépendre le contrôle de l'arbitrage C du fait que personne n'édite
     `prompts/` pendant l'exécution.
     """
-    systeme, empreinte_prompt = prompt_systeme()
     outils = schema_des_outils()
     reglage = get_settings()
     return (
         Reglages(
-            systeme=systeme,
+            systeme=prompt.texte,
             outils=outils,
             max_iterations=reglage.max_agent_iterations,
             max_regenerations=reglage.max_regenerations,
         ),
-        empreinte_prompt,
+        prompt,
         empreinte_des_outils(outils),
     )
+
+
+def systeme_du_jeu(jeu: Jeu) -> SystemeEnVigueur:
+    """Le prompt d'un jeu, chargé par son nom de version — **sans passer par l'environnement**."""
+    texte = charger(jeu.version)
+    return SystemeEnVigueur(version=jeu.version, texte=texte, empreinte=empreinte(texte))
 
 
 def _prises(scenarios: tuple[Scenario, ...]) -> Iterator[tuple[Scenario, int]]:
@@ -134,37 +233,63 @@ def _prises(scenarios: tuple[Scenario, ...]) -> Iterator[tuple[Scenario, int]]:
             yield scenario, prise
 
 
-def _chemin(scenario: Scenario, prise: int) -> Path:
-    return CASSETTES / scenario.fichier(prise)
-
-
 # --------------------------------------------------------------------------- #
 # `make eval` — rejeu, rapport, code de sortie
 # --------------------------------------------------------------------------- #
 
 
-def _rejouer(nom: str | None = None) -> int:
-    """Rejoue les seize prises, écrit le rapport, et **sort en non nul si un critère
-    bloquant est violé**.
+def prises_du_jeu(jeu: Jeu, nom: str | None = None) -> list[tuple[Scenario, int]]:
+    """Les prises que ce jeu porte **sur le disque**, triées, filtrées par scénario.
 
-    Le code de sortie est la porte de sortie de l'étape : un rapport qu'il faudrait lire
-    pour savoir s'il est vert n'est pas une porte, c'est un document.
+    ⚠️ **Découvertes, et non déduites de `SCENARIOS`**, et c'est une décision de l'étape 13
+    plutôt qu'une facilité. Les campagnes n'ont pas toutes le même nombre de prises : celle
+    de l'étape 12 en compte dix-neuf, celles de l'étape 13 trente-six. Déduire la liste des
+    prises du code ferait réclamer trente-six cassettes au jeu archivé, et « conservé »
+    cesserait de vouloir dire « rejouable ».
+
+    Ce que le disque ne peut pas dire — *ce jeu est-il complet ?* — est vérifié ailleurs, à
+    l'endroit qui le sait : un test compte les cassettes du jeu en vigueur contre
+    `prises_attendues()`.
     """
-    scenarios = SCENARIOS if nom is None else (par_nom(nom),)
-    reglages, empreinte_prompt, empreinte_outils = _reglages()
+    trouvees: list[tuple[Scenario, int]] = []
+    for chemin in sorted(jeu.cassettes.glob("*.json")):
+        scenario_nom, _, reste = chemin.stem.partition(".")
+        if nom is not None and scenario_nom != nom:
+            continue
+        trouvees.append((par_nom(scenario_nom), int(reste)))
+    return sorted(trouvees, key=lambda paire: (paire[0].nom, paire[1]))
+
+
+def mesurer_le_jeu(
+    jeu: Jeu,
+    prises: Sequence[tuple[Scenario, int]],
+    reglages: Reglages,
+    prompt: SystemeEnVigueur,
+    empreinte_outils: str,
+) -> Mesures:
+    """Rejoue les prises d'un jeu et rend l'agrégat. **Aucune écriture.**
+
+    Extrait de `_rejouer` pour que `comparer` puisse en faire tourner deux dans le même
+    processus : sans cela, la comparaison des trois jalons se recomposerait à la main, à
+    partir de deux fichiers markdown, ce qui est exactement le genre de geste qu'une
+    campagne à trente-six prises ne mérite pas.
+    """
+    print(f"jeu {jeu.nom} — prompt {prompt.version} ({prompt.empreinte}), {len(prises)} prise(s)")
     fabrique = get_sessionmaker()
     mesures: list[MesuresDunePrise] = []
 
-    for scenario, prise in _prises(scenarios):
-        chemin = _chemin(scenario, prise)
-        if not chemin.is_file():
-            raise CassetteAbsente(
-                f"{chemin.relative_to(RACINE)} est absente.\nEnregistrer :\n    "
-                + COMMANDE_DE_REGENERATION.format(scenario=scenario.nom)
-            )
+    for scenario, prise in prises:
+        chemin = jeu.chemin(scenario.nom, prise)
         cassette = depuis_json(chemin.read_text(encoding="utf-8"))
-        verifier(cassette, prompt_empreinte=empreinte_prompt, outils_empreinte=empreinte_outils)
-        client = ClientCassette(cassette, source=str(chemin.relative_to(RACINE)))
+        source = str(chemin.relative_to(RACINE))
+        verifier(
+            cassette,
+            prompt_version=prompt.version,
+            prompt_empreinte=prompt.empreinte,
+            outils_empreinte=empreinte_outils,
+            source=source,
+        )
+        client = ClientCassette(cassette, source=source)
 
         with fabrique() as base:
             jouee = jouer(
@@ -185,15 +310,86 @@ def _rejouer(nom: str | None = None) -> int:
             )
         mesures.append(mesurer(jouee))
         print(f"  · {scenario.nom}.{prise}")
+    return agreger(mesures)
 
-    agregat = agreger(mesures)
+
+def _prises_manquantes(jeu: Jeu, prises: Sequence[tuple[Scenario, int]]) -> str:
+    """Ce qui manque au jeu **en vigueur** pour être complet, ou une chaîne vide.
+
+    ⚠️ **Un rapport écrit depuis un jeu incomplet est un faux**, et il ne s'annonce pas
+    comme tel : le tableau a la même forme, les critères sont verts, et rien ne dit que
+    quatre scénarios sur onze n'ont pas été joués. C'est un fichier committé, comparé à
+    trois autres, et lu dans six mois.
+
+    **Trouvé en le vivant**, à l'étape 13 : la campagne v1 s'est arrêtée à 21 prises sur
+    36, l'API ayant refusé le vingt-deuxième appel. Rien dans le harnais ne l'aurait dit
+    au rejeu suivant.
+
+    Un jeu **archivé** en est exempt : `v1-etape12` porte dix-neuf prises parce que
+    l'étape 12 en a enregistré dix-neuf, et il est complet pour ce qu'il est. Le contrôle
+    ne porte donc que sur le jeu de la version en vigueur, dont `SCENARIOS` décrit
+    exactement ce qu'il doit contenir.
+
+    §5 étape 13, point 8 : si une campagne doit être réduite, ce qui se coupe est le
+    **nombre de scénarios**, et cela **s'écrit**. Le silence n'est pas une option ; le
+    rapport reste affiché à l'écran, il n'est simplement pas committé sous un nom qui
+    prétendrait décrire la campagne entière.
+    """
+    if jeu.nom != jeu.version.removeprefix(PREFIXE_SYSTEME):
+        return ""
+    attendues = {
+        (scenario.nom, prise) for scenario in SCENARIOS for prise in range(1, scenario.prises + 1)
+    }
+    manquantes = attendues - {(scenario.nom, prise) for scenario, prise in prises}
+    if not manquantes:
+        return ""
+    par_scenario: dict[str, int] = {}
+    for scenario_nom, _ in manquantes:
+        par_scenario[scenario_nom] = par_scenario.get(scenario_nom, 0) + 1
+    return (
+        f"⛔ {jeu.rapport.relative_to(RACINE)} n'est **pas** écrit : le jeu {jeu.nom} est "
+        f"incomplet.\n   {len(prises)} prise(s) sur {len(attendues)} — il manque "
+        + ", ".join(f"{nom} x{compte}" for nom, compte in sorted(par_scenario.items()))
+        + "\n\n   Un rapport écrit depuis un jeu incomplet a la même forme qu'un rapport "
+        "complet et ne dit pas\n   ce qui manque. Le tableau ci-dessus est affiché, pas "
+        "committé.\n\n   Compléter :\n       "
+        + "\n       ".join(
+            COMMANDE_DE_REGENERATION.format(version=jeu.version, scenario=nom)
+            for nom in sorted(par_scenario)
+        )
+    )
+
+
+def _rejouer(nom: str | None = None, jeu_nomme: str | None = None) -> int:
+    """Rejoue les cassettes d'un jeu, écrit son rapport, et **sort en non nul si un critère
+    bloquant est violé**.
+
+    Le code de sortie est la porte de sortie de l'étape : un rapport qu'il faudrait lire
+    pour savoir s'il est vert n'est pas une porte, c'est un document.
+    """
+    reglages, prompt, empreinte_outils = _reglages()
+    jeu = jeu_en_vigueur(jeu_nomme, prompt.version)
+    prises = prises_du_jeu(jeu, nom)
+    if not prises:
+        raise CassetteAbsente(
+            f"aucune cassette dans {jeu.cassettes.relative_to(RACINE)}"
+            + (f" pour le scénario {nom!r}" if nom else "")
+            + ".\nEnregistrer :\n    "
+            + COMMANDE_DE_REGENERATION.format(
+                version=prompt.version, scenario=nom or "<nom du scénario>"
+            )
+        )
+
+    agregat = mesurer_le_jeu(jeu, prises, reglages, prompt, empreinte_outils)
     texte = rendre(agregat)
-    if nom is None:
-        RAPPORT.parent.mkdir(parents=True, exist_ok=True)
-        RAPPORT.write_text(texte, encoding="utf-8")
-        print(f"\n→ {RAPPORT.relative_to(RACINE)}\n")
+    if nom is not None:
+        print(f"\n(rapport partiel — {jeu.rapport.relative_to(RACINE)} n'est pas réécrit)\n")
+    elif partiel := _prises_manquantes(jeu, prises):
+        print(f"\n{partiel}\n", file=sys.stderr)
     else:
-        print(f"\n(rapport partiel — {RAPPORT.relative_to(RACINE)} n'est pas réécrit)\n")
+        jeu.rapport.parent.mkdir(parents=True, exist_ok=True)
+        jeu.rapport.write_text(texte, encoding="utf-8")
+        print(f"\n→ {jeu.rapport.relative_to(RACINE)}\n")
     print(texte)
 
     if agregat.bloquants_tenus:
@@ -219,11 +415,16 @@ def _enregistrer(nom: str | None) -> int:
     from raiyon.agent.client_anthropic import ClientAnthropic
 
     scenarios = SCENARIOS if nom is None else (par_nom(nom),)
-    reglages, empreinte_prompt, empreinte_outils = _reglages()
+    reglages, prompt, empreinte_outils = _reglages()
+    jeu = jeu_en_vigueur(None, prompt.version)
     reel = ClientAnthropic()
     fabrique = get_sessionmaker()
     date = dt.date.today().isoformat()
-    CASSETTES.mkdir(parents=True, exist_ok=True)
+    jeu.cassettes.mkdir(parents=True, exist_ok=True)
+    print(
+        f"jeu {jeu.nom} → {jeu.cassettes.relative_to(RACINE)} — "
+        f"prompt {prompt.version} ({prompt.empreinte})"
+    )
 
     for scenario, prise in _prises(scenarios):
         enregistreur = ClientEnregistreur(reel)
@@ -241,13 +442,13 @@ def _enregistrer(nom: str | None) -> int:
                 scenario=scenario.nom,
                 prise=prise,
                 modele=get_settings().model_agent,
-                prompt_version=SYSTEME_V1,
-                prompt_empreinte=empreinte_prompt,
+                prompt_version=prompt.version,
+                prompt_empreinte=prompt.empreinte,
                 outils_empreinte=empreinte_outils,
                 enregistree_le=date,
             )
         )
-        chemin = _chemin(scenario, prise)
+        chemin = jeu.chemin(scenario.nom, prise)
         chemin.write_text(en_json(cassette), encoding="utf-8")
         print(
             f"  · {chemin.relative_to(RACINE)} — {len(cassette.prises)} prise(s), "
@@ -256,12 +457,62 @@ def _enregistrer(nom: str | None) -> int:
     return 0
 
 
-def relire(scenario: Scenario, prise: int) -> Cassette:
-    """Une cassette du dépôt, par son scénario. Sert aux tests d'intégration du harnais."""
-    chemin = _chemin(scenario, prise)
+def relire(jeu: Jeu, scenario: Scenario, prise: int) -> Cassette:
+    """Une cassette d'un jeu, par son scénario. Sert aux tests d'intégration du harnais."""
+    chemin = jeu.chemin(scenario.nom, prise)
     if not chemin.is_file():
         raise CassetteAbsente(f"{chemin} est absente.")
     return depuis_json(chemin.read_text(encoding="utf-8"))
+
+
+# --------------------------------------------------------------------------- #
+# `make eval-comparer` — deux jeux côte à côte, sans clé
+# --------------------------------------------------------------------------- #
+
+
+def _comparer(avant: str, apres: str, question: str) -> int:
+    """Rejoue deux jeux **dans le même processus** et écrit leur comparaison.
+
+    Le même processus, parce que la version de prompt de chaque jeu est chargée par son
+    **nom** et non lue dans l'environnement (`systeme_du_jeu`). Deux processus rendraient
+    deux markdown qu'il faudrait recomposer à la main, et l'étape 13 fait ce geste trois
+    fois — v1-étape12/v1, v1/v2, v2/v3.
+
+    ⚠️ **Aucune clé API.** C'est un rejeu, comme `make eval`.
+    """
+    jeux = [_jeu_nomme(avant), _jeu_nomme(apres)]
+    agregats = []
+    for jeu in jeux:
+        prises = prises_du_jeu(jeu)
+        if not prises:
+            raise CassetteAbsente(
+                f"aucune cassette dans {jeu.cassettes.relative_to(RACINE)} — "
+                "la comparaison porterait sur rien."
+            )
+        prompt = systeme_du_jeu(jeu)
+        reglages, _, empreinte_outils = _reglages_pour(prompt)
+        agregats.append(mesurer_le_jeu(jeu, prises, reglages, prompt, empreinte_outils))
+
+    texte = comparaison.rendre(
+        agregats[0],
+        agregats[1],
+        nom_avant=jeux[0].nom,
+        nom_apres=jeux[1].nom,
+        question=question,
+    )
+    chemin = RAPPORTS / f"comparaison.{jeux[0].nom}-{jeux[1].nom}.md"
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    chemin.write_text(texte, encoding="utf-8")
+    print(f"\n→ {chemin.relative_to(RACINE)}\n")
+    print(texte)
+    return 0
+
+
+def _jeu_nomme(nom: str) -> Jeu:
+    """Un jeu par son nom court. Sa version de prompt est `systeme.<nom>`, sauf pour les
+    jeux archivés dont le nom porte un suffixe — `v1-etape12` tourne sous `systeme.v1`."""
+    version = f"{PREFIXE_SYSTEME}{nom.split('-')[0]}"
+    return Jeu(nom=nom, version=version)
 
 
 # --------------------------------------------------------------------------- #

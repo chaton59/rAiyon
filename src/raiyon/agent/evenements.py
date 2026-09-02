@@ -247,6 +247,24 @@ class TexteRejete:
     texte rejeté est une **métrique de critère d'acceptation**.
     """
 
+    texte: str
+    """**Ce qui a été refusé**, entier — ajouté au jalon 0 de l'étape 13.
+
+    Un grief porte un `extrait` (« 47 $ ») et une correction ; il ne porte pas la phrase
+    dans laquelle l'extrait a été écrit. Le rapport d'éval publiait donc des **codes**, et
+    un taux de rejet qui descend de 11 à 5 ne disait pas **quelle forme** avait disparu —
+    la seule chose qu'on veuille savoir d'un changement de prompt.
+
+    Il a fallu relire les cassettes à la main pour attribuer les onze griefs de l'étape 12
+    à trois opérations (arrondir une borne, dériver un écart, chiffrer un assouplissement),
+    et l'information était déjà là : elle n'était simplement pas portée jusqu'à la mesure.
+
+    ⚠️ **Ce texte n'atteint jamais le client**, et rien ici ne le change : `serialisation.py`
+    choisit ses champs un par un et n'expose que `origine`, `tentative` et les griefs. Un
+    test le constate, parce que c'est exactement le défaut que le correctif de l'étape 11 a
+    fermé — le dernier refus d'un tour ne doit pas revenir par la porte du rechargement.
+    """
+
     griefs: tuple[Grief, ...]
     tentative: int
     """1 pour le premier refus. Au-delà de `max_regenerations`, c'est le repli."""

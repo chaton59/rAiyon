@@ -36,6 +36,23 @@ vert ou pas.
 
 `rapport.py` publie les trois, et écrit la phrase qui empêche de s'arrêter à la première.
 
+### Deux observations lisent la prose, et l'arbitrage E tient quand même (étape 13)
+
+`chiffres_des_tours_de_domaine` et `formes_markdown` sont les deux seules choses de ce
+module qui regardent du texte sans passer par le validateur. Ce n'est pas un
+assouplissement de l'arbitrage E, et la différence est nette :
+
+* **elles ne décident rien.** Aucun seuil, aucun `conforme`, aucun code de sortie. Une
+  prose de domaine pleine de chiffres ne fait pas échouer `make eval` — un test le
+  constate, exprès, pour empêcher qu'on les repromeuve en attentes sans relire pourquoi ;
+* **elles ne fondent aucun fait.** Un second validateur dirait « ce chiffre est faux » ;
+  celles-ci disent « il y a *n* chiffres » et « il y a *n* backticks ». Ce qui tranche est
+  l'appendice verbatim du rapport, relu par un humain ;
+* **elles ne réécrivent pas d'extraction.** Le compte de chiffres réutilise
+  `extraction.nombres`, c'est-à-dire le `NOMBRE` du validateur. Deux lectures de nombre
+  dans un dépôt finissent par en dire deux choses, et un test vérifie qu'il n'en existe
+  pas de seconde ici.
+
 ### Le contexte de validation est celui de **fin de session**, et l'erreur va dans le bon sens
 
 Le contexte fourni est déjà cumulatif sur la session (étape 9, arbitrage B) : celui de fin
@@ -51,6 +68,7 @@ codes suffit donc à séparer les deux critères, sans écrire une deuxième foi
 les distingue.
 """
 
+import re
 import statistics
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -70,6 +88,7 @@ from raiyon.agent.evenements import (
 )
 from raiyon.matching.relachement import Motif
 from raiyon.validateur.contexte import contexte_des_messages
+from raiyon.validateur.extraction import nombres, phrases
 from raiyon.validateur.regles import CodeGrief
 from raiyon.validateur.validateur import Grief, OrigineRejet, valider
 
@@ -194,6 +213,11 @@ class PriseJouee:
     attentes: frozenset[Attente] = frozenset()
     diagnostic_attendu: Motif | None = None
 
+    tours_de_domaine: frozenset[int] = frozenset()
+    """Les rangs de tour que le scénario **déclare** de domaine. Recopié tel quel depuis
+    `Scenario` : ce module ne sait pas ce qu'est une question de domaine, il sait publier
+    ce qu'on lui a désigné."""
+
     @property
     def evenements(self) -> tuple[Evenement, ...]:
         """Tous les événements de la prise, dans l'ordre, tours confondus."""
@@ -206,6 +230,47 @@ class Rejet:
 
     origine: OrigineRejet
     code: CodeGrief
+
+
+@dataclass(frozen=True, slots=True)
+class Refus:
+    """Un grief, **avec la phrase qui l'a levé** (étape 13, jalon 0, point A).
+
+    `Rejet` compte ; `Refus` montre. Les deux existent parce qu'ils répondent à deux
+    questions différentes, et que l'étape 12 n'avait que la première : *combien* de
+    textes ont été refusés, et *sur quelle forme de phrase*.
+
+    Un taux de rejet qui descend de 11 à 5 ne dit pas ce qui a disparu. Attribuer les
+    onze griefs de l'étape 12 à trois opérations — arrondir une borne, dériver un écart
+    entre deux prix fournis, chiffrer un assouplissement — a demandé de rouvrir dix-neuf
+    cassettes et de lire chaque texte refusé contre sa réécriture. Le harnais avait
+    l'information et ne la portait pas jusqu'au rapport.
+
+    Il est **recalculé au rejeu**, comme tout le reste (arbitrage A) : il est donc
+    disponible rétroactivement sur les cassettes déjà enregistrées, sans en régénérer
+    une seule.
+    """
+
+    scenario: str
+    prise: int
+    tour: int
+    """Le rang 1-indexé du tour client. Cinq griefs dans un même tour et cinq griefs
+    répartis sur cinq tours ne décrivent pas le même défaut."""
+
+    origine: OrigineRejet
+    code: CodeGrief
+    extrait: str
+    """Ce que la règle a pointé — « 47 $ », un identifiant, une phrase entière selon la
+    règle. C'est le champ `Grief.extrait`, tel quel."""
+
+    phrase: str
+    """La phrase du texte refusé qui **contient** l'extrait, ou le texte entier si aucune
+    ne le contient.
+
+    Le découpage est celui d'`extraction.phrases` — le seul endroit du dépôt qui décide
+    où une phrase s'arrête. Sans ce champ, l'appendice publierait « 47 $ » sans « en QHD
+    pour 47 $ de plus », c'est-à-dire le chiffre sans l'opération qui l'a produit, qui est
+    la seule chose qu'un changement de prompt puisse viser."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,8 +307,29 @@ class MesuresDunePrise:
     """Critère nº6. Un zéro résultat est **traité** s'il porte un diagnostic et une issue."""
 
     rejets: tuple[Rejet, ...]
+    refus: tuple[Refus, ...]
+    """Les mêmes rejets, **avec leur phrase** — l'appendice du rapport (jalon 0, point A).
+
+    Il y a exactement un `Refus` par `Rejet` : les deux sortent du même parcours des
+    `TexteRejete`. Ils ne sont pas fusionnés parce qu'`agreger()` compte les uns et que
+    le rapport recopie les autres, et qu'un tableau de comptes n'a rien à faire d'une
+    phrase de deux cents caractères."""
+
     replis: tuple[MotifDeRepli, ...]
     iterations: tuple[int, ...]
+
+    prose_de_domaine: tuple[tuple[int, tuple[str, ...]], ...]
+    """La prose livrée sur les tours que le scénario déclare de domaine, par rang de tour.
+
+    **C'est la preuve, et le compteur n'est que son résumé** (jalon 0, point D). Le rapport
+    la recopie entière : la cible 2 se compare en lisant, sur un artefact committé que
+    n'importe qui peut relire, pas en croyant un compteur."""
+
+    chiffres_de_domaine: int
+    """Le compte de valeurs chiffrées de cette prose. **Publié sans seuil.**"""
+
+    formes_markdown: tuple[tuple[str, int], ...]
+    """Les formes que le front ne rend pas, dans la prose livrée. **Publié sans seuil.**"""
 
     faits: frozenset[Attente]
     """Tout ce que les événements constatent, **que le scénario l'ait demandé ou non**.
@@ -291,6 +377,9 @@ class Mesures:
 
     # ---- Publiés sans seuil -------------------------------------------------
     rejets: tuple[Rejet, ...]
+    refus: tuple[Refus, ...]
+    """Les phrases refusées, triées, telles que l'appendice les publie."""
+
     replis: tuple[MotifDeRepli, ...]
     iterations: tuple[int, ...]
     tours: int
@@ -310,6 +399,18 @@ class Mesures:
     """Publié sans seuil : sur combien de prises `suggest_next_question` a-t-il signalé le
     budget manquant. Voir `Attente.BESOIN_DE_BUDGET` — c'est une observation sur la
     conduite du dialogue, pas une exigence."""
+
+    tours_de_domaine: int
+    """Combien de tours déclarés de domaine cette exécution a joués. Le dénominateur du
+    compteur de chiffres : « 3 chiffres » ne veut rien dire sans « sur 12 tours »."""
+
+    chiffres_de_domaine: int
+    """Le compte total de valeurs chiffrées sur ces tours. **Observation sans seuil**, et
+    aucune propriété de `Mesures` ne le lit — surtout pas `bloquants_tenus`."""
+
+    formes_markdown: tuple[tuple[str, int], ...]
+    """Les formes que le front ne rend pas, sommées sur toutes les prises. Mesuré sur v1
+    **avant** que v3 y touche : sans le point de départ, la baisse ne se lit pas."""
 
     @property
     def mediane_des_tours(self) -> float | None:
@@ -384,6 +485,88 @@ class Mesures:
 
 
 # --------------------------------------------------------------------------- #
+# Ce que le client a lu — et les deux observations qui s'y comptent
+# --------------------------------------------------------------------------- #
+
+
+def prose_livree(evenements: Sequence[Evenement]) -> tuple[str, ...]:
+    """Ce que le client a **lu**, dans l'ordre, replis compris.
+
+    Trois natures de prose partent au client et les trois sont ici : le `Texte` d'un
+    message, la `question` d'`ask_clarification`, et le message d'un `Repli` — qui est
+    écrit en Python mais que le client lit comme le reste.
+
+    ⚠️ **Le texte d'un `TexteRejete` n'y est pas**, et c'est la distinction qui compte :
+    il n'a jamais atteint le client. Il se lit dans l'appendice des refus, séparément.
+
+    Elle vivait dans `executeur.py` jusqu'à l'étape 13, où deux observations du rapport
+    ont eu besoin d'elle. `executeur.py` importe déjà ce module ; l'inverse aurait fait
+    dépendre le calcul des mesures d'une `Session` SQLAlchemy, ce que l'isolation du
+    paquet interdit.
+    """
+    lignes: list[str] = []
+    for evenement in evenements:
+        if isinstance(evenement, Texte):
+            lignes.append(evenement.texte)
+        elif isinstance(evenement, QuestionPosee):
+            lignes.append(evenement.question)
+        elif isinstance(evenement, Repli):
+            lignes.append(evenement.message)
+    return tuple(lignes)
+
+
+FORMES_MARKDOWN: tuple[tuple[str, str], ...] = (
+    ("backtick", "`"),
+    ("puce", r"(?m)^[ \t]*[-*+][ \t]+"),
+    ("liste numérotée", r"(?m)^[ \t]*\d+\.[ \t]+"),
+    ("titre", r"(?m)^[ \t]*#{1,6}[ \t]+"),
+)
+"""Les formes de markdown que le front **n'interprète pas**, et leur motif.
+
+`web/rendu.js` rend **deux formes et pas une de plus** : le gras `**…**` et les sauts de
+ligne, en nœuds DOM construits un par un. Le reste s'affiche tel quel — les backticks
+autour d'un identifiant sont visibles à l'écran, constaté en démonstration (§7).
+
+Les quatre retenues sont celles qu'on **constate** dans les dix-neuf cassettes de l'étape
+12 (44 backticks, 61 puces, 37 listes numérotées) plus les titres, qu'un modèle écrit dès
+qu'on lui demande une structure. Ni italique, ni lien, ni tableau, ni citation : aucun
+n'apparaît, et les inventer donnerait un compteur toujours nul qu'on cesserait de lire.
+
+⚠️ **Le gras n'y est pas, et ce n'est pas un oubli** : il est rendu. Le compter ferait
+descendre le compteur en demandant au modèle d'écrire moins bien.
+
+⚠️ **Publié sans seuil**, et mesuré sur v1 **avant** que v3 y touche — sans quoi on ne
+saurait pas de combien on est parti."""
+
+_MOTIFS_MARKDOWN = tuple((nom, re.compile(motif)) for nom, motif in FORMES_MARKDOWN)
+
+
+def formes_markdown(lignes: Sequence[str]) -> tuple[tuple[str, int], ...]:
+    """Combien de fois chaque forme non rendue apparaît dans la prose livrée.
+
+    Toutes les formes sont rendues, **y compris à zéro** : un compteur qui disparaît
+    quand il tombe à zéro ne se distingue pas d'un compteur qu'on a cessé de calculer.
+    """
+    return tuple(
+        (nom, sum(len(motif.findall(ligne)) for ligne in lignes)) for nom, motif in _MOTIFS_MARKDOWN
+    )
+
+
+def chiffres_de_la_prose(lignes: Sequence[str]) -> int:
+    """Le nombre de valeurs chiffrées de la prose livrée. **Observation, jamais seuil.**
+
+    Réutilise `extraction.nombres`, donc le `NOMBRE` du validateur : voir la docstring du
+    module, et le test qui vérifie qu'il n'existe pas de seconde extraction de nombre ici.
+
+    ⚠️ **Ce que ce compte vaut réellement** — un ratio écrit `3000:1` compte pour **deux**
+    nombres et non pour un, et un « 27 pouces » repris d'un `tool_result` compte comme un
+    chiffre inventé le compterait. C'est une mesure de la **forme** de la prose, pas un
+    décompte de faits ; l'appendice verbatim est ce qui tranche.
+    """
+    return sum(len(nombres(ligne)) for ligne in lignes)
+
+
+# --------------------------------------------------------------------------- #
 # Le calcul, prise par prise
 # --------------------------------------------------------------------------- #
 
@@ -394,6 +577,7 @@ def mesurer(prise: PriseJouee) -> MesuresDunePrise:
     griefs = _griefs_livres(prise)
     diagnostics = _diagnostics(evenements)
     tenues = _attentes_tenues(evenements)
+    domaine = _prose_de_domaine(prise)
 
     return MesuresDunePrise(
         scenario=prise.scenario,
@@ -412,8 +596,12 @@ def mesurer(prise: PriseJouee) -> MesuresDunePrise:
             if isinstance(e, TexteRejete)
             for grief in e.griefs
         ),
+        refus=_refus(prise),
         replis=tuple(e.motif for e in evenements if isinstance(e, Repli)),
         iterations=tuple(tour.iterations for tour in prise.tours),
+        prose_de_domaine=domaine,
+        chiffres_de_domaine=sum(chiffres_de_la_prose(lignes) for _, lignes in domaine),
+        formes_markdown=formes_markdown(prose_livree(evenements)),
         faits=tenues,
         attentes_manquees=prise.attentes - tenues,
         diagnostic_attendu=prise.diagnostic_attendu,
@@ -534,6 +722,57 @@ def _griefs_livres(prise: PriseJouee) -> tuple[Grief, ...]:
     return tuple(griefs)
 
 
+def _refus(prise: PriseJouee) -> tuple[Refus, ...]:
+    """Un `Refus` par grief levé, **avec le tour et la phrase**.
+
+    Le parcours est par tour et non sur `prise.evenements` : le rang du tour est
+    l'information que l'agrégat plat ne porte pas, et c'est elle qui distingue « onze
+    griefs partout » de « onze griefs dans cinq tours ».
+    """
+    trouves: list[Refus] = []
+    for rang, tour in enumerate(prise.tours, start=1):
+        for evenement in tour.evenements:
+            if not isinstance(evenement, TexteRejete):
+                continue
+            trouves.extend(
+                Refus(
+                    scenario=prise.scenario,
+                    prise=prise.prise,
+                    tour=rang,
+                    origine=evenement.origine,
+                    code=grief.code,
+                    extrait=grief.extrait,
+                    phrase=_phrase_portante(evenement.texte, grief.extrait),
+                )
+                for grief in evenement.griefs
+            )
+    return tuple(trouves)
+
+
+def _phrase_portante(texte: str, extrait: str) -> str:
+    """La phrase du texte refusé qui contient l'extrait, ou le texte entier à défaut.
+
+    Le découpage vient d'`extraction.phrases` — le seul endroit du dépôt qui décide où une
+    phrase s'arrête, et celui que les règles emploient déjà. Le repli sur le texte entier
+    couvre les deux cas réels : un extrait qui **est** déjà une phrase (règles 3 et 4), et
+    un extrait qu'un découpage un peu court a coupé en deux. Publier trop de contexte est
+    sans danger ; en publier trop peu perdrait l'opération qu'on cherche à nommer.
+    """
+    for phrase in phrases(texte):
+        if extrait in phrase:
+            return phrase
+    return texte.strip()
+
+
+def _prose_de_domaine(prise: PriseJouee) -> tuple[tuple[int, tuple[str, ...]], ...]:
+    """La prose livrée, tour par tour, sur les seuls tours déclarés de domaine."""
+    return tuple(
+        (rang, prose_livree(tour.evenements))
+        for rang, tour in enumerate(prise.tours, start=1)
+        if rang in prise.tours_de_domaine
+    )
+
+
 def _attentes_tenues(evenements: Sequence[Evenement]) -> frozenset[Attente]:
     """Ce que les événements de la prise constatent. Aucune lecture de prose ici."""
     tenues: set[Attente] = set()
@@ -643,6 +882,18 @@ def agreger(mesures: Iterable[MesuresDunePrise]) -> Mesures:
         prises_avec_attendu=sum(1 for prise in prises if prise.attendu_en_top3 is not None),
         attendus_en_top3=sum(1 for prise in prises if prise.attendu_en_top3),
         rejets=tuple(rejet for prise in prises for rejet in prise.rejets),
+        refus=tuple(
+            sorted(
+                (refus for prise in prises for refus in prise.refus),
+                key=lambda refus: (
+                    refus.scenario,
+                    refus.prise,
+                    refus.tour,
+                    refus.code,
+                    refus.extrait,
+                ),
+            )
+        ),
         replis=tuple(motif for prise in prises for motif in prise.replis),
         iterations=tuple(nombre for prise in prises for nombre in prise.iterations),
         tours=sum(prise.tours for prise in prises),
@@ -661,4 +912,20 @@ def agreger(mesures: Iterable[MesuresDunePrise]) -> Mesures:
         prises_ou_loutil_a_signale_le_budget=sum(
             1 for prise in prises if Attente.BESOIN_DE_BUDGET in prise.faits
         ),
+        tours_de_domaine=sum(len(prise.prose_de_domaine) for prise in prises),
+        chiffres_de_domaine=sum(prise.chiffres_de_domaine for prise in prises),
+        formes_markdown=_sommer_les_formes(prises),
     )
+
+
+def _sommer_les_formes(prises: Sequence[MesuresDunePrise]) -> tuple[tuple[str, int], ...]:
+    """Les formes markdown sommées, **dans l'ordre de `FORMES_MARKDOWN`**.
+
+    L'ordre vient du registre et non des données : un tableau dont les lignes changent de
+    place d'une version à l'autre se compare mal, et le rapport est committé.
+    """
+    totaux = {nom: 0 for nom, _ in FORMES_MARKDOWN}
+    for prise in prises:
+        for nom, compte in prise.formes_markdown:
+            totaux[nom] += compte
+    return tuple((nom, totaux[nom]) for nom, _ in FORMES_MARKDOWN)

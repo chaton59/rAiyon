@@ -56,7 +56,14 @@ LIGNES_DE_DIFF = 40
 """Le diff d'une divergence est tronqué : au-delà, il cesse d'aider à lire l'écart."""
 
 
-def verifier(cassette: Cassette, *, prompt_empreinte: str, outils_empreinte: str) -> None:
+def verifier(
+    cassette: Cassette,
+    *,
+    prompt_version: str,
+    prompt_empreinte: str,
+    outils_empreinte: str,
+    source: str | None = None,
+) -> None:
     """Les trois empreintes de l'en-tête, contre celles en vigueur (arbitrage C).
 
     L'empreinte du **schéma d'outils** est celle que la formulation « hash du prompt » du
@@ -65,12 +72,23 @@ def verifier(cassette: Cassette, *, prompt_empreinte: str, outils_empreinte: str
     périmée qu'un prompt modifié.
 
     §3.15 annonçait « une discipline à tenir » ; ici, ce n'est plus une discipline.
+
+    ### `source` nomme le répertoire, et depuis l'étape 13 ce n'est plus du confort
+
+    Les cassettes vivent dans `evals/cassettes/<version>/`, une par version de prompt. Le
+    mode d'échec neuf est donc **une cassette rangée dans le mauvais répertoire** — un
+    fichier v2 déposé sous `systeme.v1/`, par un `git mv` ou une campagne lancée sans sa
+    variable. L'empreinte le détecte déjà ; mais « cassette a1b2, en vigueur c3d4 » envoie
+    chercher un prompt modifié là où la faute est un fichier mal rangé, et les deux se
+    corrigent à deux endroits opposés. Le message nomme donc le chemin **et** les deux
+    versions, celle que la cassette déclare et celle qui tourne.
     """
     ecarts: list[str] = []
     if cassette.entete.prompt_empreinte != prompt_empreinte:
         ecarts.append(
-            f"prompt système {cassette.entete.prompt_version} : cassette "
-            f"{cassette.entete.prompt_empreinte}, en vigueur {prompt_empreinte}"
+            f"prompt système : la cassette déclare {cassette.entete.prompt_version} "
+            f"({cassette.entete.prompt_empreinte}), en vigueur {prompt_version} "
+            f"({prompt_empreinte})"
         )
     if cassette.entete.outils_empreinte != outils_empreinte:
         ecarts.append(
@@ -79,12 +97,17 @@ def verifier(cassette: Cassette, *, prompt_empreinte: str, outils_empreinte: str
         )
     if not ecarts:
         return
+    situation = source or f"{cassette.entete.scenario}.{cassette.entete.prise}"
     raise CassettePerimee(
-        f"la cassette {cassette.entete.scenario}.{cassette.entete.prise} est périmée :\n"
+        f"la cassette {situation} est périmée :\n"
         + "\n".join(f"  - {ecart}" for ecart in ecarts)
         + "\n\nElle a été enregistrée contre un autre préfixe : la rejouer mesurerait "
-        "un produit qui n'existe plus.\nRégénérer :\n    "
-        + COMMANDE_DE_REGENERATION.format(scenario=cassette.entete.scenario)
+        "un produit qui n'existe plus.\n\nDeux causes, et elles se corrigent à deux "
+        "endroits opposés :\n"
+        "  - le prompt en vigueur a changé      → régénérer (commande ci-dessous) ;\n"
+        "  - le fichier est dans le mauvais jeu → le déplacer sous "
+        f"evals/cassettes/{cassette.entete.prompt_version}/.\n\nRégénérer :\n    "
+        + COMMANDE_DE_REGENERATION.format(version=prompt_version, scenario=cassette.entete.scenario)
     )
 
 
@@ -119,7 +142,10 @@ class ClientCassette:
                 "celle enregistrée — le moteur, la couche outils ou le validateur ont "
                 "changé de comportement (arbitrage A : eux ne sont pas enregistrés).\n"
                 "Régénérer :\n    "
-                + COMMANDE_DE_REGENERATION.format(scenario=self.cassette.entete.scenario)
+                + COMMANDE_DE_REGENERATION.format(
+                    version=self.cassette.entete.prompt_version,
+                    scenario=self.cassette.entete.scenario,
+                )
             )
 
         prise = self.cassette.prises[self.index]
@@ -160,7 +186,10 @@ class ClientCassette:
             "silence, et les métriques\ndécriraient un dialogue qui n'a jamais eu lieu. "
             "Voici l'écart :\n\n" + "\n".join(lignes) + "\n\nSi le changement est voulu, "
             "régénérer :\n    "
-            + COMMANDE_DE_REGENERATION.format(scenario=self.cassette.entete.scenario)
+            + COMMANDE_DE_REGENERATION.format(
+                version=self.cassette.entete.prompt_version,
+                scenario=self.cassette.entete.scenario,
+            )
         )
 
 

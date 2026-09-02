@@ -8,8 +8,9 @@ code lui a fournis.
 ## Les critères d'acceptation, mesurés
 
 Six critères, arrêtés à l'étape 1 (PROJET.md §4) et **mesurés par le harnais d'éval**
-depuis l'étape 12. Le tableau ci-dessous est celui de `docs/eval/rapport.md`, que
-`make eval` régénère et qui est committé.
+depuis l'étape 12. Le tableau ci-dessous est celui du rapport de la version de prompt en
+vigueur, que `make eval` régénère et qui est committé — voir `docs/eval/LISEZMOI.md`, qui
+dit lequel des rapports décrit quoi.
 
 | # | Critère | Seuil | Mesuré | |
 |---|---|---|---|---|
@@ -62,11 +63,17 @@ Quatre choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.
 ### Le harnais
 
 ```bash
-make eval                                    # rejoue 19 cassettes, écrit docs/eval/rapport.md
+make eval                                    # rejoue le jeu en vigueur, écrit son rapport
                                              # base requise, clé API NON requise
+make eval-etape12                            # rejoue le jeu archivé de l'étape 12
+make eval-comparer AVANT=v1 APRES=v2 Q="…"   # deux jeux côte à côte, avec la dispersion
 make eval-enregistrer                        # (ré)enregistre — consomme la clé et des jetons
 make eval-enregistrer SCENARIO=budget_serre  # n'en refaire qu'un
 make eval-live                               # 2-3 conversations avec le client simulé
+
+# La version du prompt décide du jeu : ses cassettes et son rapport.
+RAIYON_PROMPT_SYSTEME=systeme.v2 make eval-enregistrer   # → evals/cassettes/systeme.v2/
+RAIYON_PROMPT_SYSTEME=systeme.v2 make eval               # → docs/eval/rapport.v2.md
 ```
 
 Une cassette n'enregistre **que les réponses du modèle**. Les `tool_result` sont recalculés

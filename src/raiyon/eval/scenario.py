@@ -36,15 +36,27 @@ sont adossés à une **unicité** constatée dans le catalogue (un seul produit 
 contraintes), ce qui est le plus solide qu'on puisse faire sans jury humain. Les deux
 autres reposent sur une lecture argumentée, et ils sont donc plus fragiles.
 
-### Trois prises sur trois scénarios (arbitrage D)
+### Trois prises partout, six sur `question_de_domaine` (arbitrage D, révisé à l'étape 13)
 
 La température n'est pas fixée (étape 8, arbitrage 12) : **une cassette est un tirage, pas
-une espérance.** Un tirage par scénario, sauf sur `budget_serre`, `besoin_flou` et
-`zero_budget_trop_bas`, où trois prises donnent un ordre de grandeur de la dispersion des
-métriques nº3 et nº4.
+une espérance.** L'étape 12 n'a payé trois prises que sur `budget_serre`, `besoin_flou`,
+`zero_budget_trop_bas` et `question_de_domaine`, un tirage ailleurs.
 
-⚠️ **Trois prises ne sont pas un intervalle de confiance**, et ni le rapport ni ce module
-ne prétendent le contraire.
+⚠️ **Ce n'était pas assez pour comparer deux prompts, et les chiffres de l'étape 12 le
+disent.** Les onze griefs publiés tiennent en cinq tours, dans cinq prises sur dix-neuf ;
+et là où la dispersion a été mesurée, elle vaut la totalité de l'effet qu'on espère
+mesurer — `besoin_flou` fait 0, 0, 2 rejets selon la prise, `budget_serre` 2, 0, 0,
+`zero_budget_trop_bas` 1, 0, 0. Sur un scénario à une seule prise, un écart v1 → v2 est
+donc indistinguable du tirage. **L'écart-type des scénarios calmes est ce qui dit s'ils
+sont restés calmes par construction ou par chance**, et c'est pour cela qu'il se paie
+partout et pas seulement là où ça bouge.
+
+`question_de_domaine` en porte **six** : c'est un scénario à trois tours, le surcoût est
+marginal, et c'est le seul endroit où le nombre de prises achète quelque chose de
+**qualitatif** — six proses de domaine à relire — plutôt que de statistique.
+
+⚠️ **Trois prises ne sont toujours pas un intervalle de confiance**, et ni le rapport ni ce
+module ne prétendent le contraire.
 
 ### Une attente qui nomme un outil est suspecte par défaut
 
@@ -64,6 +76,34 @@ Le corollaire vaut aussi pour les attentes qui décrivent une **dégradation** :
 `question_de_domaine` n'exige pas de repli, bien qu'il en produise un. Exiger un repli
 reviendrait à figer une défaillance en critère de conformité, et à faire échouer le jour où
 le modèle apprend à répondre sans rien affirmer. Le repli se lit dans le taux publié.
+
+### Et une attente qui lit la prose se juge sur les prompts **à venir** (étape 13, jalon 0)
+
+> *Une attente qui lit la prose est suspecte, et la question n'est pas seulement « est-elle
+> vraie sur le prompt que je mesure ? » mais « restera-t-elle vraie sous les versions de
+> prompt à venir ? ». Une attente qui pénalise le comportement qu'une version future
+> cherche à produire mesure le passé et bloque le progrès.*
+
+C'est le second membre de la règle ci-dessus, et il a coûté un aller-retour : **l'attente
+évidente a été écrite, puis refusée.** Elle disait *sur un tour déclaré de domaine, la
+prose ne contient aucun chiffre*, et elle est **vraie sur v1** — sur les six tours de
+domaine mesurés, deux prises sur trois refusent le chiffre d'elles-mêmes, la troisième
+écrit `3000:1 à 6000:1`.
+
+Ce qui la condamne ne se voit pas en regardant v1. `PHRASE_DE_DOMAINE` existe pour
+**basculer sur ce que le sondage a rendu**, et le jalon 2 de l'étape 13 demande au modèle
+de faire exactement cela en amont du repli : « 32 de ces écrans sont en VA, 13 en IPS » est
+un fait fourni, et c'est la bonne réponse à une question de domaine. L'attente « aucun
+chiffre » **pénaliserait donc le changement qu'elle évalue**. Et l'admettre en autorisant
+les seuls chiffres fournis, c'est réécrire le validateur — une seconde lecture de la prose
+contre le contexte, plus faible que la première, que l'arbitrage E de l'étape 12 refuse.
+
+D'où `tours_de_domaine` : le scénario **déclare** quels tours posent une question de
+domaine, et le harnais y publie une **observation sans seuil** — le nombre de valeurs
+chiffrées dans la prose. Aucun test ne peut échouer à tort, l'évolution v1 → v3 est
+lisible, et ce qui tranche sur le fond est l'appendice verbatim du rapport, qu'un humain
+relit. Un test constate que ce compteur ne fait **jamais** échouer `make eval` : c'est lui
+qui empêche de le repromouvoir en attente dans six mois sans relire ce paragraphe.
 """
 
 from dataclasses import dataclass, field
@@ -96,6 +136,15 @@ class Scenario:
     attentes: frozenset[Attente] = field(default_factory=frozenset)
     diagnostic_attendu: Motif | None = None
 
+    tours_de_domaine: frozenset[int] = field(default_factory=frozenset)
+    """Les rangs (1-indexés) des tours qui posent une question **sur le domaine**, pas
+    sur le catalogue. **Une déclaration, pas une attente** — voir la docstring du module.
+
+    Le harnais y compte les valeurs chiffrées de la prose livrée et les publie sans seuil,
+    et le rapport y recopie la prose entière. §2 borne ce que l'assistant sait faire — il
+    conseille à partir du catalogue, il n'enseigne pas la technologie d'affichage — et ces
+    tours-là sont les seuls où cette frontière est mise à l'épreuve."""
+
     def fichier(self, prise: int) -> str:
         """Le nom de fichier d'une prise. Une prise, une cassette, un fichier lisible."""
         return f"{self.nom}.{prise}.json"
@@ -108,8 +157,8 @@ class Scenario:
 SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         nom="budget_serre",
-        intention="le bon produit existe, mais juste sous la limite",
         prises=3,
+        intention="le bon produit existe, mais juste sous la limite",
         tours=(
             "Bonjour. Je cherche un écran de 27 pouces au minimum, au moins 144 Hz, "
             "et je ne peux pas dépasser 145 dollars.",
@@ -131,6 +180,7 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         nom="budget_absent",
+        prises=3,
         intention="l'agent doit demander le budget avant de chercher",
         tours=(
             "Je cherche un écran pour jouer, 27 pouces au minimum, 144 Hz au moins.",
@@ -149,8 +199,8 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         nom="besoin_flou",
-        intention="délai avant première valeur sur un besoin qui ne dit presque rien",
         prises=3,
+        intention="délai avant première valeur sur un besoin qui ne dit presque rien",
         tours=(
             "Bonjour, je voudrais un bon écran.",
             "C'est surtout pour jouer, et j'ai environ 250 dollars.",
@@ -160,6 +210,7 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         nom="sur_specifie",
+        prises=3,
         intention="besoin sur-spécifié sans solution — diagnostic `critere_trop_strict`",
         tours=(
             "Il me faut un écran de 27 pouces au minimum, en 500 Hz, dalle IPS, "
@@ -171,6 +222,7 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         nom="changement_davis",
+        prises=3,
         intention="un critère desserré en cours de route, jeton de parole consommé",
         tours=(
             "Un écran de 27 pouces au minimum, 240 Hz au moins, 200 dollars maximum.",
@@ -193,6 +245,7 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         nom="comparaison",
+        prises=3,
         intention="comparer deux propositions sans réinventer les produits",
         tours=(
             "Un écran de 27 pouces au minimum, 144 Hz au moins, 250 dollars maximum, "
@@ -217,6 +270,7 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         nom="hors_catalogue",
+        prises=3,
         intention="catégorie absente du catalogue — dire qu'on ne sait pas faire",
         tours=(
             "Bonjour, je cherche une perceuse sans fil, budget 150 dollars.",
@@ -226,8 +280,8 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         nom="zero_budget_trop_bas",
-        intention="zéro résultat par budget — diagnostic `budget_trop_bas`",
         prises=3,
+        intention="zéro résultat par budget — diagnostic `budget_trop_bas`",
         tours=(
             "Un écran de 27 pouces au minimum, 144 Hz au moins, et 130 dollars maximum.",
             "130 dollars, c'est mon plafond. Qu'est-ce que ça change ?",
@@ -240,6 +294,7 @@ SCENARIOS: tuple[Scenario, ...] = (
     # ----------------------------------------------------------------------- #
     Scenario(
         nom="desserrage_refuse",
+        prises=3,
         intention="trois desserrages en un tour — un seul passe, et l'agent doit le dire",
         tours=(
             "Un écran de 27 pouces au minimum, 240 Hz au moins, 200 dollars maximum.",
@@ -250,11 +305,11 @@ SCENARIOS: tuple[Scenario, ...] = (
     ),
     Scenario(
         nom="question_de_domaine",
+        prises=6,
         intention=(
             "le client demande une explication technique que le catalogue ne porte pas — "
             "d'abord qualitative, puis chiffrée"
         ),
-        prises=3,
         tours=(
             "Un écran de 27 pouces au minimum, 144 Hz au moins, 250 dollars maximum.",
             "C'est quoi la différence entre une dalle IPS et une dalle VA, au juste ?",
@@ -262,9 +317,14 @@ SCENARIOS: tuple[Scenario, ...] = (
             "c'est combien exactement ?",
         ),
         attentes=frozenset({Attente.PRODUITS_CITES, Attente.AUCUNE_RECHERCHE_SANS_BUDGET}),
+        # Les deux seuls tours de domaine du jeu, et c'est une **déclaration, pas une
+        # attente** : le harnais y publie le compte de chiffres et la prose entière, sans
+        # seuil. Le tour 1 n'en est pas un — il porte un besoin sur le catalogue.
+        tours_de_domaine=frozenset({2, 3}),
     ),
     Scenario(
         nom="categorie_efface_budget",
+        prises=3,
         intention="changer de catégorie efface le budget — l'agent doit le redemander",
         tours=(
             "Un écran de 27 pouces au minimum, 144 Hz au moins, 250 dollars maximum.",

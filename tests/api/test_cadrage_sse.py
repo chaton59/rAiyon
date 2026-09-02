@@ -250,6 +250,7 @@ def un_de_chaque() -> list[str]:
         QuestionPosee(question="Vous jouez plutôt en 1440p ou en 4K ?", champ_vise="largeur_px"),
         Texte(PROSE_MULTILIGNE),
         TexteRejete(
+            texte="Celui-ci est à 230 $.",
             griefs=(
                 Grief(
                     CodeGrief.MONTANT_NON_FOURNI,

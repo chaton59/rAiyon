@@ -84,8 +84,15 @@ EXTRAIT = 80
 """Longueur d'un extrait dans l'aperçu. Assez pour reconnaître un message, assez peu pour
 qu'une cassette de dix tours tienne à l'écran."""
 
-COMMANDE_DE_REGENERATION = "make eval-enregistrer SCENARIO={scenario}"
-"""La commande à taper. Écrite ici parce que c'est ici qu'on lève l'erreur qui l'exige."""
+COMMANDE_DE_REGENERATION = (
+    "RAIYON_PROMPT_SYSTEME={version} make eval-enregistrer SCENARIO={scenario}"
+)
+"""La commande à taper. Écrite ici parce que c'est ici qu'on lève l'erreur qui l'exige.
+
+⚠️ **La version y est depuis l'étape 13**, et sans elle le message serait un piège : trois
+prompts coexistent désormais, `make eval-enregistrer` seul régénérerait contre la version
+par défaut, et la cassette repartirait dans le mauvais jeu. Le message dit donc la commande
+**complète**, celle qui régénère ce qu'on est en train de lire."""
 
 
 class CassetteInvalide(Exception):

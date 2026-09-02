@@ -147,12 +147,48 @@ def test_une_empreinte_de_prompt_qui_ne_correspond_plus_fait_echouer_le_rejeu():
     """Le cas que le §5 nommait « hash du prompt ». Le message dit quoi taper."""
     cassette = Cassette(entete=entete(scenario="besoin_flou"), prises=())
     with pytest.raises(CassettePerimee) as erreur:
-        verifier(cassette, prompt_empreinte="zzzzzzzzzzzz", outils_empreinte="bbbbbbbbbbbb")
+        verifier(
+            cassette,
+            prompt_version="systeme.v1",
+            prompt_empreinte="zzzzzzzzzzzz",
+            outils_empreinte="bbbbbbbbbbbb",
+        )
 
     message = str(erreur.value)
     assert "besoin_flou" in message
-    assert "prompt système systeme.v1" in message
-    assert "make eval-enregistrer SCENARIO=besoin_flou" in message
+    assert "la cassette déclare systeme.v1" in message
+    assert "RAIYON_PROMPT_SYSTEME=systeme.v1 make eval-enregistrer SCENARIO=besoin_flou" in message
+
+
+def test_une_cassette_rangee_sous_la_mauvaise_version_le_dit_en_nommant_le_repertoire():
+    """Le mode d'échec neuf de l'étape 13, jalon 0, point B.
+
+    Les cassettes vivent désormais dans `evals/cassettes/<version>/`, une par version de
+    prompt. Un fichier v2 déposé sous `systeme.v1/` — par un `git mv`, ou par une campagne
+    lancée sans sa variable — est détecté par l'empreinte ; mais « cassette a1b2, en
+    vigueur c3d4 » envoie chercher un prompt modifié là où la faute est un rangement, et
+    les deux se corrigent à deux endroits opposés.
+
+    Le message doit donc nommer **le chemin** et **les deux versions**, pas seulement le
+    hash. Sans ce test, la formulation retomberait au premier remaniement.
+    """
+    cassette = Cassette(
+        entete=entete(scenario="comparaison", prompt_version="systeme.v2"), prises=()
+    )
+    with pytest.raises(CassettePerimee) as erreur:
+        verifier(
+            cassette,
+            prompt_version="systeme.v1",
+            prompt_empreinte="zzzzzzzzzzzz",
+            outils_empreinte="bbbbbbbbbbbb",
+            source="evals/cassettes/systeme.v1/comparaison.1.json",
+        )
+
+    message = str(erreur.value)
+    assert "evals/cassettes/systeme.v1/comparaison.1.json" in message
+    assert "la cassette déclare systeme.v2" in message
+    assert "en vigueur systeme.v1" in message
+    assert "evals/cassettes/systeme.v2/" in message, "le message doit dire où le déplacer"
 
 
 def test_une_empreinte_de_schema_doutils_modifiee_fait_echouer_aussi():
@@ -164,7 +200,12 @@ def test_une_empreinte_de_schema_doutils_modifiee_fait_echouer_aussi():
     """
     cassette = Cassette(entete=entete(scenario="comparaison"), prises=())
     with pytest.raises(CassettePerimee) as erreur:
-        verifier(cassette, prompt_empreinte="aaaaaaaaaaaa", outils_empreinte="zzzzzzzzzzzz")
+        verifier(
+            cassette,
+            prompt_version="systeme.v1",
+            prompt_empreinte="aaaaaaaaaaaa",
+            outils_empreinte="zzzzzzzzzzzz",
+        )
 
     message = str(erreur.value)
     assert "schéma d'outils" in message
@@ -174,6 +215,7 @@ def test_une_empreinte_de_schema_doutils_modifiee_fait_echouer_aussi():
 def test_les_deux_empreintes_correspondantes_passent_sans_rien_dire():
     verifier(
         Cassette(entete=entete(), prises=()),
+        prompt_version="systeme.v1",
         prompt_empreinte="aaaaaaaaaaaa",
         outils_empreinte="bbbbbbbbbbbb",
     )

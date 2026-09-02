@@ -31,6 +31,12 @@ EXIGES_PAR_LE_PLAN = {
 """Les huit du §5 étape 12. Les deux autres visent des invariants que seuls des tests
 unitaires touchent aujourd'hui : le jeton de parole et le budget effacé."""
 
+A_SIX_PRISES = {"question_de_domaine"}
+"""Le seul scénario où le nombre de prises achète du **qualitatif** (étape 13, jalon 0).
+
+Trois tours, donc un surcoût marginal, et six proses de domaine à relire au lieu de trois.
+Partout ailleurs, une prise de plus n'achète que de la statistique."""
+
 A_TROIS_PRISES = {
     "budget_serre",
     "besoin_flou",
@@ -67,13 +73,24 @@ def test_les_noms_sont_uniques():
     assert len(set(noms)) == len(noms)
 
 
-def test_seuls_trois_scenarios_portent_trois_prises():
-    """Une cassette est un **tirage** ; trois prises coûtent trois fois le budget de
-    jetons, et on ne les paie que là où la dispersion nous intéresse (arbitrage D)."""
-    multiples = {scenario.nom for scenario in SCENARIOS if scenario.prises > 1}
-    assert multiples == A_TROIS_PRISES
-    assert all(PAR_NOM[nom].prises == 3 for nom in A_TROIS_PRISES)
-    assert prises_attendues() == 19
+def test_chaque_scenario_porte_au_moins_trois_prises():
+    """**Trois partout depuis l'étape 13**, et l'arbitrage D a été révisé pour cela.
+
+    L'étape 12 ne payait trois prises que là où la dispersion l'intéressait, un tirage
+    ailleurs. Ses chiffres ont montré que ça ne suffit pas à comparer deux prompts : là où
+    la dispersion a été mesurée, elle vaut la **totalité** de l'effet qu'on espère — 0, 0, 2
+    rejets sur `besoin_flou`, 2, 0, 0 sur `budget_serre`. Sur un scénario à une prise, un
+    écart v1 → v2 est indistinguable du tirage.
+
+    ⚠️ **Ce test interdit de couper les prises pour tenir un budget.** Si la campagne coûte
+    trop cher, ce qui se coupe est le nombre de **scénarios**, en l'écrivant dans le
+    rapport — et on perd alors la détection d'un effet inattendu ailleurs, qui est le
+    risque principal d'un changement de prompt.
+    """
+    assert all(scenario.prises >= 3 for scenario in SCENARIOS)
+    assert {scenario.nom for scenario in SCENARIOS if scenario.prises > 3} == A_SIX_PRISES
+    assert all(PAR_NOM[nom].prises == 6 for nom in A_SIX_PRISES)
+    assert prises_attendues() == 36
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.nom)
@@ -138,7 +155,7 @@ def test_les_scenarios_sans_attendu_sont_une_decision_pas_un_oubli():
         "categorie_efface_budget",
     }
     avec = sum(scenario.prises for scenario in SCENARIOS if scenario.attendu is not None)
-    assert avec == 6
+    assert avec == 12, "quatre scénarios à attendu, trois prises chacun depuis l'étape 13"
 
 
 def test_les_deux_scenarios_de_budget_portent_linvariant_et_non_le_nom_de_loutil():

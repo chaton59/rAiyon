@@ -804,6 +804,35 @@ vigueur est loguée à chaque appel.
 Sans cela, impossible de comparer deux formulations sur la même suite de
 scénarios — ce qui est le cœur du travail sur le dialogue.
 
+> **Amendement de l'étape 13 — la version se choisit par variable
+> d'environnement, et les trois fichiers coexistent.**
+>
+> `SYSTEME_V1` était une constante de module : changer de version demandait de
+> modifier du code, donc de faire porter à un commit la différence entre « j'ai
+> réécrit le prompt » et « je mesure l'autre ». `RAIYON_PROMPT_SYSTEME` nomme
+> désormais le fichier, `systeme.v1` par défaut, et `prompt_systeme()` rend la
+> version, le texte et l'empreinte **d'un seul tenant** — les séparer laisserait
+> `/health` annoncer une version pendant que la boucle en envoie une autre.
+>
+> ⚠️ **C'est une sélection de fichier, pas une interpolation, et la distinction
+> est celle de §3.13.** Ce que le préfixe mis en cache interdit, c'est un texte
+> qui change d'un appel à l'autre ; choisir lequel des trois textes envoyer
+> laisse chacun identique octet pour octet. La variable ne touche pas au contenu.
+>
+> **Le test d'interpolation balaie les trois prompts, pas celui en vigueur.**
+> Deux des trois ne sont sélectionnés par personne pendant la campagne du
+> troisième : un `{quelque_chose}` glissé dans un fichier au repos ne se verrait
+> qu'au moment de lancer sa campagne, c'est-à-dire au moment de dépenser
+> trente-six prises. La liste des versions est **découverte sur le disque**
+> (`versions_systeme()`), jamais écrite à la main — une `systeme.v4.md` ajoutée
+> demain est balayée sans que personne ait à s'en souvenir.
+>
+> **Les cassettes suivent la version.** Un *jeu* porte un nom court (`v1`, `v2`,
+> `v3`, `v1-etape12`), ses cassettes vivent sous `evals/cassettes/systeme.<nom>/`
+> et son rapport dans `docs/eval/rapport.<nom>.md`. Sans ce rangement, comparer
+> deux prompts obligerait à ne garder que les rapports — et le tirage que §7
+> décrit cesserait d'exister ailleurs que dans un tableau.
+
 ### 3.15 — Stratégie de test
 
 | Cible | Approche |
@@ -3378,6 +3407,113 @@ changement ultérieur non attribuable.
 
 **Porte de sortie :** au moins deux versions de prompt comparées chiffres en
 main, et la trace de cette comparaison conservée dans le dépôt.
+
+#### Jalon 0 — l'instrument, et aucun prompt ne change
+
+Le harnais de l'étape 12 sait dire **combien**. Il ne sait pas dire **quoi**, et une
+itération sur les prompts qui ne sait pas dire quoi itère sur des compteurs.
+
+**Le diagnostic qui fonde l'étape, et il n'est pas celui que §7 annonçait.** Les onze
+griefs du rapport de l'étape 12 tiennent en **cinq tours**, dans cinq prises sur
+dix-neuf. En relisant chaque texte refusé contre sa réécriture : la section 4 du prompt
+tient — « une fourchette n'est jamais un prix » n'est enfreinte nulle part. Ce qui casse
+est §2, sur **trois opérations qu'aucune section ne nomme** : arrondir une borne, dériver
+un écart entre deux nombres fournis, chiffrer un assouplissement que le diagnostic n'a
+pas rendu. §2 interdit d'estimer et d'arrondir ; elle ne dit rien du **calcul**, et
+« 189,99 − 142,99 = 47 » est arithmétiquement vrai sans avoir jamais été fourni.
+
+⚠️ **Cette attribution a coûté une demi-heure de relecture manuelle de cassettes, et le
+harnais avait l'information.** C'est la raison d'être du point A.
+
+**A. Le rapport publie la phrase refusée, pas seulement son code.** `TexteRejete` porte
+désormais le texte qu'il a refusé, et le rapport gagne un **appendice A** : une ligne par
+grief, avec le scénario, la prise, **le tour**, l'origine, le code, l'extrait et la
+phrase. Recalculé au rejeu comme tout le reste (arbitrage A de l'étape 12), donc
+**disponible rétroactivement** sur les cassettes de l'étape 12 sans en réenregistrer une —
+et c'est ce qui a permis de vérifier le diagnostic ci-dessus au lieu de le croire. Il est
+dérivé du verdict du validateur : un sixième code de `CodeGrief` y apparaîtrait sans
+qu'on touche à `rapport.py`, et un test le constate.
+
+**B. Un jeu de cassettes par version de prompt.** `evals/cassettes/systeme.<nom>/` et
+`docs/eval/rapport.<nom>.md`. Les dix-neuf cassettes de l'étape 12 sont conservées sous
+`systeme.v1-etape12/`, **intactes**, et `make eval-etape12` les rejoue — sans quoi
+« conservé » voudrait seulement dire « pas effacé ».
+
+*Alternative écartée — n'écraser et ne garder que les rapports.* Moins cher. Écartée parce
+qu'elle fait décrire par §7 et par le correctif de l'étape 12 un tirage qui n'existerait
+plus nulle part, et parce qu'un changement de moteur ultérieur ne se rejouerait plus
+contre v1 : la comparaison cesserait d'être reproductible, ce qui est précisément la
+propriété que l'arbitrage A achète en ne figeant pas les `tool_result`.
+
+⚠️ **Le rapport archivé a été régénéré, et le diff dit pourquoi c'est sans conséquence** :
+**123 insertions, zéro suppression.** Chaque chiffre et chaque ligne de la version
+étape 12 sont inchangés ; seuls les trois appendices s'ajoutent, calculés depuis les mêmes
+cassettes. C'est la preuve que « rétroactivement » n'est pas une figure de style.
+
+**C. La version en vigueur se choisit** — voir §3.14, amendement de l'étape 13.
+
+**D. La cible 2 se mesure par une observation, pas par une attente.** L'attente évidente —
+*sur un tour déclaré de domaine, la prose ne contient aucun chiffre* — a été écrite, puis
+**refusée**. Elle est vraie sur v1 ; elle deviendrait fausse dès que le prompt demande au
+modèle de basculer sur ce que le catalogue contient, ce qui est le comportement que le
+jalon 2 cherche à produire. **Elle pénaliserait le changement qu'elle évalue.** Et
+l'admettre en autorisant les chiffres fournis reviendrait à réécrire le validateur — une
+seconde lecture de la prose contre le contexte, plus faible que la première, que
+l'arbitrage E de l'étape 12 refuse.
+
+D'où : les scénarios **déclarent** leurs tours de domaine, le harnais y publie un compte
+de valeurs chiffrées **sans seuil**, et le rapport recopie la prose entière en
+**appendice B** — la preuve se relit, le compteur n'en est que le résumé. Le compte
+réutilise `extraction.NOMBRE`, et deux tests le tiennent : l'un vérifie qu'il n'existe pas
+de seconde extraction de nombre dans le harnais, l'autre qu'une prose de domaine chiffrée
+**ne fait pas échouer** `make eval`.
+
+La règle générale de `scenario.py` gagne son second membre : *une attente qui lit la prose
+est suspecte, et la question n'est pas seulement « est-elle vraie sur le prompt que je
+mesure ? » mais « restera-t-elle vraie sous les versions à venir ? ».*
+
+**E. Le markdown, mesuré avant d'être corrigé.** **Appendice C**, sans seuil : les formes
+que `web/rendu.js` n'interprète pas. Sur les dix-neuf cassettes de l'étape 12 : **44
+backticks, 56 puces, 32 listes numérotées, 0 titre**. Le gras n'est pas compté — il est
+rendu, et le compter ferait descendre le compteur en demandant au modèle d'écrire moins
+bien.
+
+**F. Trois prises partout, six sur `question_de_domaine`.** L'arbitrage D de l'étape 12
+ne payait trois prises que là où la dispersion l'intéressait. Ses propres chiffres ont
+montré que ça ne suffit pas : `besoin_flou` fait 0, 0, 2 rejets selon la prise,
+`budget_serre` 2, 0, 0 — **l'écart prise-à-prise vaut la totalité de l'effet qu'on espère
+mesurer**. Sur un scénario à une prise, un écart v1 → v2 est indistinguable du tirage.
+
+**La comparaison applique la règle au lieu de la rappeler.** Le rapport de l'étape 12
+finissait sa section « dispersion » par *« un écart inférieur à cet ordre de grandeur
+n'est pas un signal »* — une phrase qui se lit une fois puis s'oublie, après quoi deux
+tableaux de trente-six lignes se comparent à l'œil, et l'œil trouve ce qu'il cherche.
+`raiyon/eval/comparaison.py` calcule donc le verdict : la dispersion est l'étendue
+`max - min` des prises de la campagne **de référence**, sommée sur les scénarios, et
+chaque écart porte « au-delà » ou « dans le bruit ».
+
+⚠️ **C'est une borne, pas un écart-type, et elle est délibérément généreuse** : elle
+déclare « signal » moins souvent qu'un test statistique, ce qui est le sens dans lequel ce
+dépôt préfère se tromper. *Alternative écartée — un test statistique.* Il rendrait une
+valeur-p sur trois prises par scénario, c'est-à-dire une précision apparente très
+supérieure à ce que les données portent. Le dépôt refuse déjà d'appeler trois prises un
+intervalle de confiance.
+
+**Dette nº1 de l'étape 8 — reportée, et voici pourquoi.** Résorber la duplication entre
+`DESCRIPTION_SONDER` / `DESCRIPTION_PRECISION` et le prompt système reste à faire.
+`schema_outils.py` fait partie du préfixe mis en cache : le toucher périme les cassettes
+au même titre qu'un prompt, et le faire dans la même version qu'un changement de prompt
+rendrait l'effet **inattribuable** — ce que la dette dit elle-même vouloir éviter. Elle
+entre au §7 comme ligne ouverte.
+
+**§5 étape 13 demandait quelque chose d'inapplicable, et il vaut mieux l'écrire.** « Viser
+en priorité la métrique nº3 » ne peut pas se faire : depuis le correctif de l'étape 12,
+nº3 compte les **tours client** avant la première valeur, son minimum atteignable est
+**1**, et la médiane vaut déjà 1,0. Elle n'a pas de marge. Ce qu'on en fait à la place :
+elle devient un **garde-fou**, publié dans chaque comparaison, et le risque réel est
+qu'elle **monte** — un modèle rendu plus prudent avec les chiffres sonde davantage et
+montre plus tard. Le résultat cherché n'est donc pas « le taux de rejet baisse » mais
+« il baisse **sans** que nº3 passe à 2 », et c'est cette paire qui se publie ensemble.
 
 ---
 

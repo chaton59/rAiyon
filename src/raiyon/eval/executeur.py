@@ -21,7 +21,6 @@ premier tour ne correspondrait à rien — la cassette échouerait en disant « 
 là où la faute serait ici.
 """
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -31,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from raiyon.agent.boucle import IssueDuTour
 from raiyon.agent.client import ClientLLM
-from raiyon.agent.evenements import Evenement, QuestionPosee, Repli, Texte
+from raiyon.agent.evenements import Evenement
 from raiyon.agent.session import creer_session, historique_de, tour
 from raiyon.db.models import SessionConversation
 from raiyon.eval.metriques import PriseJouee, TourJoue
@@ -92,6 +91,7 @@ def jouer(
         attendu=None if scenario.attendu is None else scenario.attendu.produit_id,
         attentes=scenario.attentes,
         diagnostic_attendu=scenario.diagnostic_attendu,
+        tours_de_domaine=scenario.tours_de_domaine,
     )
 
 
@@ -130,21 +130,3 @@ def jouer_un_tour(
         except StopIteration as arret:
             issue: IssueDuTour = arret.value
             return tuple(evenements), issue
-
-
-def prose_livree(evenements: Sequence[Evenement]) -> tuple[str, ...]:
-    """Ce que le client a **lu**, dans l'ordre, replis compris.
-
-    Sert à la transcription de `make eval-live` et au client simulé (arbitrage H) : ni
-    l'un ni l'autre ne voient autre chose que cela. Aucune métrique ne passe par ici — les
-    métriques lisent les événements typés, jamais du texte recollé.
-    """
-    lignes: list[str] = []
-    for evenement in evenements:
-        if isinstance(evenement, Texte):
-            lignes.append(evenement.texte)
-        elif isinstance(evenement, QuestionPosee):
-            lignes.append(evenement.question)
-        elif isinstance(evenement, Repli):
-            lignes.append(evenement.message)
-    return tuple(lignes)
