@@ -640,7 +640,9 @@ Les dettes qu'un relecteur trouverait de toute façon.
 - **`NOMBRE` traite l'espace comme un séparateur de milliers**, donc « 1920x1080 180 Hz »
   se lit comme un seul nombre et lève un faux positif — correctif écrit et différé,
   `PROJET.md` §7.
-- **`flux.js` et `etat.js` sont le seul code du projet qu'aucun test ne vérifie** —
+- **`flux.js` et `etat.js` sont le seul code du projet qu'aucun test ne vérifie**, et un
+  parseur qui oublierait sa queue se verrait comme une carte produit manquante une fois
+  sur dix, en démonstration seulement —
   [Ce qui n'est vérifié par aucun test](#ce-qui-nest-vérifié-par-aucun-test-et-pourquoi) et `PROJET.md` §7.
 - **Un entier sans unité et sans `$` n'est vérifié par aucune règle** —
   [Comment lire ce tableau](#lire-le-tableau) et `PROJET.md` §7.

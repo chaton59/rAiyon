@@ -3375,7 +3375,7 @@ validateur** dès que le chiffre ne porte pas d'unité connue. « 3000:1 » est 
 sans qu'aucune règle ne le voie. Nouvelle ligne au §7.
 ---
 
-### Étape 13 — Itération sur les prompts
+### Étape 13 — Itération sur les prompts ✅
 
 C'est ici que le produit devient bon, et c'est l'étape qu'on est tenté de sauter.
 
@@ -3693,7 +3693,7 @@ redécouvre**, ce que ce tableau fait.
 
 ---
 
-### Étape 14 — README et finition
+### Étape 14 — README et finition ✅
 
 Installation, lancement, exemples d'usage, tableau de métriques, schéma
 d'architecture, et une section honnête sur ce qui est réel et ce qui est dérivé
