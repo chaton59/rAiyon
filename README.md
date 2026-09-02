@@ -68,13 +68,11 @@ ou si une attente de scénario n'est pas tenue.
 Quatre autres rapports coexistent dans `docs/eval/` : lequel décrit quoi est dans
 `docs/eval/LISEZMOI.md`.*
 
-<a id="lire-le-tableau"></a>
+### Comment lire ce tableau, et pourquoi il ne dit pas ce qu'il a l'air de dire
 
-### ⚠️ Comment lire ce tableau, et pourquoi il ne dit pas ce qu'il a l'air de dire
-
-**Les critères nº1 et nº2 sont garantis par construction.** Le validateur refuse le texte
-fautif, régénère une fois, puis se replie sur un template écrit en Python : le texte
-**livré** ne peut donc pas contenir d'hallucination. Un `0` sur ces lignes ne dit pas
+⚠️ **Les critères nº1 et nº2 sont garantis par construction.** Le validateur refuse le
+texte fautif, régénère une fois, puis se replie sur un template écrit en Python : le
+texte **livré** ne peut donc pas contenir d'hallucination. Un `0` sur ces lignes ne dit pas
 « le modèle n'a pas menti », il dit « le mécanisme a fonctionné ». Une valeur non nulle
 signifierait que **le validateur a un trou** — c'est là toute l'information.
 
@@ -645,9 +643,9 @@ Les dettes qu'un relecteur trouverait de toute façon.
   sur dix, en démonstration seulement —
   [Ce qui n'est vérifié par aucun test](#ce-qui-nest-vérifié-par-aucun-test-et-pourquoi) et `PROJET.md` §7.
 - **Un entier sans unité et sans `$` n'est vérifié par aucune règle** —
-  [Comment lire ce tableau](#user-content-lire-le-tableau) et `PROJET.md` §7.
+  [Comment lire ce tableau](#comment-lire-ce-tableau-et-pourquoi-il-ne-dit-pas-ce-quil-a-lair-de-dire) et `PROJET.md` §7.
 - **Le critère nº1 ne détecte pas une règle manquante**, seulement un trou dans une règle
-  existante — [Comment lire ce tableau](#user-content-lire-le-tableau) et `PROJET.md` §7.
+  existante — [Comment lire ce tableau](#comment-lire-ce-tableau-et-pourquoi-il-ne-dit-pas-ce-quil-a-lair-de-dire) et `PROJET.md` §7.
 
 Cette liste n'est pas exhaustive et ne prétend pas l'être : [`PROJET.md`](PROJET.md) §7 en
 porte une trentaine, toutes écrites.
