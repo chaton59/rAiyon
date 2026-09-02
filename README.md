@@ -5,6 +5,47 @@ naturel, l'assistant dialogue avec lui puis recommande des produits **réels** d
 catalogue. Le LLM ne produit jamais un fait — il met en mots des faits que le
 code lui a fournis.
 
+## Le chemin d'un message
+
+```mermaid
+flowchart TD
+    C["Client<br/>« un écran 144 Hz, 400 $ max »"]
+    B["Boucle d'agent<br/>un tour à la fois par session"]
+    LLM{{"Modèle<br/>choisit l'outil, écrit la prose"}}
+    OUT["Couche outils<br/>cinq outils, aucun n'accepte de critère"]
+    MOT["Moteur de matching<br/>filtres durs, scoring, classement"]
+    SQL[("Postgres<br/>catalogue committé")]
+    VAL{"Validateur<br/>relit la prose"}
+    REPLI["Repli<br/>texte écrit en Python"]
+    SSE["Fil d'événements"]
+    UI["Interface, console"]
+
+    C --> B
+    B --> LLM
+    LLM -- "appel d'outil" --> OUT
+    OUT --> MOT
+    MOT -- "SQL décide qui est candidat" --> SQL
+    SQL --> MOT
+    MOT -- "Python décide comment on le présente" --> OUT
+    OUT -- "tool_result" --> B
+    OUT -- "événements d'outil" --> SSE
+    LLM -- "prose" --> VAL
+    VAL -- "aucun grief" --> SSE
+    VAL -- "grief, 1re fois : régénérer" --> LLM
+    VAL -- "grief, 2e fois" --> REPLI
+    REPLI --> SSE
+    SSE --> UI
+
+    classDef modele fill:#fde68a,stroke:#b45309,stroke-width:2px,color:#1c1917
+    classDef porte fill:#fecaca,stroke:#b91c1c,stroke-width:2px,color:#1c1917
+    class LLM modele
+    class VAL porte
+```
+
+Le modèle est en jaune, le validateur en rouge, et tout le reste est du code
+déterministe. Aucune arête ne va du modèle au fil d'événements sans passer par la porte,
+et c'est la seule chose que ce dessin a besoin de montrer.
+
 ## Les critères d'acceptation, mesurés
 
 Six critères, arrêtés au cadrage (PROJET.md §4) et **mesurés par le harnais d'éval**. Le
@@ -27,6 +68,8 @@ ou si une attente de scénario n'est pas tenue.
 Quatre autres rapports coexistent dans `docs/eval/` : lequel décrit quoi est dans
 `docs/eval/LISEZMOI.md`.*
 
+<a id="lire-le-tableau"></a>
+
 ### ⚠️ Comment lire ce tableau, et pourquoi il ne dit pas ce qu'il a l'air de dire
 
 **Les critères nº1 et nº2 sont garantis par construction.** Le validateur refuse le texte
@@ -38,7 +81,7 @@ signifierait que **le validateur a un trou** — c'est là toute l'information.
 C'est pourquoi le rapport publie **trois couches**, et pourquoi les deux suivantes sont les
 plus intéressantes :
 
-| Couche | Dernière exécution |
+| Couche | Campagne `systeme.v2` — `docs/eval/rapport.v2.md` |
 |---|---|
 | Ce qui est **livré** | 0 grief, 0 violation budget — les deux critères ci-dessus |
 | Ce que le modèle a **tenté** | **6 griefs refusés sur 81 tours**, soit 0,07 par tour : 3 `valeur_non_fournie`, 2 `montant_non_fourni`, 1 `prix_etranger_au_produit` |
@@ -70,7 +113,8 @@ Quatre choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.
   ce qu'il ne sait pas et le fait basculer sur la répartition du catalogue —, pas au
   validateur, qui n'a aucun moyen honnête de trancher une affirmation qu'aucun outil ne
   fonde ;
-- **le taux de repli est passé de 0 % à 2 % sans qu'une cassette change.** Le produit ne
+- **sur le jeu archivé, le taux de repli est passé de 0 % à 2 % sans qu'une cassette
+  change.** Le produit ne
   s'est pas dégradé : le motif de repli `REPONSE_VIDE` lui a donné de quoi compter un
   tour où le client ne recevait **rien** — `docs/eval/rapport.v1-etape12.md`.
 
@@ -96,6 +140,13 @@ seed committé : un changement de scoring ou une règle de validateur qui se res
 voient donc dans les métriques **sans rien réenregistrer**. La contrepartie est que le
 rejeu a besoin de Postgres et du seed, et que `make eval` reste une commande à part de
 `make check`.
+
+**Ce que coûte une campagne.** Les 36 prises du jeu en vigueur ont demandé **191 appels
+au modèle**, 358 088 jetons entrants et 46 285 sortants. Le compte n'est pas dans
+`rapport.v2.md`, qui ne porte aucun compteur : il est dans l'en-tête de chaque cassette,
+sous `usage`, et se somme. **Rejouer ne coûte rien** — ni clé, ni jeton : `make eval`,
+`make eval-etape12` et `make eval-comparer` relisent des cassettes. Seul
+`make eval-enregistrer` appelle le modèle.
 
 Chaque cassette porte l'empreinte du prompt système **et celle du schéma d'outils**. Un
 écart fait échouer le rejeu en nommant la cassette et en donnant la commande à taper : la
@@ -144,6 +195,25 @@ faire, jamais en échec silencieux.
 | --- | --- | --- |
 | `make check` — la totalité de la part pure | **906** | rien : ni base, ni conteneur, ni clé API |
 | `make test-int` | **98** | un Postgres joignable |
+
+## La carte du dépôt
+
+```
+alembic/          les migrations
+catalogue/        l'exploration de la source : rapport, schéma d'attributs, échantillons
+data/             raw/ (non versionné, voir SOURCE.md) et seed/ (le catalogue committé)
+docs/             eval/ (trois rapports, deux comparaisons, leur index) et prompts/
+evals/            cassettes/ — les réponses de modèle enregistrées, un dossier par jeu
+grande_echelle/   une architecture à l'échelle, exploratoire et hors MVP
+prompts/          les rédactions du prompt système, une par version
+scripts/          les points d'entrée : console, éval, seed, calibration, fumée
+src/raiyon/       agent · api · catalogue · db · eval · matching · tools · validateur
+tests/            la part pure et la part marquée `integration`
+web/              l'interface — détaillée plus bas
+
+Makefile · PROJET.md · docker-compose.yml · alembic.ini · pyproject.toml · uv.lock
+.env.example · LICENSE
+```
 
 ## Lancer une conversation
 
@@ -546,6 +616,48 @@ diagnostic**, parce qu'une contradiction est une réponse, pas un bug.
 Aucun module de `raiyon.tools` ne charge le SDK Anthropic — vérifié module par module,
 découverts sur le disque, chacun dans un interpréteur neuf.
 
+## Hors périmètre
+
+Paiement, compte utilisateur, panier, multilingue, historique inter-sessions : aucun
+n'est traité, et [`PROJET.md`](PROJET.md) §8 dit ce que chacun coûterait.
+
+**La composition multi-catégories** est la seule qui se voie en démonstration : un appel
+au moteur rend les produits d'**une seule catégorie** et le total dépensé à travers
+plusieurs tours n'est pas suivi, donc un client peut, en trois tours, se voir recommander
+trois composants dont la somme dépasse ce qu'il avait annoncé —
+[`PROJET.md`](PROJET.md) §8.
+
+## Ce qui reste ouvert
+
+Les dettes qu'un relecteur trouverait de toute façon.
+
+- **Les descriptions de deux outils redisent des règles que le prompt système porte
+  déjà** — `PROJET.md` §7.
+- **Les trois cibles de `systeme.v2` sont parties ensemble** : leur effet est attribué par
+  inspection des appendices, pas par isolation expérimentale — `PROJET.md` §7.
+- **Le prompt système illustre quatre de ses onze sections avec des chiffres**, et rien ne
+  vérifie que le modèle ne les reprend pas — `PROJET.md` §7.
+- **`NOMBRE` traite l'espace comme un séparateur de milliers**, donc « 1920x1080 180 Hz »
+  se lit comme un seul nombre et lève un faux positif — correctif écrit et différé,
+  `PROJET.md` §7.
+- **`flux.js` et `etat.js` sont le seul code du projet qu'aucun test ne vérifie** —
+  [Ce qui n'est vérifié par aucun test](#ce-qui-nest-vérifié-par-aucun-test-et-pourquoi) et `PROJET.md` §7.
+- **Un entier sans unité et sans `$` n'est vérifié par aucune règle** —
+  [Comment lire ce tableau](#lire-le-tableau) et `PROJET.md` §7.
+- **Le critère nº1 ne détecte pas une règle manquante**, seulement un trou dans une règle
+  existante — [Comment lire ce tableau](#lire-le-tableau) et `PROJET.md` §7.
+
+Cette liste n'est pas exhaustive et ne prétend pas l'être : [`PROJET.md`](PROJET.md) §7 en
+porte une trentaine, toutes écrites.
+
+## Comment ce dépôt se lit
+
+Chaque décision d'architecture est écrite dans [`PROJET.md`](PROJET.md) **avec les
+alternatives écartées**, et les énoncés qui ont produit chaque étape sont committés dans
+`docs/prompts/`. [`grande_echelle/architecture_cible.md`](grande_echelle/architecture_cible.md)
+répond à « et si ça passait à l'échelle ? » — il se déclare **exploratoire et hors MVP**,
+et n'engage aucune ligne de code d'ici.
+
 ## Données
 
 > Données produits issues de [`docyx/pc-part-dataset`](https://github.com/docyx/pc-part-dataset)
@@ -563,5 +675,7 @@ il conserve la forme de la distribution réelle, queue haute comprise, mais ses 
 de remplissage diffèrent légèrement de ceux de la source. Toute statistique publiée
 ensuite porte sur ce catalogue, pas sur le dataset.
 
-Le cadrage complet — décisions d'architecture, alternatives écartées, plan
-d'exécution — est dans [`PROJET.md`](PROJET.md).
+## Licence
+
+MIT — voir [`LICENSE`](LICENSE). Les données produits sont sous MIT elles aussi,
+et leur provenance est ci-dessus.

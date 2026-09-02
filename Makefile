@@ -12,7 +12,7 @@ help: ## Liste les cibles disponibles
 install: ## Installe les dépendances, les hooks pre-commit et crée .env si absent
 	uv sync
 	uv run pre-commit install
-	@test -f .env || { cp .env.example .env; echo "→ .env créé depuis .env.example — y mettre la vraie clé API"; }
+	@test -f .env || { cp .env.example .env; echo "→ .env créé depuis .env.example — y décommenter ANTHROPIC_API_KEY et mettre la vraie clé"; }
 
 up: ## Démarre Postgres et attend que le healthcheck passe
 	docker compose up -d
