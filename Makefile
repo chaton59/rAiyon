@@ -124,7 +124,11 @@ eval-enregistrer: ## (Ré)enregistre les cassettes du jeu en vigueur — consomm
 	@# ⚠️ RAIYON_PROMPT_SYSTEME décide **où les cassettes atterrissent**. Sans elle, une
 	@# campagne v2 écrirait dans evals/cassettes/systeme.v1/ et périmerait le jeu v1 :
 	@#   RAIYON_PROMPT_SYSTEME=systeme.v2 make eval-enregistrer
-	uv run python scripts/eval.py enregistrer $(if $(SCENARIO),--scenario $(SCENARIO),)
+	@#
+	@# JEU=<nom> écrit ailleurs que dans le jeu de la version en vigueur — pour un
+	@# complément qui ne doit pas se mêler à la campagne principale :
+	@#   RAIYON_PROMPT_SYSTEME=systeme.v1 make eval-enregistrer SCENARIO=x JEU=v1-desserrage
+	uv run python scripts/eval.py enregistrer $(if $(SCENARIO),--scenario $(SCENARIO),) $(if $(JEU),--jeu $(JEU),)
 
 eval-live: ## 2-3 conversations avec le client simulé — clé requise, hors CI, rien n'est écrit
 	@# Ces conversations ne sont **pas** reproductibles : les deux côtés sont non

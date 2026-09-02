@@ -3515,6 +3515,49 @@ qu'elle **monte** — un modèle rendu plus prudent avec les chiffres sonde dava
 montre plus tard. Le résultat cherché n'est donc pas « le taux de rejet baisse » mais
 « il baisse **sans** que nº3 passe à 2 », et c'est cette paire qui se publie ensemble.
 
+#### Jalon 2 — `systeme.v2.md`, les trois cibles en une version
+
+**Le découpage v2 (cible 1) / v3 (cibles 2 et 3) a été révisé, et la raison est
+budgétaire.** Il coûtait ~500 appels ; les crédits couvrent une campagne. L'arbitrage est
+pris en connaissance de cause, et ce qu'il coûte est écrit ici plutôt que laissé à
+deviner :
+
+1. **L'attribution entre cibles ne vient plus de l'isolation expérimentale** mais de
+   l'appendice A : on **lit** que « 65 $ » et « 47 $ de plus » ont disparu. C'est une
+   attribution par inspection, plus faible qu'un plan d'expérience.
+2. **La dérive du modèle reste dans la comparaison**, les deux jeux ne datant pas du même
+   jour. Publiée en **borne supérieure**, jamais comme la dérive.
+3. **Le prompt grandit de trois sections d'un coup.** Si nº3 monte ou nº4 baisse, **la
+   longueur est un suspect au même titre que le contenu**, et la parade serait de fondre
+   plutôt que d'ajouter.
+
+**Une correction au point 1, trouvée avant la campagne et non après.** « Les cibles 2 et 3
+n'ont aucune empreinte sur le taux de rejet » était **faux pour la cible 3**.
+`SEPARATEURS_DE_PHRASE` traite le saut de ligne comme une fin de phrase : les listes que
+§14 interdit produisaient un produit par ligne, donc une **phrase étroite par produit** —
+exactement le contexte dans lequel la règle 2 attribue un montant. Basculer vers de la
+prose continue aurait donné des phrases nommant trois produits et portant trois prix,
+dégradant l'attribution et rendant les faux positifs plus probables ; la cible 3 aurait
+alors eu une empreinte sur le taux de rejet, inséparable de celle de la cible 1.
+
+§14 fait donc de « **une ligne par produit** » l'instruction, et retire la prose continue.
+La prédiction est **posée avant la campagne** (`PREDICTIONS` dans `scripts/eval.py`) et
+publiée dans `rapport.v2.md` : si le taux de rejet bouge malgré la parade, c'est de ce
+côté qu'il faut regarder d'abord. Une prédiction datée se confirme ou s'infirme ; une
+explication trouvée après se raconte — et le correctif de l'étape 12 a déjà montré qu'un
+diagnostic plausible formulé après coup pouvait être entièrement faux.
+
+**§13 n'ajoute aucun chiffre au prompt**, et c'est délibéré : sa première rédaction
+montrait une réponse modèle en bloc de citation (« 32 écrans sont en VA et 13 en IPS »).
+Dans la section dont tout le propos est de ne pas produire un chiffre qu'on ne vous a pas
+donné, et sous la forme qui appelle le plus l'imitation, c'était une contradiction. La
+citation garde le refus, qui ne porte aucun chiffre ; la bascule est enseignée comme un
+**geste** — sonder, puis dire la répartition rendue.
+
+**Reportés, et écrits comme tels** : le découpage v2/v3 (les deux prompts de
+`docs/prompts/` se lisent ensemble, la décision et sa révision), la dette nº1 de
+l'étape 8, `grief.v1.md`, et la fuite des exemples chiffrés du prompt (§7).
+
 ---
 
 ### Étape 14 — README et finition
@@ -3576,6 +3619,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | ~~**Le prompt v1 n'est mesuré par rien avant l'étape 12**~~ | **Éteint** à l'étape 12 — harnais d'éval branché, seize prises rejouées, rapport committé. La ligne est barrée plutôt qu'effacée : c'est le dernier risque **Élevé** du projet, et il a décidé de l'ordre des étapes 12 et 13 | Les sections 4 (« une fourchette n'est jamais un prix »), 6 (« la question suggérée est une suggestion ») et 9 (« dire le refus plutôt que le contourner ») étaient des **atténuations déclarées, pas vérifiées**. **Ce que le harnais mesure réellement, et il faut le dire précisément :** la section 4 est mesurée — `regle_montants` et `regle_valeurs_unitaires` la constatent phrase par phrase, et le taux de rejet par code dit combien de fois le modèle a essayé (7 `montant_non_fourni` et 3 `valeur_non_fournie` sur 35 tours à la première exécution). La section 9 est mesurée **à moitié** : `Attente.CRITERE_TENU` constate qu'un desserrage refusé n'a pas fini par passer, mais rien ne constate que l'agent l'a **dit** au client — voir la ligne dédiée ci-dessous. La section 6 n'est **pas** mesurée, et le harnais l'a appris à ses dépens : une attente écrite sur l'appel à `suggest_next_question` mesurait quel outil l'agent avait choisi, pas ce que le produit avait fait. Restent donc des intentions bien rédigées : la conduite du dialogue au sens large, que seul `make eval-live` donne à lire |
 | **Le faux client teste la boucle, pas le modèle** | Moyenne — et c'est un angle mort de `make check` | `tests/agent/` couvre l'enchaînement, le réenchaînement de l'état, la terminalité, l'appairage des `tool_result` et la garde d'itérations — tout ce qui ne dépend pas de ce que le modèle répond. **Un défaut de conduite du dialogue passe donc entièrement à travers `make check`** : un agent qui interrogerait le client six fois de suite, ou qui citerait un prix jamais fourni, ferait une suite verte. C'est la contrepartie assumée de l'arbitrage 2, et elle ne se referme qu'avec les cassettes et le client simulé de l'étape 12 |
 | ~~**Le texte sortant n'est validé par rien jusqu'à l'étape 9**~~ | **Éteint** à l'étape 9 — validateur programmatique branché, texte bufferisé, une régénération puis repli sur template. La ligne est barrée plutôt qu'effacée : c'est le risque qui a décidé de l'ordre du plan | §2 reposait **uniquement sur le prompt système** : un prix recopié de travers, un `id` approximatif ou une spec déduite d'un sondage partaient au client. C'est pour cette raison que l'étape 9 est passée avant l'étape 10 — mettre une API et un front devant un texte non validé aurait multiplié la surface avant de fermer le trou. **Le trou est fermé au niveau du mécanisme, pas de la couverture** : les trois lignes qui suivent disent ce que le validateur ne voit pas |
+| **Le prompt fuit peut-être ses propres exemples chiffrés** | **Ouverte** — hypothèse testable, pas un constat | `systeme.v1.md` illustre quatre de ses onze sections avec des chiffres : « il reste 32 écrans entre 180 et 395 dollars » (§4), « du 27 pouces » (§5), « je garde le 144 Hz » (§9), « celui-ci est à 120 Hz, pas 144 » (§11). Un rapprochement, et **il ne prouve rien** : la phrase refusée de `budget_serre.1` est « redescendre à **120 Hz** », et 120 est le seul chiffre de §11. Ce peut être une coïncidence — 120 est aussi le cran plausible sous 144, et le modèle le connaît sans le prompt. ⚠️ **Ce qui est sûr, c'est que la question n'a jamais été posée**, et qu'un prompt qui enseigne par l'exemple donne au modèle des chiffres qu'aucun outil n'a rendus. Non traité à l'étape 13 : retirer ces exemples modifierait des sections **existantes**, et v2 est une addition pure — deux sections qui bougent, c'est une attribution perdue. **Candidat pour une v3 à un seul changement**, où l'effet serait attribuable. La v2 elle-même n'ajoute aucun chiffre inventé : son §13 a été réécrit pour enseigner le geste (« dites la répartition que le sondage vient de rendre ») au lieu de montrer une réponse chiffrée en bloc de citation, qui est la forme qui appelle le plus l'imitation |
 | **Le validateur périme une cassette, et l'arbitrage C ne l'avait pas nommé** | **Moyenne — découverte à l'étape 13, et démontrée par un blocage réel** | L'arbitrage C de l'étape 12 nomme trois choses qui périment une cassette : le prompt système, le schéma d'outils, le modèle. **Le validateur est la quatrième.** Le mécanisme : quand un texte est refusé, la reprise est empilée dans `messages` avant la régénération (arbitrage D de l'étape 9) — elle fait donc partie de l'empreinte de requête du tour suivant. Un changement de validateur qui modifie la **liste des griefs** d'un tour régénéré change la reprise, donc l'empreinte, donc la cassette ne se rejoue plus. Constaté au jalon 1 de l'étape 13 : le correctif de `valeurs_refusees` fait tomber 2 des 4 griefs de `v1-etape12/desserrage_refuse.1`, et cette cassette a cessé d'être rejouable. **Une sur quarante** — la portée est étroite, mais elle n'est pas nulle et elle n'était écrite nulle part. ⚠️ **La divergence est le comportement correct** : sous le nouveau validateur, le modèle aurait reçu une autre reprise, et sa réponse enregistrée n'est pas celle qu'il aurait donnée. C'est l'arbitrage A qui fonctionne. *Alternative écartée — une empreinte de validateur dans l'en-tête de cassette*, qui rendrait la péremption automatique comme pour les trois autres : il faudrait hacher du **code source**, et un commentaire reformulé périmerait les quarante cassettes du dépôt. Une péremption qui se déclenche pour rien est une péremption qu'on finit par contourner. Atténuation retenue : `DIVERGENCES_ATTENDUES` (`scripts/eval.py`), une liste **assertée** et tenue à la main — une divergence non listée échoue, une cassette listée qui cesse de diverger échoue, une ligne qui nomme une cassette absente échoue. Ce n'est pas une tolérance, et la différence est ce qui empêche qu'une vraie régression du moteur y soit un jour excusée |
 | **Une provenance lue dans un message `user` rendrait le validateur auto-annulant** | **Fermée à l'étape 13, et c'est le piège le plus coûteux de l'étape** | Le message de reprise de l'étape 9 est un bloc de rôle `user` **de la même forme qu'un tour client** — un seul bloc `text`, sans `tool_result` — et il **cite les extraits refusés**, puisque c'est sa fonction. Une provenance « les nombres des messages utilisateur » y prendrait donc les nombres que le validateur vient de refuser et les rendrait citables au tour suivant : le validateur s'annulerait lui-même. **Mesuré, pas déduit** : sur les quarante cassettes du dépôt, 18 griefs sur 19 disparaissaient. C'est la rédaction naïve de l'alternative écartée au jalon 1 de l'étape 13, et elle est **invisible à la lecture** — rien dans le code ne distingue une reprise d'un tour client. Atténuation : `tests/validateur/test_faux_positifs.py::test_la_reprise_ne_fournit_jamais_un_fait` construit une conversation où le seul porteur d'un nombre est une reprise, et exige qu'il reste refusé. Il échoue si quelqu'un réintroduit la provenance |
 | **Une valeur de mouvement refusé est écrite par le modèle, pas par le moteur** | Faible — **ouverte volontairement à l'étape 13**, et bornée | `ContexteFourni.valeurs_refusees` admet les valeurs qu'un mouvement refusé demandait, pour que le modèle puisse obéir à la section 9 du prompt (« dites au client ce qui a été refusé ») sans être puni pour cela. ⚠️ **La provenance est un refus produit par le moteur ; la valeur, elle, sort des arguments d'appel du modèle** — qui peut donc se fabriquer un nombre citable en le faisant refuser exprès. Ce qu'il en obtient est ce qu'un entier nu lui donne déjà, et rien de plus : ces valeurs ne sont admises que dans une phrase qui **ne nomme aucun produit**, discipline de `valeurs_de_distribution`. Les pièges 13 et 14 le constatent — `Le [produit] est à 50 $` et `Le [produit] est à 999 Hz` restent refusés. **Elles ne vont surtout pas dans `agregats`** : la règle 5 consulte les agrégats sans condition, et un `refresh_rate` refusé à 999 y deviendrait citable comme spec de produit |

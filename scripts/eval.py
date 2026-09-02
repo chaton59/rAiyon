@@ -114,6 +114,38 @@ source** : un commentaire reformulé périmerait les quarante cassettes du dép�
 péremption qui se déclenche pour rien est une péremption qu'on finit par contourner.
 Voir la ligne de §7 sur la quatrième chose qui périme une cassette."""
 
+PREDICTIONS: dict[str, str] = {
+    "v2": (
+        "**Prédiction posée avant la campagne v2, sur la section 14 (le markdown).**\n"
+        "`SEPARATEURS_DE_PHRASE` traite le saut de ligne comme une fin de phrase. Les "
+        "listes que\nv2 interdit produisaient un produit et son prix **par ligne**, donc "
+        "une phrase étroite par\nproduit — exactement le contexte dans lequel la règle 2 "
+        "attribue un montant à un produit.\nBasculer vers de la prose continue donnerait "
+        "des phrases nommant trois produits et portant\ntrois prix : l'attribution se "
+        "dégraderait, et les faux positifs deviendraient plus probables.\n"
+        "La cible 3 aurait alors une empreinte sur le taux de rejet, et son effet serait "
+        "inséparable\nde celui de la cible 1.\n"
+        "**Parade appliquée dans v2** : « une ligne par produit » est l'instruction, la "
+        "prose continue\nest retirée. Le saut de ligne reste, la règle 2 garde son "
+        "contexte étroit.\n"
+        "**Si le taux de rejet bouge malgré cela, c'est de ce côté qu'il faut regarder "
+        "d'abord** — et\nl'appendice A dira si les phrases refusées se sont élargies."
+    ),
+}
+"""Ce qu'on **attend** d'une campagne, écrit avant de la lancer. Publié dans son rapport.
+
+⚠️ **Une prédiction posée d'avance vaut infiniment mieux qu'une explication trouvée
+après.** Sans elle, une métrique qui bouge se raconte : on cherche une cause, on en
+trouve une, et rien ne distingue l'explication juste de celle qui arrange. Une hypothèse
+datée, elle, se confirme ou s'infirme.
+
+Le dépôt a déjà payé ce défaut : le correctif de l'étape 12 a montré qu'un diagnostic
+plausible sur le taux de repli — « les scénarios ne posent pas de questions de domaine » —
+était **faux**, et que la vraie cause était ailleurs. Il avait été formulé après coup.
+
+La clé est le **nom du jeu** : la prédiction accompagne la campagne qu'elle vise, et elle
+apparaît dans son rapport, pas dans un fichier annexe qu'on ne rouvre pas."""
+
 JEU_ETAPE_12 = "v1-etape12"
 """Le jeu archivé : les dix-neuf cassettes de l'étape 12, **intactes**.
 
@@ -267,6 +299,15 @@ def main() -> int:
 
     enregistrer = sous.add_parser("enregistrer", help="(ré)enregistre les cassettes — clé requise")
     enregistrer.add_argument("--scenario", default=None, help="n'en refaire qu'un, par son nom")
+    enregistrer.add_argument(
+        "--jeu",
+        default=None,
+        help=(
+            "où écrire les cassettes. Par défaut le jeu de la version en vigueur ; le "
+            "nommer sert à enregistrer un complément sans toucher au jeu principal — "
+            "`--jeu v1-desserrage` sous `systeme.v1`, par exemple."
+        ),
+    )
 
     comparer = sous.add_parser("comparer", help="deux jeux côte à côte, avec la dispersion")
     comparer.add_argument("avant", help="le jeu de référence — c'est lui qui donne la dispersion")
@@ -285,7 +326,7 @@ def main() -> int:
         if arguments.mode == "rejouer":
             return _rejouer(arguments.scenario, arguments.jeu)
         if arguments.mode == "enregistrer":
-            return _enregistrer(arguments.scenario)
+            return _enregistrer(arguments.scenario, arguments.jeu)
         if arguments.mode == "comparer":
             return _comparer(arguments.avant, arguments.apres, arguments.question)
         return _live(arguments.personas)
@@ -457,12 +498,14 @@ def mesurer_le_jeu(
 def reserves_du_jeu(jeu: Jeu, prises: Sequence[tuple[Scenario, int]]) -> tuple[str, ...]:
     """Ce que le rapport de ce jeu doit dire de lui-même avant d'afficher un chiffre.
 
-    Deux choses, et aucune ne se lit dans les tableaux : les prises **écartées** pour
-    divergence attendue, et la **composition** d'un jeu qui vient de plusieurs
-    enregistrements. Un rapport qui les tait affiche ses totaux avec l'autorité d'un
-    rapport complet.
+    Trois choses, et aucune ne se lit dans les tableaux : la **prédiction** posée avant la
+    campagne, les prises **écartées** pour divergence attendue, et la **composition** d'un
+    jeu qui vient de plusieurs enregistrements. Un rapport qui les tait affiche ses totaux
+    avec l'autorité d'un rapport complet.
     """
     lignes: list[str] = []
+    if prediction := PREDICTIONS.get(jeu.nom):
+        lignes.append(prediction)
     ecartees = [
         (cle, raison)
         for cle, raison in sorted(DIVERGENCES_ATTENDUES.items())
@@ -636,7 +679,7 @@ def _rejouer(nom: str | None = None, jeu_nomme: str | None = None) -> int:
 # --------------------------------------------------------------------------- #
 
 
-def _enregistrer(nom: str | None) -> int:
+def _enregistrer(nom: str | None, jeu_nomme: str | None = None) -> int:
     """Enregistre ou réenregistre les cassettes. **Consomme la clé et des jetons.**
 
     L'import du SDK vit ici et pas dans `raiyon.eval` : c'est ce qui permet au harnais de
@@ -646,7 +689,7 @@ def _enregistrer(nom: str | None) -> int:
 
     scenarios = SCENARIOS if nom is None else (par_nom(nom),)
     reglages, prompt, empreinte_outils = _reglages()
-    jeu = jeu_en_vigueur(None, prompt.version)
+    jeu = jeu_en_vigueur(jeu_nomme, prompt.version)
     reel = ClientAnthropic()
     fabrique = get_sessionmaker()
     date = dt.date.today().isoformat()
