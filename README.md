@@ -98,10 +98,15 @@ contient. Voir `docs/eval/comparaison.v1-base-v2.md`.
 
 Quatre choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.md` :
 
-- **trois codes de grief sur six ne se déclenchent jamais** sur cette suite —
-  `id_inconnu`, `nom_reecrit`, `ecart_non_dit`. Le rapport le publie, parce qu'une règle
-  qui ne tire jamais est indistinguable d'une règle absente. Elles sont exercées par
-  `tests/validateur/test_pieges.py`, pas par les scénarios ;
+- **deux codes de grief sur six ne se déclenchent jamais** — `id_inconnu` et
+  `nom_reecrit` —, et ils ne se déclenchent sur **aucune des deux orchestrations**. Le
+  rapport le publie, parce qu'une règle qui ne tire jamais est indistinguable d'une règle
+  absente. Elles sont exercées par `tests/validateur/test_pieges.py`, pas par les
+  scénarios. ⚠️ **Cette ligne en annonçait trois jusqu'à l'étape 15, et elle avait tort** :
+  `ecart_non_dit` ne tire jamais **chez l'agent**, et tire **24 fois chez la machine à
+  états**. Elle n'était pas dormante, elle n'avait jamais été sollicitée — et il aura fallu
+  une seconde orchestration pour faire la différence. Le raisonnement d'origine en sort
+  **renforcé**, pas affaibli : c'est exactement ce qu'il annonçait ;
 - **le critère nº1 ne détecte pas une règle manquante.** Le harnais mesure le validateur
   avec le validateur ; retirer une règle rend les deux aveugles. Ce qui détecte une règle
   manquante, c'est l'effondrement du taux de rejet — vérifié en la retirant pour de bon ;
@@ -115,6 +120,56 @@ Quatre choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.
   change.** Le produit ne
   s'est pas dégradé : le motif de repli `REPONSE_VIDE` lui a donné de quoi compter un
   tour où le client ne recevait **rien** — `docs/eval/rapport.v1-etape12.md`.
+
+### Les deux orchestrations, et où chacune gagne
+
+Le produit tourne de **deux façons**, et la seconde a été écrite pour mesurer la première.
+Tout est partagé sauf la conduite du tour de parole : même catalogue, même moteur, même
+couche outils, même validateur, et un prompt qui ne diffère que des trois sections passées
+dans le code (`prompts/systeme.machine.v1.md` est `systeme.v2.md` moins §5, §6 et §8 — une
+soustraction pure, vérifiée par un test).
+
+| | agent — la boucle d'outils | machine à états |
+| --- | --- | --- |
+| Qui décide de l'outil suivant | le modèle | `raiyon/machine/decision.py`, **pure** |
+| Critères nº1, nº2, nº6 | tenus | tenus |
+| Critère nº3 — délai avant valeur (médiane) | 1,0 tour | 1,0 tour |
+| Critère nº4 — attendu en top 3 | 12/12 — 100 % | 11/12 — 92 % |
+| Taux de rejet du validateur | 6 sur 81 tours — 0,07/tour | **51 sur 81 tours — 0,63/tour** |
+| Taux de repli | 0 sur 81 — 0 % | 8 sur 81 — 10 % |
+| Mesure nº7 — appels par tour | 2,36 | **2,17** |
+| Mesure nº7 — entrée facturée | 367 832 jetons | **663 347 jetons** |
+| Mesure nº8 — conduite testée hors ligne | **0** | **17** |
+
+*Tout vient de `docs/eval/rapport.v2.md` et `docs/eval/rapport.machine.v1.md`, sauf les
+jetons — sommés sur les en-têtes de cassettes, qu'aucun rapport ne publie.*
+
+**Un seul écart dépasse la dispersion, et c'est la machine qui le perd** : le taux de rejet,
++15,00 par passe pour une étendue de ± 12,00, dominé par `ecart_non_dit` (0 → 24). Les cinq
+autres mesures sont **dans le bruit** — `docs/eval/comparaison.v2-machine.v1.md`.
+
+> **Où gagne chacune.** La machine gagne la **testabilité de sa décision** et rend explicite
+> un invariant que personne n'avait écrit — « ne pas chercher tant que le budget manque »
+> n'était dans aucun prompt. L'agent gagne la **rédaction** et le **coût d'entrée**. Aucune
+> des deux n'est « meilleure » ; les mesures ne portent pas cette conclusion.
+
+⚠️ **Les onze scénarios ont été écrits pour l'agent à l'étape 12**, avant que la machine soit
+envisagée. La suite n'est donc truquée dans aucun des deux sens, et cela vaut d'être dit là
+où la machine perd.
+
+#### Lancer l'une ou l'autre
+
+```bash
+RAIYON_ORCHESTRATION=machine make chat     # la conversation, conduite par la machine
+RAIYON_ORCHESTRATION=machine RAIYON_PROMPT_SYSTEME=systeme.machine.v1 \
+  make eval-enregistrer                    # la campagne — les DEUX variables
+RAIYON_PROMPT_SYSTEME=systeme.machine.v1 make eval    # le rejeu — une seule suffit
+```
+
+⚠️ **`RAIYON_ORCHESTRATION` est sans effet au rejeu**, et c'est voulu : l'orchestration se
+lit dans l'**en-tête de chaque cassette**, parce que celle qui a enregistré une prise est la
+seule qui puisse la rejouer — l'autre diverge au premier tour. C'est aussi ce qui permet à
+`make eval-comparer` de rejouer **deux orchestrations dans un même processus**.
 
 ### Ce que `make check` ne mesure pas chez l'agent, et mesure chez la machine
 
@@ -165,12 +220,27 @@ voient donc dans les métriques **sans rien réenregistrer**. La contrepartie es
 rejeu a besoin de Postgres et du seed, et que `make eval` reste une commande à part de
 `make check`.
 
-**Ce que coûte une campagne.** Les 36 prises du jeu en vigueur ont demandé **191 appels
-au modèle**, 358 088 jetons entrants et 46 285 sortants. Le compte n'est pas dans
-`rapport.v2.md`, qui ne porte aucun compteur : il est dans l'en-tête de chaque cassette,
-sous `usage`, et se somme. **Rejouer ne coûte rien** — ni clé, ni jeton : `make eval`,
-`make eval-etape12` et `make eval-comparer` relisent des cassettes. Seul
-`make eval-enregistrer` appelle le modèle.
+**Ce que coûte une campagne.** Les 36 prises de chaque jeu, sommées sur le champ `usage`
+de leurs en-têtes — aucun rapport ne porte ces compteurs :
+
+| Campagne | Appels | Jetons entrants | Entrée facturée | Sortants |
+| --- | --- | --- | --- | --- |
+| agent, `systeme.v2` | **191** | 358 088 | 367 832 | 46 285 |
+| machine à états, `systeme.machine.v1` | **176** | 657 010 | **663 347** | 65 958 |
+
+⚠️ **Moins d'appels et presque le double d'entrée facturée.** La machine fait exactement
+deux appels par tour, mais chacun renvoie la conversation entière, et celle-ci grossit plus
+vite — trois paires `tool_use`/`tool_result` par tour. Lire le compte d'appels seul dirait
+l'inverse de la vérité.
+
+À cela s'ajoutent les **25 appels du tir d'essai** qui a précédé la campagne de la machine,
+deux scénarios enregistrés puis réenregistrés avec le reste : **non récupérables, et
+dépensés exprès**. Ils ont corrigé deux prédictions avant qu'elles ne soient mesurées, là où
+un défaut découvert au rejeu aurait coûté les 176.
+
+**Rejouer ne coûte rien** — ni clé, ni jeton : `make eval`, `make eval-etape12` et
+`make eval-comparer` relisent des cassettes. Seul `make eval-enregistrer` appelle le
+modèle.
 
 Chaque cassette porte l'empreinte du prompt système **et celle du schéma d'outils**. Un
 écart fait échouer le rejeu en nommant la cassette et en donnant la commande à taper : la
@@ -217,7 +287,7 @@ faire, jamais en échec silencieux.
 
 | suite | tests | ce qu'elle exige |
 | --- | --- | --- |
-| `make check` — la totalité de la part pure | **906** | rien : ni base, ni conteneur, ni clé API |
+| `make check` — la totalité de la part pure | **1002** | rien : ni base, ni conteneur, ni clé API |
 | `make test-int` | **98** | un Postgres joignable |
 
 ## La carte du dépôt
@@ -226,12 +296,12 @@ faire, jamais en échec silencieux.
 alembic/          les migrations
 catalogue/        l'exploration de la source : rapport, schéma d'attributs, échantillons
 data/             raw/ (non versionné, voir SOURCE.md) et seed/ (le catalogue committé)
-docs/             eval/ (trois rapports, deux comparaisons, leur index) et prompts/
+docs/             eval/ (quatre rapports, trois comparaisons, leur index) et prompts/
 evals/            cassettes/ — les réponses de modèle enregistrées, un dossier par jeu
 grande_echelle/   une architecture à l'échelle, exploratoire et hors MVP
-prompts/          les rédactions du prompt système, une par version
+prompts/          les rédactions du prompt système, une par version et par orchestration
 scripts/          les points d'entrée : console, éval, seed, calibration, fumée
-src/raiyon/       agent · api · catalogue · db · eval · matching · tools · validateur
+src/raiyon/       agent · api · catalogue · db · eval · machine · matching · tools · validateur
 tests/            la part pure et la part marquée `integration`
 web/              l'interface — détaillée plus bas
 
