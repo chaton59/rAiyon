@@ -46,7 +46,7 @@ import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from raiyon.eval.cout import PROVENANCE, Cout
+from raiyon.eval.cout import POURQUOI_LES_DEUX_MOITIES, PROVENANCE, Cout
 from raiyon.eval.metriques import RESERVE_ITERATIONS, Mesures, MesuresDunePrise, agreger
 
 SIGNAL = "au-delà"
@@ -466,6 +466,12 @@ def _le_cout(
     cellules disent ce qui manque, et la colonne d'écart reste vide : une différence entre
     un chiffre complet et un chiffre partiel comparerait deux tailles d'échantillon.
 
+    Trois lignes depuis l'étape 16 — les appels, l'entrée facturée, la sortie. Les deux
+    premières peuvent aller en sens contraire, et c'est exactement ce que la comparaison
+    `v2` → `machine.v1` a mesuré : moins d'appels, presque le double d'entrée facturée. Une
+    section qui n'aurait publié que la première aurait donné la conclusion inverse de la
+    vraie, en portant l'autorité d'un fichier committé.
+
     ⚠️ **Et il décrit chaque jeu entier, pas l'intersection comparée au-dessus.** Les
     tableaux précédents sont réduits aux scénarios communs (voir `couvrir()`), le coût ne
     l'est pas : il se lit dans des en-têtes de cassettes, et rien dans `Mesures` ne porte
@@ -482,6 +488,7 @@ def _le_cout(
         if par_tour_avant is not None and par_tour_apres is not None
         else "non calculable — voir les deux cellules"
     )
+    jetons = avant.jetons_publiables and apres.jetons_publiables
     return [
         "## Le coût d'enregistrement",
         "",
@@ -493,11 +500,25 @@ def _le_cout(
                     avant.en_ligne(),
                     apres.en_ligne(),
                     ecart,
-                )
+                ),
+                (
+                    "Jetons d'entrée facturés (nº7)",
+                    avant.en_ligne_entree(),
+                    apres.en_ligne_entree(),
+                    _ecart_de_jetons(avant.entree_facturee, apres.entree_facturee, jetons),
+                ),
+                (
+                    "Jetons de sortie (nº7)",
+                    avant.en_ligne_sortie(),
+                    apres.en_ligne_sortie(),
+                    _ecart_de_jetons(avant.usage.jetons_sortie, apres.usage.jetons_sortie, jetons),
+                ),
             ],
         ),
         "",
         PROVENANCE,
+        "",
+        POURQUOI_LES_DEUX_MOITIES,
         "",
         "⚠️ **Cette ligne ne porte pas de verdict**, contrairement à toutes celles du tableau",
         "précédent. La dispersion qui les départage est celle des prises d'un rejeu ; ce coût-ci",
@@ -509,6 +530,25 @@ def _le_cout(
         "pas aux scénarios communs.",
         "",
     ]
+
+
+def _ecart_de_jetons(avant: int, apres: int, publiable: bool) -> str:
+    """L'écart absolu et le facteur, ou la raison de leur absence.
+
+    Le facteur est là parce que c'est lui qui se retient : « +295 515 jetons » ne dit pas
+    grand-chose sans savoir sur quoi, « facteur 1,80 » le dit d'un coup. Il n'est écrit que
+    si le dénominateur n'est pas nul — sur des totaux de campagne il ne l'est jamais, mais
+    un format qui dépend d'une donnée doit dire ce qu'il fait quand elle manque. Il est
+    neutre dans les deux sens, là où un « fois plus » se lirait de travers sur un facteur
+    inférieur à 1.
+
+    ⚠️ **Aucun verdict de dispersion ici non plus** : c'est la même règle que pour les
+    appels, et pour la même raison — un coût figé à l'enregistrement n'a pas de dispersion.
+    """
+    if not publiable:
+        return "non calculable — voir les deux cellules"
+    facteur = f" — facteur {apres / avant:.2f}".replace(".", ",") if avant else ""
+    return f"{apres - avant:+,} jetons".replace(",", " ") + facteur
 
 
 def _reserves(reserves: Sequence[str]) -> list[str]:

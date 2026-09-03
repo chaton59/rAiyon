@@ -1037,6 +1037,38 @@ les vingt et une de la campagne v1 interrompue sont antérieures au champ ; une 
 calculée sur les trois prises restantes de `v1-base` et comparée aux trente-six de `v2`
 comparerait des tailles d'échantillon.
 
+#### ⚠️ Correctif de l'étape 16 — elle publie aussi les jetons, et c'est ma spécification qui était fautive
+
+La mesure a été spécifiée ci-dessus, au jalon 0 de l'étape 15, sur `entete.usage.appels`
+seuls — **avant qu'on sache que le compte d'appels dirait l'inverse du coût réel**. La
+campagne l'a montré : la machine à états fait **2,17 appel/tour contre 2,36** — moins — et
+paie **1,80 fois plus d'entrée facturée**, 663 347 jetons contre 367 832.
+
+Un lecteur qui ouvre `rapport.machine.v1.md` dans six mois et n'y lit que les appels conclut
+« moins chère ». **La conclusion inverse est la vraie**, et elle ne vivait que dans le README
+et dans le tableau de l'étape 15, sommée à la main sur les en-têtes.
+
+Ce n'est pas un défaut d'implémentation : `Usage` savait s'additionner et `mesurer_le_jeu()`
+lisait déjà chaque en-tête. Le chiffre juste était sous la main depuis le premier jour de la
+campagne, et personne ne le publiait. La mesure nº7 publie désormais, par jeu :
+
+* les **appels par tour**, comme avant ;
+* les **jetons d'entrée facturés** — entrée hors cache **plus** cache écrit, ce qui se paie
+  — et le **cache lu à côté, jamais additionné** : il est facturé autrement, et la somme des
+  deux serait un total que personne ne doit à personne ;
+* les **jetons de sortie**.
+
+Avec, à côté du tableau, la phrase qui dit **pourquoi les deux moitiés existent** — une
+orchestration peut faire moins d'appels et coûter plus cher, c'est arrivé, et c'est la
+campagne de l'étape 15 qui l'a mesuré.
+
+⚠️ **La règle du tout ou rien ne bouge pas d'un cran** : les jetons s'effacent avec le
+ratio dès qu'une prise du jeu n'a pas d'`usage`. `v1-etape12` (0/19) et `v1-base` (3/31)
+continuent d'afficher « non disponible » sur les trois lignes. Et la comparaison publie
+l'écart des jetons **sans verdict de dispersion**, pour la raison qui vaut déjà pour les
+appels : un coût figé à l'enregistrement n'a pas de dispersion, et un verdict calculé dessus
+serait faux avec l'air d'un résultat.
+
 ### La mesure nº8 — les tests de conduite du dialogue. **Ce n'est pas non plus un critère.**
 
 Ajoutée au jalon 1 de l'étape 15, et c'est la seule mesure de l'étape qui **ne coûte aucun
@@ -4181,10 +4213,10 @@ restent lançables et mesurables : `RAIYON_ORCHESTRATION` choisit qui conduit le
 | Mesure nº7 — entrée facturée | 367 832 jetons | **663 347 jetons** |
 | Mesure nº8 — conduite testée | **0** | **17** |
 
-*Critères, taux et appels : `docs/eval/rapport.v2.md` et `docs/eval/rapport.machine.v1.md`.
-Les jetons ne sont publiés par aucun rapport — ils sont sommés sur les champs `usage` des
-36 en-têtes de cassettes de chaque jeu, et c'est la seule ligne de ce tableau qui ne se
-retrouve pas telle quelle dans un fichier committé.*
+*Critères, taux, appels **et jetons** : `docs/eval/rapport.v2.md` et
+`docs/eval/rapport.machine.v1.md`. ⚠️ **La dernière phrase de cette note était « les jetons
+ne sont publiés par aucun rapport »**, et c'est l'étape 16 qui l'a rendue fausse : la mesure
+nº7 les publie, et plus une ligne de ce tableau n'est sommée à la main.*
 
 ### Les six arbitrages, avec leur alternative écartée
 
@@ -4256,7 +4288,7 @@ l'invariant du budget que personne n'avait écrit. Ils survivraient à un verdic
 
 ---
 
-### Étape 16 — Consolidation ⏳
+### Étape 16 — Consolidation ✅
 
 Deux jalons **sans un seul appel API**, qui referment ce que le dépôt s'était engagé à
 traiter et que l'étape 15 laissait ouvert. Rien de neuf n'est ajouté : une dette se solde,
@@ -4301,7 +4333,69 @@ ne bouge pas** — `make check` rend exactement 1002, `make test-int` 98, et les
 documents de `docs/eval/` se régénèrent à l'identique, ce qui couvre les deux orchestrations
 à la fois.
 
-#### Jalon 2 — la mesure nº7 publie les jetons ⏳
+#### Jalon 2 — la mesure nº7 publie les jetons ✅
+
+**Un défaut de spécification, pas d'implémentation, et il est de moi.** La mesure nº7 a été
+spécifiée au jalon 0 de l'étape 15 sur `entete.usage.appels` — **avant** qu'on sache que le
+compte d'appels dirait l'inverse du coût réel. La campagne l'a montré : 2,17 appel/tour
+contre 2,36, **et** 1,80 fois plus d'entrée facturée. Le rapport ne publiait que les appels ;
+un lecteur y lisait « moins d'appels » et en concluait « moins chère ». La conclusion inverse
+est la vraie, et elle ne vivait que dans le README et dans le tableau ci-dessus, **sommée à
+la main**. Le correctif est écrit là où la mesure est définie — §4 et `raiyon/eval/cout.py`.
+
+`Cout` porte désormais l'`Usage` cumulé et non plus le seul compte d'appels — `Usage` savait
+déjà s'additionner, `mesurer_le_jeu()` lisait déjà chaque en-tête : il n'y avait aucune
+plomberie à inventer, seulement une décision de publier. Trois lignes au lieu d'une, dans le
+rapport comme dans la comparaison :
+
+| Ligne | `v2` | `machine.v1` |
+|---|---|---|
+| Appels par tour client | 2,36 | **2,17** |
+| Jetons d'entrée facturés | 367 832 | **663 347** — facteur 1,80 |
+| Jetons de sortie | 46 285 | 65 958 — facteur 1,43 |
+
+⚠️ **Le cache lu est publié à côté, jamais additionné** — 1 851 360 contre 1 108 975. Il est
+facturé à un autre tarif ; la somme des deux serait un total que personne ne doit à personne.
+
+⚠️ **La règle du tout ou rien ne s'est pas assouplie d'un cran pour faire apparaître un
+chiffre** : `v1-etape12` (0/19) et `v1-base` (3/31) affichent « non disponible » sur les
+trois lignes. Et l'écart des jetons est publié **sans verdict de dispersion**, comme celui
+des appels — un coût figé à l'enregistrement n'a pas de bruit à dépasser.
+
+**La neutralité est vérifiée par le même contrôle qu'au jalon 0 de l'étape 15** : les cinq
+documents de `docs/eval/` ne changent que par les lignes de jetons. Le `git diff` ne porte
+**aucune suppression de chiffre** — une seule phrase disparaît, celle de la provenance, qui
+disait « la seule ligne » et en dit maintenant trois.
+
+#### Ce que l'étape a appris
+
+**Une règle censée éviter un cycle d'imports ne suffit pas si elle ne décrit pas le
+mécanisme.** « Les sous-modules n'importent jamais le `__init__` » est vraie et inopérante :
+c'est l'interpréteur qui exécute le `__init__` du paquet parent, sans qu'aucun sous-module
+l'ait demandé. Le piège a été reproduit en quinze lignes dans un répertoire jetable **avant**
+d'écrire une ligne du jalon — trois minutes qui ont changé la forme de la solution.
+
+**Et une mesure peut être fausse sans qu'aucune ligne de code le soit.** Les jetons étaient
+dans les en-têtes depuis le premier jour de la campagne, `Usage.__add__` existait, la boucle
+qui lit les cassettes les avait sous la main. Ce qui manquait était une décision de publier,
+prise à un moment où l'on ne savait pas encore ce que la campagne montrerait. C'est le même
+motif que la fuite d'évaluation : ce n'est pas le calcul qui trompe, c'est ce qu'on a choisi
+de regarder.
+
+#### Reste après l'étape
+
+- le correctif de `NOMBRE` et la **dette nº1** de l'étape 8, dans leur version à un seul
+  changement : **possibles**, et elles coûtent deux campagnes séparées (~380 appels) pour
+  tenir la promesse d'attribution, ou une seule (~190) en y renonçant explicitement. C'est un
+  arbitrage de budget, il se prend avant et pas pendant ;
+- une `systeme.machine.v2`, si l'extraction atomique vaut qu'on y revienne ;
+- la recherche hybride `pgvector` (§3.5), qui reste hors périmètre du produit livrable ;
+- ⚠️ **`make eval-comparer` ne survit pas à une apostrophe dans `Q`** — la recette passe
+  `--question '$(Q)'`, et `Q="l'effet…"` ferme la chaîne : `/bin/sh: Unterminated quoted
+  string`. Les deux comparaisons de cette étape ont donc été relancées par
+  `uv run python scripts/eval.py comparer`, à code identique. Défaut de la cible `make`,
+  frère de celui du `\` de continuation trouvé à l'étape 15 ; non corrigé ici, parce qu'une
+  étape dont la preuve est « rien d'autre n'a bougé » ne corrige rien d'autre.
 
 ---
 

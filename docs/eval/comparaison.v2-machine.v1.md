@@ -101,10 +101,19 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 | Mesure | v2 | machine.v1 | Écart |
 |---|---|---|---|
 | Appels au modèle par tour client (nº7) | 191 appel(s) sur 81 tour(s) — 2.36 appel/tour | 176 appel(s) sur 81 tour(s) — 2.17 appel/tour | -0.19 appel/tour |
+| Jetons d'entrée facturés (nº7) | 367 832 facturés (358 088 hors cache + 9 744 de cache écrit) ; 1 851 360 lus du cache, à un autre tarif | 663 347 facturés (657 010 hors cache + 6 337 de cache écrit) ; 1 108 975 lus du cache, à un autre tarif | +295 515 jetons — facteur 1,80 |
+| Jetons de sortie (nº7) | 46 285 jetons | 65 958 jetons | +19 673 jetons — facteur 1,43 |
 
-⚠️ **La mesure nº7 ne vient pas du rejeu.** C'est la seule ligne de ce fichier qui soit lue
-dans l'en-tête des cassettes plutôt que recalculée : elle est **figée à l'enregistrement** et ne
-bougera pas quand le moteur, le scoring ou le validateur changeront. Les autres chiffres, si.
+⚠️ **La mesure nº7 ne vient pas du rejeu.** Ce sont les seules lignes de ce fichier qui soient lues
+dans l'en-tête des cassettes plutôt que recalculées : elles sont **figées à l'enregistrement** et ne
+bougeront pas quand le moteur, le scoring ou le validateur changeront. Les autres chiffres, si.
+
+⚠️ **Les appels et les jetons peuvent aller en sens contraire, et c'est arrivé.** La campagne
+de l'étape 15 a mesuré une orchestration qui fait **moins d'appels par tour** que l'autre et qui
+paie **près du double** en entrée facturée : deux appels par tour, mais chacun renvoie une
+conversation qui grossit plus vite. Publier le compte d'appels seul dirait donc l'inverse de
+la vérité, et c'est pourquoi les deux moitiés de la mesure nº7 sont écrites ensemble.
+Les deux campagnes de l'étape 15 sont chiffrées côte à côte dans leur comparaison.
 
 ⚠️ **Cette ligne ne porte pas de verdict**, contrairement à toutes celles du tableau
 précédent. La dispersion qui les départage est celle des prises d'un rejeu ; ce coût-ci

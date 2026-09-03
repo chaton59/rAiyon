@@ -10,6 +10,7 @@ tests ci-dessous vérifient qu'elle s'applique **dans le bon sens** — la faute
 cher n'est pas de rater un effet, c'est d'en annoncer un que le tirage explique.
 """
 
+from raiyon.agent.client import USAGE_NUL, Usage
 from raiyon.agent.evenements import MotifDeRepli, Repli, Texte, TexteRejete
 from raiyon.eval.comparaison import (
     BRUIT,
@@ -28,6 +29,36 @@ from raiyon.eval.cout import Cout
 from raiyon.eval.metriques import RESERVE_ITERATIONS, PriseJouee, TourJoue, agreger, mesurer
 from raiyon.validateur.regles import CodeGrief, Grief
 from raiyon.validateur.validateur import OrigineRejet
+
+COUT_AGENT = Cout(
+    usage=Usage(
+        appels=191,
+        jetons_entree=358_088,
+        jetons_sortie=46_285,
+        cache_ecrit=9_744,
+        cache_lu=1_851_360,
+    ),
+    prises=36,
+    prises_sans_usage=0,
+    tours=81,
+)
+COUT_MACHINE = Cout(
+    usage=Usage(
+        appels=176,
+        jetons_entree=657_010,
+        jetons_sortie=65_958,
+        cache_ecrit=6_337,
+        cache_lu=1_108_975,
+    ),
+    prises=36,
+    prises_sans_usage=0,
+    tours=81,
+)
+"""Les deux campagnes de l'étape 15, sommées sur leurs 36 en-têtes chacune.
+
+⚠️ **Ce ne sont pas des nombres d'illustration.** Ce sont ceux qui ont fait découvrir que la
+mesure nº7 disait l'inverse du coût réel, et les tests ci-dessous vérifient que la
+comparaison les publie tous les deux — c'est là que le défaut se voyait."""
 
 REJETS = Compteur("Rejets", lambda prise: len(prise.rejets), "baisse")
 
@@ -394,12 +425,12 @@ def test_le_cout_se_compare_mais_ne_recoit_aucun_verdict():
         nom_avant="v1",
         nom_apres="v2",
         question="?",
-        cout_avant=Cout(appels=150, prises=36, prises_sans_usage=0, tours=100),
-        cout_apres=Cout(appels=191, prises=36, prises_sans_usage=0, tours=102),
+        cout_avant=COUT_AGENT,
+        cout_apres=COUT_MACHINE,
     )
 
     assert "## Le coût d'enregistrement" in texte
-    assert "+0.37 appel/tour" in texte
+    assert "-0.19 appel/tour" in texte
     assert "ne porte pas de verdict" in texte
 
     coeur = texte.split("## Le coût d'enregistrement")[1].split("## Les critères")[0]
@@ -416,12 +447,46 @@ def test_un_cote_sans_usage_supprime_lecart_et_le_dit_des_deux_cotes():
         nom_avant="v1-base",
         nom_apres="v2",
         question="?",
-        cout_avant=Cout(appels=18, prises=31, prises_sans_usage=28, tours=95),
-        cout_apres=Cout(appels=191, prises=36, prises_sans_usage=0, tours=102),
+        cout_avant=Cout(usage=USAGE_NUL, prises=31, prises_sans_usage=28, tours=95),
+        cout_apres=COUT_MACHINE,
     )
 
     assert "non disponible — 28 prise(s) sur 31 sans `usage`" in texte
-    assert "non calculable" in texte
+    assert texte.count("non calculable") == 3, (
+        "les trois lignes de la mesure nº7 renoncent ensemble à leur écart : les jetons "
+        "n'ont pas de règle plus permissive que les appels"
+    )
+    assert "facteur" not in texte, "pas de facteur non plus — il se calculerait sur 3 prises"
+
+
+def test_lecart_de_jetons_est_publie_et_contredit_celui_des_appels():
+    """⚠️ **C'est la comparaison réelle de l'étape 15, et les deux moitiés vont en sens
+    contraire** : la machine fait 2,17 appel/tour contre 2,36 — **moins** — et paie 663 347
+    jetons d'entrée contre 367 832 — **1,80 fois plus**.
+
+    Publier la première ligne sans la seconde donnait un fichier committé qui disait « moins
+    d'appels » à un lecteur qui en concluait « moins chère ». Le facteur est écrit à côté de
+    l'écart absolu parce que c'est lui qui se retient.
+    """
+    mesures = campagne(("a", 1, 1), ("a", 2, 1))
+    texte = rendre(
+        mesures,
+        mesures,
+        nom_avant="v2",
+        nom_apres="machine.v1",
+        question="?",
+        cout_avant=COUT_AGENT,
+        cout_apres=COUT_MACHINE,
+    )
+
+    assert "-0.19 appel/tour" in texte
+    assert "+295 515 jetons — facteur 1,80" in texte
+    assert "aller en sens contraire" in texte
+
+    coeur = texte.split("## Le coût d'enregistrement")[1].split("## Les critères")[0]
+    assert SIGNAL not in coeur and BRUIT not in coeur, (
+        "les jetons n'ont pas plus de dispersion que les appels : aucun verdict ici non plus"
+    )
 
 
 def test_la_reserve_sur_les_iterations_accompagne_le_tableau_des_ecarts():

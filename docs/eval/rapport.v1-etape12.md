@@ -40,10 +40,19 @@
 | Règles du validateur jamais déclenchées | 3 sur 6 : `id_inconnu`, `prix_etranger_au_produit`, `nom_reecrit` | publié — voir `tests/validateur/test_pieges.py` |
 | Prises où `suggest_next_question` a signalé le budget manquant | 2 sur 18 | publié — **observation, pas exigence** |
 | Appels au modèle par tour client (mesure nº7) | non disponible — 18 prise(s) sur 18 sans `usage` | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons d'entrée facturés (mesure nº7) | non disponible — 18 prise(s) sur 18 sans `usage` | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons de sortie (mesure nº7) | non disponible — 18 prise(s) sur 18 sans `usage` | publié — **figé à l'enregistrement**, voir la note ci-dessous |
 
-⚠️ **La mesure nº7 ne vient pas du rejeu.** C'est la seule ligne de ce fichier qui soit lue
-dans l'en-tête des cassettes plutôt que recalculée : elle est **figée à l'enregistrement** et ne
-bougera pas quand le moteur, le scoring ou le validateur changeront. Les autres chiffres, si.
+⚠️ **La mesure nº7 ne vient pas du rejeu.** Ce sont les seules lignes de ce fichier qui soient lues
+dans l'en-tête des cassettes plutôt que recalculées : elles sont **figées à l'enregistrement** et ne
+bougeront pas quand le moteur, le scoring ou le validateur changeront. Les autres chiffres, si.
+
+⚠️ **Les appels et les jetons peuvent aller en sens contraire, et c'est arrivé.** La campagne
+de l'étape 15 a mesuré une orchestration qui fait **moins d'appels par tour** que l'autre et qui
+paie **près du double** en entrée facturée : deux appels par tour, mais chacun renvoie une
+conversation qui grossit plus vite. Publier le compte d'appels seul dirait donc l'inverse de
+la vérité, et c'est pourquoi les deux moitiés de la mesure nº7 sont écrites ensemble.
+Les deux campagnes de l'étape 15 sont chiffrées côte à côte dans leur comparaison.
 
 ⚠️ **`Itérations` ne se compare pas d'une orchestration à l'autre.** Chez une machine à états,
 c'est une **constante** décidée par le graphe, pas un résultat : sa variance nulle est une

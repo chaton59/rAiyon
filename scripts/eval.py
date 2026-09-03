@@ -579,7 +579,9 @@ def mesurer_le_jeu(
     ⚠️ **Le coût sort à côté de l'agrégat, pas dedans** — voir `raiyon.eval.cout` : tout ce
     que porte `Mesures` est recalculé à ce rejeu, le coût est lu dans l'en-tête et figé à
     l'enregistrement. Il n'y a aucune plomberie à inventer pour le collecter : la boucle
-    ci-dessous a déjà l'en-tête sous la main, puisqu'elle lit chaque cassette.
+    ci-dessous a déjà l'en-tête sous la main, puisqu'elle lit chaque cassette. C'est
+    littéralement vrai depuis l'étape 15 — et c'est ce qui rend le correctif de l'étape 16
+    gratuit : les jetons étaient là, sous la même main, et n'étaient pas publiés.
     """
     print(f"jeu {jeu.nom} — prompt {prompt.version} ({prompt.empreinte}), {len(prises)} prise(s)")
     if jeu.compose:
@@ -587,7 +589,7 @@ def mesurer_le_jeu(
     fabrique = get_sessionmaker()
     mesures: list[MesuresDunePrise] = []
     divergences_vues: set[tuple[str, str, int]] = set()
-    appels = 0
+    usage = USAGE_NUL
     sans_usage = 0
 
     for scenario, prise in prises:
@@ -655,13 +657,15 @@ def mesurer_le_jeu(
         if cassette.entete.usage is None:
             sans_usage += 1
         else:
-            appels += cassette.entete.usage.appels
+            # L'en-tête entier, pas le seul compte d'appels : la mesure nº7 publie aussi
+            # les jetons depuis l'étape 16, et `Usage` sait s'additionner.
+            usage = usage + cassette.entete.usage
         print(f"  · {scenario.nom}.{prise}")
 
     _verifier_les_divergences_attendues(jeu, prises, divergences_vues)
     agregat = agreger(mesures)
     return agregat, Cout(
-        appels=appels,
+        usage=usage,
         prises=len(mesures),
         prises_sans_usage=sans_usage,
         tours=agregat.tours,

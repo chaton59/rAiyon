@@ -32,7 +32,7 @@ eux, sont déjà tenus par du code et ne bougeront pas.
 import statistics
 from collections.abc import Sequence
 
-from raiyon.eval.cout import PROVENANCE, Cout
+from raiyon.eval.cout import POURQUOI_LES_DEUX_MOITIES, PROVENANCE, Cout
 from raiyon.eval.metriques import (
     RESERVE_ITERATIONS,
     SEUIL_TOP3,
@@ -225,8 +225,11 @@ def _tableau_des_criteres(mesures: Mesures) -> list[str]:
 def _tableau_des_couches(mesures: Mesures, cout: Cout | None = None) -> list[str]:
     """Les trois lignes sans seuil. Ce sont elles que l'étape 13 fera bouger.
 
-    La mesure nº7 s'y ajoute en dernier et **porte sa provenance dans sa colonne de
-    droite** : c'est la seule ligne du tableau qui ne soit pas recalculée au rejeu.
+    La mesure nº7 s'y ajoute en dernier, sur **trois** lignes depuis l'étape 16 — les
+    appels, l'entrée facturée, la sortie —, et chacune **porte sa provenance dans sa colonne
+    de droite** : ce sont les seules lignes du tableau qui ne soient pas recalculées au
+    rejeu. Les trois vont ensemble parce que les deux premières peuvent aller en sens
+    contraire, ce que la note du dessous dit avec les chiffres qui l'ont montré.
     """
     iterations = mesures.iterations
     return _tableau(
@@ -278,6 +281,16 @@ def _tableau_des_couches(mesures: Mesures, cout: Cout | None = None) -> list[str
                         cout.en_ligne(),
                         "publié — **figé à l'enregistrement**, voir la note ci-dessous",
                     ),
+                    (
+                        "Jetons d'entrée facturés (mesure nº7)",
+                        cout.en_ligne_entree(),
+                        "publié — **figé à l'enregistrement**, voir la note ci-dessous",
+                    ),
+                    (
+                        "Jetons de sortie (mesure nº7)",
+                        cout.en_ligne_sortie(),
+                        "publié — **figé à l'enregistrement**, voir la note ci-dessous",
+                    ),
                 )
             ),
         ),
@@ -287,12 +300,13 @@ def _tableau_des_couches(mesures: Mesures, cout: Cout | None = None) -> list[str
 def _notes_des_couches(cout: Cout | None) -> list[str]:
     """Les deux réserves que ce tableau ne porte pas dans ses colonnes.
 
-    La provenance de la mesure nº7, et le fait qu'`iterations` cesse d'être comparable dès
-    qu'on change d'orchestration. Toutes deux sont écrites **une seule fois** dans le
-    dépôt, à côté de ce qu'elles qualifient — `raiyon.eval.cout` et `raiyon.eval.metriques`.
+    La provenance de la mesure nº7, **pourquoi elle a deux moitiés**, et le fait
+    qu'`iterations` cesse d'être comparable dès qu'on change d'orchestration. Toutes trois
+    sont écrites **une seule fois** dans le dépôt, à côté de ce qu'elles qualifient —
+    `raiyon.eval.cout` pour les deux premières, `raiyon.eval.metriques` pour la troisième.
     """
     return [
-        *((PROVENANCE, "") if cout is not None else ()),
+        *((PROVENANCE, "", POURQUOI_LES_DEUX_MOITIES, "") if cout is not None else ()),
         RESERVE_ITERATIONS,
         "",
     ]

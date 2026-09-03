@@ -7,6 +7,7 @@
 from decimal import Decimal
 
 from produits_de_test import fabriquer
+from raiyon.agent.client import USAGE_NUL, Usage
 from raiyon.agent.evenements import (
     MotifDeRepli,
     ProduitsTrouves,
@@ -30,6 +31,22 @@ from raiyon.matching.moteur import ResultatMatching
 from raiyon.matching.relachement import Diagnostic, Motif, Proposition
 from raiyon.validateur.regles import CodeGrief, Grief
 from raiyon.validateur.validateur import OrigineRejet
+
+COUT_V2 = Cout(
+    usage=Usage(
+        appels=191,
+        jetons_entree=358_088,
+        jetons_sortie=46_285,
+        cache_ecrit=9_744,
+        cache_lu=1_851_360,
+    ),
+    prises=36,
+    prises_sans_usage=0,
+    tours=81,
+)
+"""Le coût réel de la campagne `v2` — 191 appels, 81 tours, et les jetons de ses 36
+en-têtes. Les mêmes nombres que dans `tests/eval/test_orchestration.py`, parce qu'un
+rapport qui publierait autre chose que ce que `Cout` calcule ne se verrait pas."""
 
 ECRAN = fabriquer("monitor", 1, prix="142.99")
 
@@ -419,13 +436,32 @@ def test_le_cout_par_tour_est_publie_avec_sa_provenance():
     """⚠️ **C'est la seule ligne du rapport qui ne vienne pas du rejeu.** Sans la phrase de
     provenance à côté, elle se lit comme les autres — c'est-à-dire comme un chiffre qui
     bougera au prochain changement de moteur. Il ne bougera pas : il a été payé une fois."""
-    texte = rendre(
-        mesures_inventees(), cout=Cout(appels=191, prises=36, prises_sans_usage=0, tours=81)
-    )
+    texte = rendre(mesures_inventees(), cout=COUT_V2)
 
     assert "Appels au modèle par tour client (mesure nº7)" in texte
     assert "2.36 appel/tour" in texte
     assert "ne vient pas du rejeu" in texte
+
+
+def test_les_jetons_sont_publies_a_cote_des_appels_et_disent_pourquoi():
+    """⚠️ **Correctif de l'étape 16 : le compte d'appels seul dit l'inverse du coût réel.**
+
+    La mesure nº7 a été spécifiée sur `entete.usage.appels` avant qu'on sache que la machine
+    à états ferait **moins d'appels** que l'agent en coûtant **1,80 fois plus** d'entrée
+    facturée. Un lecteur qui ouvre `rapport.machine.v1.md` dans six mois et n'y lit que les
+    appels conclut « moins chère », et la conclusion inverse est la vraie.
+
+    Le rapport publie donc les trois grandeurs, et la phrase qui dit pourquoi elles vont
+    ensemble — sans quoi elles se lisent comme trois lignes de plus.
+    """
+    texte = rendre(mesures_inventees(), cout=COUT_V2)
+
+    assert "Jetons d'entrée facturés (mesure nº7)" in texte
+    assert "367 832 facturés" in texte
+    assert "1 851 360 lus du cache" in texte
+    assert "Jetons de sortie (mesure nº7)" in texte
+    assert "46 285 jetons" in texte
+    assert "aller en sens contraire" in texte
 
 
 def test_un_jeu_dont_une_prise_na_pas_dusage_ne_publie_aucun_chiffre():
@@ -433,11 +469,14 @@ def test_un_jeu_dont_une_prise_na_pas_dusage_ne_publie_aucun_chiffre():
     et se tait sur le reste. Une moyenne sur le sous-ensemble comparerait des tailles
     d'échantillon avec `v2`."""
     texte = rendre(
-        mesures_inventees(), cout=Cout(appels=0, prises=18, prises_sans_usage=18, tours=52)
+        mesures_inventees(),
+        cout=Cout(usage=USAGE_NUL, prises=18, prises_sans_usage=18, tours=52),
     )
 
     assert "non disponible — 18 prise(s) sur 18 sans `usage`" in texte
     assert "appel/tour" not in texte
+    assert "lus du cache" not in texte, "les jetons s'effacent avec le ratio, pas séparément"
+    assert "367 832" not in texte, "aucun total d'une autre campagne ne s'affiche ici"
 
 
 def test_sans_jeu_la_ligne_nest_pas_ecrite_du_tout():
@@ -447,6 +486,7 @@ def test_sans_jeu_la_ligne_nest_pas_ecrite_du_tout():
 
     assert "mesure nº7" not in texte
     assert "ne vient pas du rejeu" not in texte
+    assert "aller en sens contraire" not in texte
 
 
 def test_la_reserve_sur_les_iterations_est_posee_avant_la_campagne():

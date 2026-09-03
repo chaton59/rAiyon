@@ -141,8 +141,9 @@ soustraction pure, vérifiée par un test).
 | Mesure nº7 — entrée facturée | 367 832 jetons | **663 347 jetons** |
 | Mesure nº8 — conduite testée hors ligne | **0** | **17** |
 
-*Tout vient de `docs/eval/rapport.v2.md` et `docs/eval/rapport.machine.v1.md`, sauf les
-jetons — sommés sur les en-têtes de cassettes, qu'aucun rapport ne publie.*
+*Tout vient de `docs/eval/rapport.v2.md` et `docs/eval/rapport.machine.v1.md`, jetons
+compris depuis l'étape 16 : la mesure nº7 les publie, et l'écart des deux campagnes est dans
+`docs/eval/comparaison.v2-machine.v1.md`.*
 
 **Un seul écart dépasse la dispersion, et c'est la machine qui le perd** : le taux de rejet,
 +15,00 par passe pour une étendue de ± 12,00, dominé par `ecart_non_dit` (0 → 24). Les cinq
@@ -221,7 +222,9 @@ rejeu a besoin de Postgres et du seed, et que `make eval` reste une commande à 
 `make check`.
 
 **Ce que coûte une campagne.** Les 36 prises de chaque jeu, sommées sur le champ `usage`
-de leurs en-têtes — aucun rapport ne porte ces compteurs :
+de leurs en-têtes. Ces compteurs sont **publiés par la mesure nº7** depuis l'étape 16 — ce
+tableau reprend ce que portent `docs/eval/rapport.v2.md` et
+`docs/eval/rapport.machine.v1.md`, il ne le calcule plus à côté d'eux :
 
 | Campagne | Appels | Jetons entrants | Entrée facturée | Sortants |
 | --- | --- | --- | --- | --- |
@@ -232,6 +235,13 @@ de leurs en-têtes — aucun rapport ne porte ces compteurs :
 deux appels par tour, mais chacun renvoie la conversation entière, et celle-ci grossit plus
 vite — trois paires `tool_use`/`tool_result` par tour. Lire le compte d'appels seul dirait
 l'inverse de la vérité.
+
+C'est ce qui a fait rouvrir la mesure nº7 à l'étape 16 : elle avait été spécifiée sur les
+appels seuls, **avant** qu'on sache que le compte d'appels dirait l'inverse du coût. Les
+jetons étaient dans les en-têtes depuis le premier jour de la campagne ; ils ne vivaient
+sommés à la main que dans ce README, et un lecteur du rapport concluait « moins d'appels,
+donc moins chère ». Ils y sont désormais, avec la phrase qui dit pourquoi les deux moitiés
+vont ensemble.
 
 À cela s'ajoutent les **25 appels du tir d'essai** qui a précédé la campagne de la machine,
 deux scénarios enregistrés puis réenregistrés avec le reste : **non récupérables, et
