@@ -1012,7 +1012,7 @@ du dialogue tournent dans `make check` chez l'une et chez l'autre orchestration.
 | Orchestration | Tests de conduite dans `make check` |
 |---|---|
 | Agent (étape 8) | **0** |
-| Machine à états (étape 15) | **16 tests de conduite du dialogue** |
+| Machine à états (étape 15) | **17 tests de conduite du dialogue** |
 
 Le zéro n'est pas une mesure refaite pour l'occasion : il est écrit au §7 depuis l'étape 8,
 ligne « le faux client teste la boucle, pas le modèle » — *un défaut de conduite du dialogue
@@ -1027,7 +1027,7 @@ mise à jour des documents fait échouer `make check`.
 > ⚠️ **Ce que ces tests ne prouvent pas.** Ils vérifient que la machine conduit le dialogue
 > **comme on l'a écrit**. Ils ne vérifient **pas que la conduite est bonne**, ni que le modèle qui
 > rédige derrière respecte quoi que ce soit. La machine rend testable **sa propre décision**, pas
-> la conversation. Sans cette réserve, « 16 contre 0 » serait le double standard que l'étape 13
+> la conversation. Sans cette réserve, « 17 contre 0 » serait le double standard que l'étape 13
 > s'est reproché sur la métrique nº3.
 
 C'est §3.6 qui rend la mesure possible, et il l'avait annoncée en creux : « la testabilité
@@ -3864,9 +3864,58 @@ que §3.6 annonçait, et il est daté d'avant la mesure.
 **Porte de sortie franchie :** `make check` vert à 952 (+26), **sans base, sans conteneur, sans
 clé** — la suite entière du jalon tourne hors ligne, et c'est la propriété qu'on achète.
 
+#### Jalon 2 — l'orchestrateur, branché sur les vrais outils ✅
+
+`raiyon/machine/orchestrateur.py` conduit un tour avec **deux appels modèle** : une
+extraction qui n'expose que `record_criteria`, la boucle `decider()` / outils sans aucun
+appel modèle, puis une rédaction **ou** une question, jamais les deux.
+
+`raiyon/orchestration.py` porte le `Protocol` `Orchestrateur` et `repondre_en_vigueur()`.
+`session.py` change **d'un import et d'une ligne** — c'est le seul fichier d'`agent/` que
+l'étape touche, et `make eval` rejoué à l'identique le prouve.
+
+- **« Même signature » est vérifié, pas affirmé.** Le `Protocol` a été écrit d'après
+  `boucle.repondre`, qui ne bouge pas d'une ligne ; c'est mypy qui refuse la fonction non
+  substituable, à l'endroit qui prétend rendre l'une ou l'autre.
+- **La garde de contexte (point A)** : la rédaction reçoit toujours les agrégats du
+  sous-catalogue courant. C'est un **avantage d'orchestration, pas un correctif** — une
+  machine à états peut garantir le contexte de sa rédaction, un agent ne le peut pas,
+  décider de ses outils étant ce qui fait de lui un agent. Un appel d'outil de plus par
+  tour, **aucun appel modèle** : le plancher de 2,00 tient. Mesure nº8 de 16 à 17.
+- ⚠️ **La prédiction qui va avec, posée avant la campagne** : plus d'agrégats en contexte,
+  c'est plus de chiffres dans la prose, donc **potentiellement plus de rejets**. Si le taux
+  de rejet de la machine monte, c'est le premier endroit où regarder — pas une supériorité
+  de l'agent.
+- **L'historique va à la rédaction**, comme chez l'agent. *Alternative écartée — un rendu
+  sans mémoire* : plus simple, et elle **truque la comparaison**, `comparaison` devenant
+  impossible par construction. La différence entre les deux orchestrations doit rester la
+  décision, jamais la mémoire.
+- **Un message du modèle est persisté réduit à ce dont l'orchestrateur s'est servi** : le
+  texte de l'extraction est jeté, les `tool_use` de la rédaction aussi. Une seule règle
+  ferme deux trous — un texte jamais lu qui réapparaîtrait au rechargement (la brèche de §2
+  du correctif de l'étape 11), et un `tool_use` orphelin qui rendrait l'historique
+  irrecevable au tour suivant.
+- **Les appels d'outils du code s'écrivent comme ceux du modèle** : un `tool_use`
+  synthétique, puis son `tool_result`. Il n'y a pas d'alternative — `contexte_des_messages()`
+  lit les faits dans les `tool_result` et nulle part ailleurs, et toute autre forme viderait
+  le `ContexteFourni` du validateur.
+- **Les consignes de l'appel nº2 ne sont pas persistées** : un bloc `text` de rôle `user`
+  sans `tool_result` a exactement la forme d'un message client, et `prose.py` le rendrait
+  comme une parole du client.
+
+**Porte de sortie franchie :** `make check` vert à **981** (+29), conteneur arrêté et sans
+clé ; `make test-int` à 98 ; `make eval` rejoué **sans qu'aucun rapport ne bouge** — l'agent
+n'a pas été touché. Vérification manuelle : les deux orchestrations tiennent une
+conversation de deux tours, mêmes types d'événements à la console, session persistée,
+second tour relu sans erreur d'appairage — 8 appels API.
+
+⚠️ **Constaté à la vérification manuelle, et c'est le point A qui paie** : au second tour,
+la machine a répondu « sur les huit écrans 27 pouces de votre fourchette, cinq sont en VA et
+trois en IPS ». Sans la garde, ces trois nombres auraient été **fabriqués**, et aucune règle
+du validateur ne les aurait vus.
+
 #### Reste à faire
 
-- Jalon 2 — le branchement : l'orchestrateur, et où `session.tour()` bascule.
 - Jalon 3 — la dérivation de `systeme.machine.v1.md` et la note de double application.
 - Jalon 4 — tir d'essai, campagne, comparaison `v2` contre `machine.v1`.
 
@@ -3915,6 +3964,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Le faux client teste la boucle, pas le modèle** | Moyenne — et c'est un angle mort de `make check` | `tests/agent/` couvre l'enchaînement, le réenchaînement de l'état, la terminalité, l'appairage des `tool_result` et la garde d'itérations — tout ce qui ne dépend pas de ce que le modèle répond. **Un défaut de conduite du dialogue passe donc entièrement à travers `make check`** : un agent qui interrogerait le client six fois de suite, ou qui citerait un prix jamais fourni, ferait une suite verte. C'est la contrepartie assumée de l'arbitrage 2, et elle ne se referme qu'avec les cassettes et le client simulé de l'étape 12 |
 | ~~**Le texte sortant n'est validé par rien jusqu'à l'étape 9**~~ | **Éteint** à l'étape 9 — validateur programmatique branché, texte bufferisé, une régénération puis repli sur template. La ligne est barrée plutôt qu'effacée : c'est le risque qui a décidé de l'ordre du plan | §2 reposait **uniquement sur le prompt système** : un prix recopié de travers, un `id` approximatif ou une spec déduite d'un sondage partaient au client. C'est pour cette raison que l'étape 9 est passée avant l'étape 10 — mettre une API et un front devant un texte non validé aurait multiplié la surface avant de fermer le trou. **Le trou est fermé au niveau du mécanisme, pas de la couverture** : les trois lignes qui suivent disent ce que le validateur ne voit pas |
 | **`NOMBRE` lit une résolution collée à une fréquence comme un seul nombre** | **Moyenne — mesurée à l'étape 13, correctif écrit et différé** | `NOMBRE` vaut `\d+(?:[ESPACES]\d{3})*(?:[.,]\d+)?` : l'espace y est un séparateur de milliers. « en 1920x1080 180 Hz » est donc lu comme **1 080 180 Hz**, une valeur qu'aucun produit ne déclare, et la règle 5 lève un `valeur_non_fournie` sur une phrase **exacte**. Deux des six griefs de la campagne v2 viennent de là (`categorie_efface_budget.3`). ⚠️ C'est un **faux positif du validateur**, pas une faute du modèle — et il est apparu parce que la section 14 de v2 pousse à écrire un produit par ligne, donc la résolution et la fréquence côte à côte. **Le correctif, précisément** : un séparateur de milliers ne suit jamais un groupe de quatre chiffres, donc le motif devient `(?:\d{1,3}(?:[ESPACES]\d{3})+\|\d+)(?:[.,]\d+)?` — une alternance entre la forme **séparée** et la forme **nue**. ⚠️ **La rédaction évidente `\d{1,3}(?:[ESPACES]\d{3})*` est fausse** et cassait plus qu'elle ne répare : sur `9333` elle lit `933` puis `3`, sur `1080 180` elle lit `108` puis `0 180`. L'alternance est ce qui garde `1 299,99` **et** `9333` intacts tout en séparant `1080` de `180`. Vérifié sur les six formes avant d'être écrit ici. **Différé, et pour la raison du jalon 1** : c'est un changement de validateur, il modifie des listes de griefs, donc des reprises, donc des empreintes de requête — il périmerait des cassettes. À livrer avec la prochaine campagne, jamais entre deux |
+| **La machine importe six helpers privés de `boucle.py`** | Faible — **dette assumée, datée et bornée** | `raiyon/machine/orchestrateur.py` importe `_bloc_tool_result`, `_ajouter_les_resultats`, `_empiler_la_reprise`, `_evenement_de`, `_catalogue_de` et `_depouiller` sous leur nom privé. **Les trois options ont été pesées, et c'est la moins mauvaise.** *Les dupliquer* donnerait deux rédactions de la forme des blocs persistés et de l'invariant de reprise dont `prose.py` dépend — c'est-à-dire la maladie de la dette nº1 ci-dessous, appliquée au seul endroit du dépôt où elle a déjà coûté un correctif (étape 11). *Les extraire dans un module commun* est la bonne réponse et elle touche `boucle.py`, ce que le jalon 2 s'interdit **pour que `make eval` puisse prouver que l'agent n'a pas bougé** — un rapport inchangé est la seule preuve non déclarative disponible. La dette se solde donc dans une version où l'agent a le droit de bouger, c'est-à-dire **après la campagne de l'étape 15** ; d'ici là, un import privé qui casserait se verrait immédiatement, `make check` jouant les deux orchestrations |
 | **La dette nº1 de l'étape 8 n'est pas résorbée** | Faible — **reportée deux fois, et la raison a changé** | `DESCRIPTION_SONDER` et `DESCRIPTION_PRECISION` portent des règles de dialogue que le prompt système redit — « une fourchette n'est jamais le prix d'un produit », « ne jamais demander sans donner quelque chose ». Deux rédactions d'une même règle finissent par en dire deux choses. Reportée à l'étape 8 parce qu'« on ne savait pas laquelle des deux portait l'effet » ; **reportée à l'étape 13 pour une autre raison, plus dure** : `schema_outils.py` est dans le préfixe mis en cache, le toucher périme les cassettes au même titre qu'un prompt, et le faire dans la même version qu'un changement de prompt rendrait l'effet inattribuable — exactement ce que la dette dit vouloir éviter. Elle se règle donc dans une version **à un seul changement**, où le prompt ne bouge pas |
 | **Le découpage v2/v3 n'a pas eu lieu** | Faible — **arbitrage budgétaire, écrit et daté** | L'étape 13 prévoyait `systeme.v2` (rédaction chiffrée seule) puis `systeme.v3` (domaine et markdown), pour attribuer chaque effet par isolation. Le plan coûtait ~500 appels ; les crédits en couvraient ~200. Les trois cibles sont donc parties ensemble, et **l'attribution vient de l'inspection des appendices, pas de l'isolation expérimentale** — plus faible, et suffisant ici parce que les cibles se lisent sur des artefacts différents. Les deux documents de `docs/prompts/` — la décision et sa révision — se lisent ensemble |
 | **Le prompt fuit peut-être ses propres exemples chiffrés** | **Ouverte** — hypothèse testable, pas un constat | `systeme.v1.md` illustre quatre de ses onze sections avec des chiffres : « il reste 32 écrans entre 180 et 395 dollars » (§4), « du 27 pouces » (§5), « je garde le 144 Hz » (§9), « celui-ci est à 120 Hz, pas 144 » (§11). Un rapprochement, et **il ne prouve rien** : la phrase refusée de `budget_serre.1` est « redescendre à **120 Hz** », et 120 est le seul chiffre de §11. Ce peut être une coïncidence — 120 est aussi le cran plausible sous 144, et le modèle le connaît sans le prompt. ⚠️ **Ce qui est sûr, c'est que la question n'a jamais été posée**, et qu'un prompt qui enseigne par l'exemple donne au modèle des chiffres qu'aucun outil n'a rendus. Non traité à l'étape 13 : retirer ces exemples modifierait des sections **existantes**, et v2 est une addition pure — deux sections qui bougent, c'est une attribution perdue. **Candidat pour une v3 à un seul changement**, où l'effet serait attribuable. La v2 elle-même n'ajoute aucun chiffre inventé : son §13 a été réécrit pour enseigner le geste (« dites la répartition que le sondage vient de rendre ») au lieu de montrer une réponse chiffrée en bloc de citation, qui est la forme qui appelle le plus l'imitation |

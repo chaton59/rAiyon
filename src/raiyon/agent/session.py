@@ -55,11 +55,12 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from raiyon.agent.boucle import ROLE_CLIENT, IssueDuTour, repondre
+from raiyon.agent.boucle import ROLE_CLIENT, IssueDuTour
 from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import Evenement
 from raiyon.db.models import SessionConversation, TourConversation
 from raiyon.matching.depot import DepotProduits
+from raiyon.orchestration import repondre_en_vigueur
 from raiyon.tools.etat import EtatSession, depuis_jsonb
 from raiyon.tools.repartiteur import ContexteOutils
 
@@ -156,7 +157,11 @@ def tour(
     )
     logueur.info("session.tour_client", session_id=str(identifiant), numero=numero)
 
-    issue = yield from repondre(
+    # ⚠️ **Le seul point de bascule entre les deux orchestrations** (étape 15, jalon 2).
+    # `session.tour()` ne connaît aucune des deux : il connaît la signature que le
+    # `Protocol` `Orchestrateur` porte, et c'est mypy qui vérifie que la substitution en
+    # est une.
+    issue = yield from repondre_en_vigueur()(
         client=client,
         systeme=systeme,
         outils=outils,

@@ -244,7 +244,10 @@ def test_un_zero_resultat_va_au_diagnostic_et_pas_a_une_seconde_recherche():
     vide = recherche(etat, produits=[])
 
     assert vide.resultat.produits == ()
-    assert decider(etat, vide) == Rediger()
+    assert decider(etat, vide) != Rechercher()
+    # La garde de contexte s'intercale — un sondage, aucun appel modèle — puis on rédige.
+    assert decider(etat, vide) == Sonder()
+    assert decider(etat, sondage(etat, produits=[])) == Rediger()
 
 
 def test_la_machine_nassouplit_pas_le_budget_apres_un_zero_resultat():
@@ -257,10 +260,10 @@ def test_la_machine_nassouplit_pas_le_budget_apres_un_zero_resultat():
     """
     etat = etat_avec("monitor", critere("refresh_rate"), budget="10")
     vide = recherche(etat, produits=[])
-    action = decider(etat, vide)
+    suite = [decider(etat, vide), decider(etat, sondage(etat, produits=[]))]
 
-    assert action == Rediger()
-    assert not hasattr(action, "budget_usd")
+    assert suite == [Sonder(), Rediger()]
+    assert not any(hasattr(action, "budget_usd") for action in suite)
 
 
 # --------------------------------------------------------------------------- #
@@ -280,7 +283,8 @@ def test_une_seule_recherche_par_message_du_client():
     trouves = recherche(etat)
 
     assert trouves.resultat.produits != ()
-    assert decider(etat, trouves) == Rediger()
+    assert decider(etat, trouves) != Rechercher()
+    assert decider(etat, sondage(etat)) != Rechercher()
 
 
 def test_sans_categorie_aucun_outil_de_catalogue_nest_appele():
@@ -367,9 +371,47 @@ def test_un_tour_se_termine_toujours_sur_une_action_terminale_unique():
     trace_avec = [
         decider(avec_budget),
         decider(avec_budget, recherche(avec_budget)),
+        decider(avec_budget, sondage(avec_budget)),
     ]
 
     for trace in (trace_sans, trace_avec):
         terminales = [action for action in trace if isinstance(action, DemanderPrecision | Rediger)]
         assert len(terminales) == 1
         assert trace.index(terminales[0]) == len(trace) - 1
+
+
+# --------------------------------------------------------------------------- #
+# Le contexte de la rédaction — jalon 2
+# --------------------------------------------------------------------------- #
+
+
+def test_la_redaction_recoit_toujours_les_agregats_du_sous_catalogue():
+    """Règle — `GARDE_DE_CONTEXTE` : la machine sonde avant d'écrire, à chaque tour, que le
+    tour finisse par une recommandation ou par une question.
+
+    §5 veut ce contexte pour le préambule d'une question, §4 et §12 veulent des chiffres
+    fondés sur autre chose que la mémoire du modèle. Sans agrégats sous les yeux, un modèle
+    à qui l'on demande une répartition la **fabrique**, et une répartition fabriquée est
+    faite d'entiers nus — sur lesquels aucune des cinq règles du validateur ne mord.
+
+    ⚠️ C'est un **avantage d'orchestration**, pas un correctif : une machine à états peut
+    garantir le contexte de sa rédaction, un agent ne le peut pas.
+    """
+    avec_budget = etat_avec("monitor", critere("refresh_rate"), budget="250")
+    sans_budget = etat_avec("monitor")
+
+    chemin_recommandation = [
+        decider(avec_budget),
+        decider(avec_budget, recherche(avec_budget)),
+        decider(avec_budget, sondage(avec_budget)),
+    ]
+    chemin_question = [
+        decider(sans_budget),
+        decider(sans_budget, sondage(sans_budget)),
+        decider(sans_budget, question(sans_budget)),
+    ]
+
+    for chemin in (chemin_recommandation, chemin_question):
+        assert any(isinstance(action, Sonder) for action in chemin), (
+            "aucun sondage avant la rédaction : le modèle écrira sans agrégats sous les yeux"
+        )

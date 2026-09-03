@@ -124,7 +124,7 @@ du dialogue tournent hors ligne**, sans clé, sans base et sans conteneur.
 | Orchestration | Tests de conduite dans `make check` |
 |---|---|
 | Agent — la boucle d'outils de l'étape 8 | **0** |
-| Machine à états — `raiyon/machine/decision.py` | **16 tests de conduite du dialogue** |
+| Machine à états — `raiyon/machine/decision.py` | **17 tests de conduite du dialogue** |
 
 Le zéro est écrit au §7 de `PROJET.md` depuis l'étape 8 : *le faux client teste la boucle,
 pas le modèle — un agent qui interrogerait le client six fois de suite ferait une suite
@@ -139,7 +139,7 @@ deviennent des assertions qui tournent en millisecondes.
 > ⚠️ **Ce que ces tests ne prouvent pas.** Ils vérifient que la machine conduit le dialogue
 > **comme on l'a écrit**. Ils ne vérifient **pas que la conduite est bonne**, ni que le
 > modèle qui rédige derrière respecte quoi que ce soit. La machine rend testable **sa
-> propre décision**, pas la conversation. Sans cette réserve, « 16 contre 0 » serait le
+> propre décision**, pas la conversation. Sans cette réserve, « 17 contre 0 » serait le
 > double standard que l'étape 13 s'est reproché sur la métrique nº3.
 
 ### Le harnais

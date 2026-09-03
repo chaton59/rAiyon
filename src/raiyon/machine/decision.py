@@ -64,8 +64,9 @@ au client reste le travail de la rédaction, qui voit `mouvements_refuses`.
 | Donner avant de demander | §3.9, prompt §5 | `Sonder` puis `Suggerer` avant toute question |
 | La question suggérée suggère | §3.8, prompt §6 | consulte `Suggerer`, puis arbitre |
 | Une question à la fois | MVP, prompt §5 | `DemanderPrecision` est terminale, et unique |
-| Zéro résultat | prompt §10 | sur un `ResultatRecherche`, on rédige — pas de 2ᵉ recherche |
-| Un composant à la fois | prompt §8, étape 7 | au plus un `Rechercher` par tour, par construction |
+| Zéro résultat | prompt §10 | après une recherche, on sonde puis on rédige — jamais 2 |
+| Un composant à la fois | prompt §8, étape 7 | au plus un `Rechercher` par tour |
+| Contexte de la rédaction | `GARDE_DE_CONTEXTE` | un `Sonder` dans tout tour à catégorie |
 
 La première ligne est l'invariant que `Attente.AUCUNE_RECHERCHE_SANS_BUDGET` mesure sur
 l'agent, et il couvre ses deux chemins : le budget jamais donné, et le budget effacé par un
@@ -123,6 +124,39 @@ la métrique nº3 : publier un écart flatteur sans l'étendue qui le relativise
 mesure qui va dans le bon sens. C'est la façon de rater une mesure par ailleurs imparable —
 le zéro d'en face, lui, ne se discute pas : il est écrit au §7 de `PROJET.md` depuis
 l'étape 8, ligne « le faux client teste la boucle, pas le modèle »."""
+
+
+GARDE_DE_CONTEXTE = (
+    "La rédaction reçoit toujours les agrégats du sous-catalogue courant : la machine "
+    "sonde\navant d'écrire, à chaque tour, que le tour finisse par une recommandation ou "
+    "par une question."
+)
+"""La règle du jalon 2, et **ce n'est pas un correctif — c'est un avantage d'orchestration.**
+
+Une machine à états peut **garantir** le contexte de sa rédaction. Un agent ne le peut pas :
+décider de ses outils est précisément ce qui fait de lui un agent, et rien ne l'oblige à
+sonder avant de parler. La garantie est donc une propriété que cette orchestration possède
+et que l'autre ne possède pas, pas une rustine posée sur un défaut.
+
+Elle se défend sans référence à aucune section du prompt : §5 veut ce contexte pour le
+préambule d'une question, §4 et §12 veulent des chiffres fondés sur autre chose que la
+mémoire du modèle. Ce sont trois raisons indépendantes, et la garde tomberait moins vite
+qu'aucune d'elles.
+
+⚠️ **Ce qu'elle empêche est précis, et coûteux si on le laisse arriver.** Sans agrégats en
+contexte, un modèle à qui l'on demande la répartition d'un sous-catalogue la **fabrique** —
+et une répartition fabriquée est faite d'**entiers nus**, sur lesquels aucune des cinq
+règles du validateur ne mord (§7, ligne « un entier nu n'est vérifié par rien »). La faute
+serait donc invisible, et elle le serait sur les tours où le client pose une question de
+domaine.
+
+⚠️ **La prédiction qui va avec, posée maintenant.** Plus d'agrégats en contexte, c'est plus
+de chiffres disponibles dans la prose, donc **potentiellement plus de rejets du validateur**.
+Si le taux de rejet de la machine monte, c'est le **premier** endroit où regarder — pas une
+supériorité de l'agent.
+
+Coût mécanique : un appel d'outil de plus par tour, et **aucun appel modèle**. Le plancher
+de 2,00 appel par tour tient."""
 
 
 class TourDejaClos(Exception):
@@ -235,8 +269,11 @@ def decider(etat: EtatSession, dernier: ResultatOutil | None = None) -> Action:
     # aussi quand la recherche a rendu des produits (prompt §11 : un à trois, classés),
     # elle s'écrit une fois pour les deux cas — ce qui donne au passage « une seule
     # recherche par message du client » **par construction** plutôt que par une garde.
+    #
+    # ⚠️ Depuis le jalon 2, la recherche est suivie d'un **sondage** et non de la rédaction
+    # elle-même : c'est la garde de contexte, ci-dessous.
     if isinstance(dernier, ResultatRecherche):
-        return Rediger()
+        return Sonder()
 
     # Règle — la question suggérée est une suggestion (§3.8, prompt §6), **mais on ne
     # consulte pas un outil pour ignorer sa réponse**. Cette garde passe donc avant celle
@@ -244,6 +281,13 @@ def decider(etat: EtatSession, dernier: ResultatOutil | None = None) -> Action:
     # `Suggerer`, et l'arbitrage se fait dans `_ce_quon_demande()`, pas en l'écrasant ici.
     if isinstance(dernier, ResultatQuestion):
         return _ce_quon_demande(dernier)
+
+    # Règle — **la rédaction reçoit toujours les agrégats du sous-catalogue courant.**
+    # Voir `GARDE_DE_CONTEXTE`. Sur le chemin sans budget, le sondage a déjà eu lieu deux
+    # actions plus tôt et c'est `Suggerer` qui suit ; sur le chemin avec budget, c'est ici
+    # que le tour bascule vers la rédaction, une fois le sondage rendu.
+    if isinstance(dernier, ResultatSondage):
+        return Rediger() if etat.budget_usd is not None else Suggerer()
 
     # Règle — le budget est une contrainte dure (§3.10, prompt §7). C'est l'invariant que
     # `Attente.AUCUNE_RECHERCHE_SANS_BUDGET` mesure, et il couvre les deux chemins : le
@@ -255,7 +299,7 @@ def decider(etat: EtatSession, dernier: ResultatOutil | None = None) -> Action:
     # Le budget manque : le tour se terminera sur une question. Reste à **donner avant de
     # demander** (§3.9, prompt §5) — décrire ce qui reste, puis demander à l'outil de quoi
     # parler. `_ce_quon_demande()` recevra sa réponse au passage suivant.
-    return Suggerer() if isinstance(dernier, ResultatSondage) else Sonder()
+    return Sonder()
 
 
 def _ce_quon_demande(question: ResultatQuestion) -> Action:
@@ -297,6 +341,7 @@ def _ce_quon_demande(question: ResultatQuestion) -> Action:
 
 __all__ = [
     "CIBLE_BUDGET",
+    "GARDE_DE_CONTEXTE",
     "RESERVE_MESURE_8",
     "Action",
     "DemanderPrecision",
