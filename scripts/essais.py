@@ -99,9 +99,15 @@ CONVERSATIONS: tuple[Conversation, ...] = (
             "la non-régression de l'étape 18 : deux produits de la zone de tolérance "
             "nommés plusieurs fois avec leurs specs — la forme qui était impossible avant."
         ),
+        # ⚠️ Le second tour disait « compare-moi les deux premiers en détail » jusqu'à
+        # l'étape 20. Le modèle l'a lu comme les deux premiers **dans le budget**, et a
+        # comparé deux produits que rien n'obligeait à citer avec un écart : la
+        # conversation testait une comparaison détaillée, pas une comparaison hors budget,
+        # et passait des deux côtés sans rien prouver. Un essai qui rate sa cible et passe
+        # est pire qu'absent — il rassure.
         tours=(
             "un écran gaming, budget 200 $",
-            "compare-moi les deux premiers en détail",
+            "compare-moi en détail les deux qui dépassent mon budget",
         ),
     ),
     Conversation(
