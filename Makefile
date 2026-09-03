@@ -129,6 +129,13 @@ eval-enregistrer: ## (Ré)enregistre les cassettes du jeu en vigueur — consomm
 	@# complément qui ne doit pas se mêler à la campagne principale :
 	@#   RAIYON_PROMPT_SYSTEME=systeme.v1 make eval-enregistrer SCENARIO=x JEU=v1-desserrage
 	@#
+	@# ⚠️ LA CAMPAGNE DE LA MACHINE SE LANCE AVEC LES DEUX VARIABLES. En oublier une est
+	@# la faute la plus chère de l'étape 15 : sans PROMPT_SYSTEME les cassettes partent
+	@# dans systeme.v2/ et périment la ligne de base ; sans ORCHESTRATION elles portent
+	@# `orchestration: agent` et décrivent une campagne qui n'a pas eu lieu.
+	@#   RAIYON_ORCHESTRATION=machine RAIYON_PROMPT_SYSTEME=systeme.machine.v1 \
+	@#       make eval-enregistrer
+	@#
 	@# ⚠️ RAIYON_ORCHESTRATION (agent | machine, étape 15) est inscrite dans l'en-tête de
 	@# chaque cassette produite. Une garde refuse d'écrire dans un jeu qui en porte déjà
 	@# une autre — mais elle ne voit rien sur la PREMIÈRE campagne d'un jeu, dont le

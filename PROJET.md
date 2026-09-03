@@ -3914,10 +3914,61 @@ la machine a répondu « sur les huit écrans 27 pouces de votre fourchette, cin
 trois en IPS ». Sans la garde, ces trois nombres auraient été **fabriqués**, et aucune règle
 du validateur ne les aurait vus.
 
+#### Jalon 3 — `systeme.machine.v1.md`, par soustraction ✅
+
+`prompts/systeme.machine.v1.md` est `systeme.v2.md` **moins §5, §6 et §8** — 178 lignes
+moins 29, **zéro ligne ajoutée, zéro modifiée**. La numérotation d'origine est conservée
+avec ses trous : §1, §2, §3, §4, §7, §9, §10, §11, §12, §13, §14.
+
+Le critère de tri tient en une phrase : *une section qui dit **qui parle quand** part dans
+le code ; une section qui dit **ce qui peut être écrit** reste au prompt, et vaut pour les
+deux orchestrations.* Le verdict section par section est dans `docs/prompts/etape-15.md`.
+
+- **La garantie n'est pas un commentaire.** `tests/machine/test_prompt_derive.py` vérifie
+  que chaque ligne du dérivé apparaît dans la source **dans le même ordre** — une
+  sous-séquence, pas une inclusion : l'ordre est ce qui interdit de réarranger. Un lecteur
+  tape `diff prompts/systeme.v2.md prompts/systeme.machine.v1.md` et obtient la réponse
+  exhaustive à « qu'est-ce que l'orchestration a repris au modèle ? ».
+- **`systeme.v2.md` n'a pas bougé, et ne devait pas.** Les 36 cassettes de la campagne v2
+  portent son `prompt_empreinte` : un seul caractère les périme toutes. Deux de ses lignes
+  sont périmées — le titre dit `rAiyon v1`, la troisième ligne dit « Onze sections » alors
+  qu'il en a quatorze — et **elles le restent**. Une coquille vaut zéro, 191 appels valent
+  ce qu'ils ont coûté.
+- ⚠️ **L'accident** : la soustraction retirant exactement trois sections, le dérivé en
+  compte **onze**. La ligne périmée redevient donc **exacte pour la machine** tout en
+  restant fausse pour l'agent. C'est un accident, il est écrit comme tel, et le test le
+  constate source comprise.
+- **Les références pendantes ne se déclenchent pas.** `systeme.v2.md` ne porte que deux
+  renvois internes — §12 vers §2, §13 vers §12 — et les deux visent des sections
+  conservées. Propriété du texte, pas chance ; un test la constate.
+- **Conséquence non recherchée** : `ask_clarification` et `suggest_next_question` n'étaient
+  nommés que dans §5 et §6. Ils disparaissent, et la machine n'expose ni l'un ni l'autre.
+
+**Le point ouvert du jalon 1, tranché : un seul texte, aux deux appels.** *Alternative
+écartée — deux fichiers par appel* : elle rouvre l'axe d'identité des cassettes, `EnTete`
+ne portant **qu'un** `prompt_version` et **qu'un** `prompt_empreinte`. Coût assumé, écrit
+plutôt que tu : l'extraction lit §11, §13 et §14 qui ne la concernent pas, la rédaction lit
+§9 dont elle ne peut rien faire — de la redondance inerte, pas une contradiction.
+
+⚠️ **Prédiction posée avant la campagne** : les deux appels de la machine n'envoient pas les
+mêmes outils, donc **deux préfixes de cache distincts** là où l'agent n'en a qu'un.
+`cache_ecrit` sera nettement supérieur, et `jetons_entree` ne baissera pas
+proportionnellement au nombre d'appels. **La mesure nº7 doit publier les jetons autant que
+les appels** : une orchestration deux fois moins bavarde peut être plus chère en entrée.
+
+**La double application est dite**, dans `docs/prompts/etape-15.md` et pas dans le prompt —
+une note dans le fichier serait une ligne ajoutée, et le test de sous-séquence la refuserait
+à juste titre. Trois règles sont portées deux fois ; la plus intéressante est la seconde
+moitié de §13, un impératif (« sondez… ») que la rédaction ne peut pas exécuter mais dont
+l'effet est déjà obtenu par `GARDE_DE_CONTEXTE`.
+
+**Porte de sortie franchie :** `make check` vert à **1002** (+21), `make eval` rejoué sans
+qu'aucun rapport ne bouge, `prompts/systeme.v2.md` absent de `git status`, et le `diff` des
+deux prompts ne contient que des suppressions. **Zéro appel API.**
+
 #### Reste à faire
 
-- Jalon 3 — la dérivation de `systeme.machine.v1.md` et la note de double application.
-- Jalon 4 — tir d'essai, campagne, comparaison `v2` contre `machine.v1`.
+- Jalon 4 — tir d'essai `hors_catalogue`, campagne, comparaison `v2` contre `machine.v1`.
 
 #### Hors de cette étape
 

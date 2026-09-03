@@ -1,11 +1,17 @@
 # Étape 15 — ce que `systeme.machine.v1` retire à `systeme.v2`, et ce qu'il garde
 
-> **Spécification du diff du jalon 3**, écrite au jalon 1 comme sous-produit de
-> `raiyon/machine/decision.py`. Elle ne modifie rien : `prompts/systeme.v2.md` est intact,
-> et le jalon 3 fera la soustraction.
+> **Spécification du diff**, écrite au jalon 1 comme sous-produit de
+> `raiyon/machine/decision.py`, et **appliquée au jalon 3**.
+> `prompts/systeme.machine.v1.md` en est la soustraction ; `prompts/systeme.v2.md` est
+> intact, et le reste.
 >
 > Écrite le 3 septembre 2026, contre `prompts/systeme.v2.md` relu section par section —
-> pas contre le souvenir qu'on en avait.
+> pas contre le souvenir qu'on en avait. Les sections ✅ ont été tranchées au jalon 3.
+>
+> **La garantie n'est pas dans ce document** : `tests/machine/test_prompt_derive.py` vérifie
+> que chaque ligne du dérivé apparaît dans la source **dans le même ordre**. Le `diff` des
+> deux fichiers est donc la réponse exhaustive à « qu'est-ce que l'orchestration a repris au
+> modèle ? », sans commentaire à croire.
 
 ---
 
@@ -162,11 +168,153 @@ reste du prompt sous les yeux, et deux d'entre elles touchent du code :
    sans appel modèle supplémentaire, mais une décision de conduite prise pour compenser une
    phrase de prompt, ce qui est le mauvais sens de dépendance.
 
+### ✅ Tranché au jalon 2 — l'issue 3, mais **pas pour cette raison-là**
+
+C'est l'issue 3 qui a été retenue, et la manière dont elle l'a été est le point : la garde
+n'a **pas** été écrite pour rendre §13 exécutable. Elle a été énoncée sans aucune référence
+à §13 —
+
+> La rédaction reçoit toujours les agrégats du sous-catalogue courant. La machine sonde
+> avant d'écrire, à chaque tour, que le tour finisse par une recommandation ou par une
+> question.
+
+— et elle se défend seule : §5 veut ce contexte pour le préambule d'une question, §4 et §12
+veulent des chiffres fondés sur autre chose que la mémoire du modèle. §13 devient exécutable
+**par conséquence, pas par cause**, et la dépendance part donc dans le bon sens.
+
+Ce qui a fait écarter l'issue 1 : sans agrégats en contexte, un modèle à qui l'on demande
+une répartition la **fabrique**, et une répartition fabriquée est faite d'**entiers nus** —
+sur lesquels aucune des cinq règles du validateur ne mord (§7, « un entier nu n'est vérifié
+par rien »). La faute aurait été invisible, sur les tours où elle compte le plus.
+
+⚠️ **Constaté à la vérification manuelle du jalon 2** : « sur les huit écrans 27 pouces de
+votre fourchette, cinq sont en VA et trois en IPS ». Trois nombres, tous fournis.
+
 ---
 
-## Un point ouvert que ce document ne décide pas
+## ✅ Le point ouvert, tranché : **un seul texte, aux deux appels**
 
-Le prompt dérivé sera lu par **deux appels** — l'extraction et la rédaction — là où l'agent
+Le prompt dérivé est lu par **deux appels** — l'extraction et la rédaction — là où l'agent
 n'en avait qu'un. §9 (« `record_criteria` est la seule porte ») s'adresse au premier ; §11
-(« un à trois produits, classés ») s'adresse au second. Où va la note qui le dit, et si les
-deux appels reçoivent le même texte, est **l'affaire du jalon 3**.
+(« un à trois produits, classés ») s'adresse au second. Ils reçoivent néanmoins **le même
+texte**.
+
+*Alternative écartée — deux fichiers, `machine.extraction.v1.md` et `machine.redaction.v1.md`.*
+Plus propre par appel, et elle **rouvre l'axe d'identité des cassettes** : `EnTete` porte
+**un** `prompt_version` et **un** `prompt_empreinte`. Deux fichiers demanderaient soit deux
+champs, soit une empreinte composite — c'est-à-dire de retoucher `cassette.py` et de défaire
+l'arbitrage d'axe d'identité de l'étape, confirmé au jalon 0. Et le diff cesserait d'être la
+soustraction d'un fichier à un fichier, donc la spécification cesserait d'être lisible.
+
+**Ce que le choix coûte, écrit plutôt que tu** : l'appel d'extraction lit §11, §13 et §14,
+qui ne le concernent pas ; l'appel de rédaction lit §9, dont il ne peut rien faire. C'est de
+la **redondance inerte**, pas une contradiction — aucune des deux moitiés ne dit à l'autre
+de faire l'inverse de ce qu'elle fait.
+
+### `outils_empreinte` enregistre le jeu d'outils de l'extraction
+
+C'est le seul jeu non vide des deux appels, et c'est complet au regard de ce que l'empreinte
+sert à faire : périmer la cassette quand le schéma d'outils change. `record_criteria` est le
+seul outil que la machine expose, donc le seul dont le schéma puisse la périmer.
+
+### ⚠️ La conséquence sur le cache, et une prédiction posée avant la campagne
+
+Le préfixe mis en cache est `tools` + `system` (§3.13). Les deux appels de la machine
+n'envoient **pas** les mêmes outils — l'extraction expose `record_criteria`, la rédaction
+n'en expose aucun. Il y a donc **deux préfixes distincts** là où l'agent n'en a qu'un.
+
+> **Prédiction.** `cache_ecrit` de la machine sera nettement supérieur à celui de l'agent,
+> et `jetons_entree` ne baissera pas proportionnellement au nombre d'appels. La mesure nº7
+> doit donc publier **les jetons autant que les appels** : une orchestration deux fois moins
+> bavarde en appels peut être plus chère en entrée.
+
+À reporter dans `PREDICTIONS`, sous la clé du jeu, **avant** l'enregistrement de la campagne.
+
+---
+
+## La double application, dite ici et pas dans le prompt
+
+Trois règles sont désormais portées **deux fois** : par `decider()`, et par une section
+conservée du prompt. Une double application **dite** est honnête ; une double application
+tacite est la dette nº1 de l'étape 8.
+
+Elle se dit **ici** et non dans le fichier de prompt, pour que celui-ci reste un
+sous-ensemble strict de `systeme.v2.md` — la note y serait une ligne ajoutée, et le test de
+sous-séquence la refuserait à juste titre.
+
+| Règle | Dans le code | Dans le prompt conservé |
+|---|---|---|
+| « Vous n'assouplissez jamais de vous-même » | tenue **par construction** : `enregistrer_criteres` n'est pas une action de `decider()` | dernière phrase de §10 |
+| Une seule recherche par message du client | tenue **par construction** : la seule route vers `Rechercher` exige que rien n'ait encore été produit dans le tour | §8 est retirée, donc **plus dite** — seul cas où la double application se ferme |
+| « Sondez le sous-catalogue et dites la répartition » | `GARDE_DE_CONTEXTE` : le sondage a **déjà eu lieu** quand la rédaction lit cette phrase | §13, seconde moitié |
+
+⚠️ **La troisième ligne est la plus intéressante, et c'est un impératif que la rédaction ne
+peut pas exécuter** : elle n'a aucun outil. Ce que le prompt demande est pourtant déjà fait,
+et ses résultats sont sous les yeux du modèle. La phrase se lit donc comme une invitation à
+utiliser ce qu'il a, au lieu d'une instruction inexécutable. **Le laisser tel quel est un
+choix**, et la campagne dira s'il tient : si la prose de la machine annonce qu'elle va
+sonder au lieu de dire la répartition, c'est cette ligne qu'il faudra reprendre — par une
+`systeme.machine.v2`, jamais par une retouche de v1.
+
+---
+
+## L'accident des « onze sections »
+
+`systeme.v2.md` porte deux lignes périmées, et **elles le restent** :
+
+* son titre dit `rAiyon v1` ;
+* sa troisième ligne dit « **Onze sections**, une idée chacune » — il en a quatorze.
+
+Elles datent de v1 et personne ne les a suivies. Les corriger coûterait **la campagne v2
+entière** : les 36 cassettes de `evals/cassettes/systeme.v2/` portent le `prompt_empreinte`
+du fichier, un seul caractère les périme toutes, et c'est la ligne de base de l'étape 15 —
+191 appels. `make eval` échouerait en le disant, ce qui est le bon comportement et une
+catastrophe budgétaire quand même. **Une coquille vaut zéro.**
+
+La soustraction pure recopie donc ces deux lignes telles quelles. Et comme elle retire
+exactement trois sections, la seconde **redevient exacte pour la machine** — onze sections,
+et il y en a onze — tout en restant fausse pour l'agent.
+
+C'est un **accident**, pas une intention, et il est écrit ici pour ne pas être relu plus
+tard comme une élégance préméditée. `test_prompt_derive.py` le constate, source comprise :
+si `systeme.v2.md` cesse d'en compter quatorze, l'accident n'en est plus un.
+
+---
+
+## Les références pendantes — la règle ne s'est pas déclenchée
+
+La règle de dérivation prévoyait : *si une suppression laisse une référence pendante, la
+section reste.* **Vérifié sur le fichier, et elle ne tire pas.**
+
+`systeme.v2.md` ne porte que deux renvois internes :
+
+* « **La section 2** interdit d'estimer et d'arrondir » — §12 vers §2, **conservée** ;
+* « la règle de **la section 12** ne connaît pas d'exception ici » — §13 vers §12,
+  **conservée**.
+
+Aucune section survivante ne renvoie à §5, §6 ou §8. C'est une **propriété du texte**, pas
+une chance, et elle rend la soustraction totalement propre — un test la constate.
+
+**Conséquence non recherchée, et bienvenue** : `ask_clarification` et `suggest_next_question`
+n'étaient nommés **que** dans §5 et §6. Ils disparaissent donc du prompt dérivé, et la
+machine n'expose ni l'un ni l'autre. Un prompt qui les nommerait inviterait le modèle à
+appeler des outils absents ; ce n'est pas ce qui a décidé du retrait, c'est ce que le
+retrait donne en plus.
+
+---
+
+## La paire de variables, pour la campagne
+
+⚠️ **Deux variables, et en oublier une est la faute la plus chère de l'étape :**
+
+```bash
+RAIYON_ORCHESTRATION=machine RAIYON_PROMPT_SYSTEME=systeme.machine.v1 make eval-enregistrer
+```
+
+La garde du jalon 0 attrape le mélange dans un jeu **déjà peuplé** ; elle ne peut rien pour
+la première campagne, dont le répertoire est vide. C'est le **tir d'essai du jalon 4** qui
+couvre ce cas — douze appels sur `hors_catalogue` seul, dont la porte de sortie vérifie que
+l'en-tête produit porte bien `orchestration: machine`.
+
+La paire est aussi écrite dans le commentaire de la cible `eval-enregistrer` du `Makefile`,
+c'est-à-dire **là où on la tapera**.
