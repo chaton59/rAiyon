@@ -28,7 +28,6 @@ from typing import Any
 import structlog
 from sqlalchemy.orm import Session
 
-from raiyon.agent.boucle import IssueDuTour
 from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import Evenement
 from raiyon.agent.session import creer_session, historique_de, tour
@@ -37,6 +36,7 @@ from raiyon.eval.metriques import PriseJouee, TourJoue
 from raiyon.eval.scenario import Scenario
 from raiyon.matching.depot import DepotProduits
 from raiyon.orchestration import Orchestrateur
+from raiyon.orchestration.contrat import IssueDuTour
 
 logueur = structlog.get_logger(__name__)
 

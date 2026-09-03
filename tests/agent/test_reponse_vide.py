@@ -3,7 +3,7 @@
 **Le défaut que ce fichier ferme a été trouvé en conversation réelle**, à
 `make eval-live` (correctif de l'étape 12) : `claude-sonnet-5` émet des blocs `thinking`
 sans qu'on les demande, et il lui est arrivé de n'en émettre **que** un — juste après un
-repli de validation. `_depouiller()` ignore les types de blocs qu'il ne connaît pas, ce
+repli de validation. `depouiller()` ignore les types de blocs qu'il ne connaît pas, ce
 qui est voulu ; mais il ne restait alors ni texte ni appel, et la boucle rendait son
 `IssueDuTour` **sans avoir émis un seul événement**.
 
@@ -19,13 +19,13 @@ jamais ». Un `thinking` explicite figure dans un seul cas, pour dire d'où vien
 from faux_client import FauxClient, appel_outil, message, texte, verifier_appairage
 from scenarios import ECRAN_144, jouer
 
-from raiyon.agent.boucle import PHRASE_REPONSE_VIDE
 from raiyon.agent.evenements import MotifDeRepli, Repli, Texte
+from raiyon.orchestration.contrat import PHRASE_REPONSE_VIDE
 from raiyon.tools.schema_outils import NOM_ENREGISTRER
 
 
 def bloc_inconnu(genre: str = "thinking") -> dict:
-    """Un bloc que `_depouiller()` ignore. Le contenu n'a aucune importance."""
+    """Un bloc que `depouiller()` ignore. Le contenu n'a aucune importance."""
     return {"type": genre, "thinking": "", "signature": "opaque"}
 
 

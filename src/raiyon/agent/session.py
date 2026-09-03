@@ -55,12 +55,12 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from raiyon.agent.boucle import ROLE_CLIENT, IssueDuTour
 from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import Evenement
 from raiyon.db.models import SessionConversation, TourConversation
 from raiyon.matching.depot import DepotProduits
 from raiyon.orchestration import Orchestrateur, repondre_en_vigueur
+from raiyon.orchestration.contrat import ROLE_CLIENT, IssueDuTour
 from raiyon.tools.etat import EtatSession, depuis_jsonb
 from raiyon.tools.repartiteur import ContexteOutils
 

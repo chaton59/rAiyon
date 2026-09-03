@@ -4,7 +4,7 @@ Deux choses se vérifient ici, et la seconde est celle qui coûterait cher :
 
 1. la variable sélectionne bien l'une ou l'autre ;
 2. **les deux ensembles de noms coïncident** — ceux que `Settings.orchestration` accepte, et
-   ceux que `ORCHESTRATIONS` porte. Une valeur acceptée par la configuration et absente de
+   ceux que `orchestrations()` porte. Une valeur acceptée par la configuration et absente de
    la table lèverait un `KeyError` au **premier message** d'une conversation, c'est-à-dire
    après le `make up`, le `make seed` et la première frappe — le pire moment pour découvrir
    une faute de frappe.
@@ -20,7 +20,7 @@ import pytest
 from raiyon.agent.boucle import repondre
 from raiyon.config import Settings, get_settings
 from raiyon.machine.orchestrateur import repondre_machine
-from raiyon.orchestration import ORCHESTRATIONS, Orchestrateur, repondre_en_vigueur
+from raiyon.orchestration import Orchestrateur, orchestrations, repondre_en_vigueur
 
 
 def valeurs_acceptees() -> set[str]:
@@ -59,18 +59,18 @@ def test_la_bascule_ne_demande_quun_vidage_de_cache(monkeypatch):
 def test_toute_valeur_acceptee_par_la_configuration_a_son_orchestration():
     """⚠️ Sinon la faute se découvre au **premier message** d'une conversation, sous la
     forme d'un `KeyError` sur un nom que la configuration avait pourtant validé."""
-    assert set(ORCHESTRATIONS) == valeurs_acceptees()
+    assert set(orchestrations()) == valeurs_acceptees()
 
 
-@pytest.mark.parametrize("nom", sorted(ORCHESTRATIONS))
+@pytest.mark.parametrize("nom", sorted(orchestrations()))
 def test_chaque_orchestration_se_conforme_au_protocole(nom: str):
-    """Le contrôle réel est celui de **mypy**, sur le type de `ORCHESTRATIONS`.
+    """Le contrôle réel est celui de **mypy**, sur le type de retour d'`orchestrations()`.
 
     Ce test-ci ne le remplace pas : il constate seulement que la table porte des appelables,
     ce qui reste vrai si quelqu'un désactive le typage sur une ligne. La substituabilité,
     elle, est vérifiée à la compilation — c'est tout l'intérêt du `Protocol`.
     """
-    orchestrateur: Orchestrateur = ORCHESTRATIONS[nom]
+    orchestrateur: Orchestrateur = orchestrations()[nom]
 
     assert callable(orchestrateur)
 

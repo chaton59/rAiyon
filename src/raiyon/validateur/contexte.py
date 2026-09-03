@@ -361,7 +361,7 @@ def _charges_utiles(messages: Sequence[Mapping[str, Any]]) -> Iterator[Mapping[s
 
 
 def _decoder(contenu: object) -> Mapping[str, Any] | None:
-    """Le contenu d'un `tool_result`, qui est du JSON en chaîne (`_bloc_tool_result`)."""
+    """Le contenu d'un `tool_result`, qui est du JSON en chaîne (`bloc_tool_result`)."""
     if isinstance(contenu, Mapping):
         return contenu
     if not isinstance(contenu, str):

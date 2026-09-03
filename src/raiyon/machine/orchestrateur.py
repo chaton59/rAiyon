@@ -100,20 +100,6 @@ from typing import Any
 
 import structlog
 
-from raiyon.agent.boucle import (
-    PHRASE_DE_REPLI,
-    PHRASE_REPONSE_VIDE,
-    ROLE_ASSISTANT,
-    ROLE_CLIENT,
-    IssueDuTour,
-    TourProduit,
-    _ajouter_les_resultats,
-    _bloc_tool_result,
-    _catalogue_de,
-    _depouiller,
-    _empiler_la_reprise,
-    _evenement_de,
-)
 from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import (
     Evenement,
@@ -134,6 +120,22 @@ from raiyon.machine.decision import (
     decider,
 )
 from raiyon.matching.moteur import ResultatMatching
+from raiyon.orchestration.blocs import (
+    ajouter_les_resultats,
+    bloc_tool_result,
+    catalogue_de,
+    depouiller,
+    empiler_la_reprise,
+    evenement_de,
+)
+from raiyon.orchestration.contrat import (
+    PHRASE_DE_REPLI,
+    PHRASE_REPONSE_VIDE,
+    ROLE_ASSISTANT,
+    ROLE_CLIENT,
+    IssueDuTour,
+    TourProduit,
+)
 from raiyon.tools.erreurs import OutilRefuse
 from raiyon.tools.etat import EtatSession
 from raiyon.tools.outils import ResultatOutil, ResultatRecherche, ResultatSondage
@@ -233,7 +235,7 @@ def repondre_machine(
     # ----------------------------------------------------------------- #
     reponse = client.repondre(systeme=systeme, outils=outils_extraction, messages=messages)
     appels_modele += 1
-    extraction = _depouiller(reponse.blocs)
+    extraction = depouiller(reponse.blocs)
 
     if not extraction.appels:
         logueur.info(
@@ -255,13 +257,13 @@ def repondre_machine(
             nom = str(appel.get("name", ""))
             outils_appeles.append(nom)
             etat, resultat = executer(nom, appel.get("input") or {}, etat, contexte)
-            resultats.append(_bloc_tool_result(str(appel.get("id", "")), resultat))
+            resultats.append(bloc_tool_result(str(appel.get("id", "")), resultat))
             if isinstance(resultat, OutilRefuse):
                 continue
-            evenement = _evenement_de(resultat)
+            evenement = evenement_de(resultat)
             if evenement is not None:
                 yield evenement
-        _ajouter_les_resultats(messages, tours, resultats)
+        ajouter_les_resultats(messages, tours, resultats)
 
     # ----------------------------------------------------------------- #
     # La boucle de décision — aucun appel modèle
@@ -286,7 +288,7 @@ def repondre_machine(
         )
         outils_appeles.append(nom)
         etat, resultat = executer(nom, entree, etat, contexte)
-        _ajouter_les_resultats(messages, tours, [_bloc_tool_result(identifiant, resultat)])
+        ajouter_les_resultats(messages, tours, [bloc_tool_result(identifiant, resultat)])
 
         if isinstance(resultat, OutilRefuse):
             # Un outil que le **code** a appelé et que la couche outils refuse est un
@@ -309,7 +311,7 @@ def repondre_machine(
             derniere_recherche = resultat.resultat
         elif isinstance(resultat, ResultatSondage):
             dernier_sondage = resultat
-        evenement = _evenement_de(resultat)
+        evenement = evenement_de(resultat)
         if evenement is not None:
             yield evenement
     else:
@@ -347,7 +349,7 @@ def repondre_machine(
     while True:
         reponse = client.repondre(systeme=systeme, outils=outils_extraction, messages=messages)
         appels_modele += 1
-        redigee = _depouiller(reponse.blocs)
+        redigee = depouiller(reponse.blocs)
         if redigee.appels:
             logueur.info(
                 "machine.outil_appele_a_la_redaction",
@@ -396,7 +398,7 @@ def repondre_machine(
         # toujours suivi d'une reprise —, et c'est son oubli qui a coûté le correctif de
         # l'étape 11. Aucun `tool_result` ne l'accompagne : le message refusé n'en portait
         # pas, la rédaction n'appelant aucun outil.
-        _empiler_la_reprise(messages, tours, [], verdict)
+        empiler_la_reprise(messages, tours, [], verdict)
         if regenerations > max_regenerations:
             yield Repli(
                 # Jamais le template quand on interrogeait : on ne répond pas par un
@@ -404,7 +406,7 @@ def repondre_machine(
                 rediger(
                     derniere_recherche,
                     origine,
-                    None if question else _catalogue_de(dernier_sondage),
+                    None if question else catalogue_de(dernier_sondage),
                 ),
                 appels_modele,
                 tuple(outils_appeles),

@@ -39,7 +39,6 @@ from decimal import Decimal
 
 import structlog
 
-from raiyon.agent.boucle import IssueDuTour
 from raiyon.agent.client_anthropic import ClientAnthropic
 from raiyon.agent.evenements import (
     CriteresMisAJour,
@@ -61,6 +60,7 @@ from raiyon.db.models import SessionConversation
 from raiyon.matching.attributs import ATTRIBUTS
 from raiyon.matching.criteres import Critere
 from raiyon.matching.depot import DepotSql
+from raiyon.orchestration.contrat import IssueDuTour
 from raiyon.tools.etat import valeur_en_texte
 from raiyon.tools.schema_outils import schema_des_outils
 

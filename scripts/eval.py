@@ -76,7 +76,7 @@ from raiyon.eval.metriques import Mesures, MesuresDunePrise, agreger, mesurer, p
 from raiyon.eval.rapport import rendre
 from raiyon.eval.scenario import SCENARIOS, Scenario, ScenarioInconnu, par_nom
 from raiyon.matching.depot import DepotSql
-from raiyon.orchestration import ORCHESTRATIONS
+from raiyon.orchestration import orchestrations
 from raiyon.tools.schema_outils import schema_des_outils
 
 logueur = structlog.get_logger(__name__)
@@ -614,7 +614,9 @@ def mesurer_le_jeu(
         # l'enregistrement.
         reglages_de_la_prise = replace(
             reglages,
-            orchestrateur=ORCHESTRATIONS[cassette.entete.orchestration or ORCHESTRATION_IMPLICITE],
+            orchestrateur=orchestrations()[
+                cassette.entete.orchestration or ORCHESTRATION_IMPLICITE
+            ],
         )
 
         cle = (jeu.source_du_scenario(scenario.nom) or jeu.nom, scenario.nom, prise)

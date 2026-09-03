@@ -205,7 +205,7 @@ def test_un_texte_refuse_deux_fois_et_clos_par_un_repli_ne_revient_pas_sans_tool
     du tour est épuisé, et le client a reçu un message de repli écrit en Python. C'est donc
     la sortie la plus fausse que le tour ait produite — pas la première.
 
-    Sans `tool_use`, `_ajouter_les_resultats()` sortait tôt et **rien n'était empilé** : le
+    Sans `tool_use`, `ajouter_les_resultats()` sortait tôt et **rien n'était empilé** : le
     message fautif était le dernier de l'historique, sans aucun suivant à reconnaître. Le
     repli, lui, n'est pas persisté (§7). Le rechargement affichait donc **exactement
     l'inverse de ce qui s'est passé** : la phrase que le client n'a jamais vue, et rien de
@@ -233,7 +233,7 @@ def test_un_texte_refuse_deux_fois_ne_revient_pas_non_plus_avec_des_tool_use():
     passent devant le grief dans le même bloc `user` (l'API exige les `tool_result`
     appairés avant tout autre contenu utilisateur).
 
-    Avant le correctif, ce bloc existait **sans** son grief : `_ajouter_les_resultats()`
+    Avant le correctif, ce bloc existait **sans** son grief : `ajouter_les_resultats()`
     posait les `tool_result` seuls, et la règle de `prose_de()` ne trouvait aucune reprise
     à reconnaître.
     """
@@ -367,7 +367,7 @@ def test_un_bloc_de_texte_vide_ne_produit_pas_de_parole():
 
 
 def test_un_bloc_inconnu_est_ignore_plutot_que_de_faire_lever():
-    """Même règle que `_depouiller()` dans la boucle : un bloc d'un type qu'on ne connaît
+    """Même règle que `depouiller()` dans la boucle : un bloc d'un type qu'on ne connaît
     pas ne doit pas rendre une conversation illisible."""
     historique = [{"role": "assistant", "content": [{"type": "thinking", "thinking": "…"}]}]
 

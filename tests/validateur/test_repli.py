@@ -36,7 +36,7 @@ from raiyon.validateur.validateur import OrigineRejet, valider
 def catalogue_du_scenario() -> EtatDuCatalogue:
     """Ce que la boucle construit à partir du sondage réel du décor.
 
-    Le même geste que `boucle._catalogue_de()` : on **réduit** le `ResultatSondage`, on ne
+    Le même geste que `blocs.catalogue_de()` : on **réduit** le `ResultatSondage`, on ne
     le passe pas tel quel — il porte un `EtatSession`, qui n'a rien à faire dans le
     rédacteur d'une réponse au client.
     """

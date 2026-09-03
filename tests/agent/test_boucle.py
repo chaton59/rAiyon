@@ -11,7 +11,6 @@ from faux_client import FauxClient, appel_outil, message, texte, verifier_appair
 from scenarios import ECRAN_144, etat_ecran, jouer
 
 from outils_de_test import TOLERANCE, ecrans
-from raiyon.agent.boucle import PHRASE_DE_REPLI
 from raiyon.agent.evenements import (
     CriteresMisAJour,
     ProduitsTrouves,
@@ -19,6 +18,7 @@ from raiyon.agent.evenements import (
     Sondage,
     Texte,
 )
+from raiyon.orchestration.contrat import PHRASE_DE_REPLI
 from raiyon.tools.erreurs import CodeRefus
 from raiyon.tools.repartiteur import ContexteOutils
 from raiyon.tools.schema_outils import (

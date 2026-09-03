@@ -171,7 +171,7 @@ def contexte_complet() -> ContexteFourni:
 def messages_du_scenario() -> list[dict[str, Any]]:
     """La même conversation, mais **au format API** : c'est ce que la boucle relira.
 
-    Les charges utiles sont enveloppées comme `_bloc_tool_result()` les enveloppe —
+    Les charges utiles sont enveloppées comme `bloc_tool_result()` les enveloppe —
     en JSON, dans un bloc `tool_result` d'un message de rôle `user`.
     """
     import json

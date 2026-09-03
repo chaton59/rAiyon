@@ -189,7 +189,7 @@ class MotifDeRepli(StrEnum):
     REPONSE_VIDE = "reponse_vide"
     """Le message du modèle ne portait **ni texte ni appel d'outil** (correctif étape 12).
 
-    `_depouiller()` ignore les types de blocs qu'il ne connaît pas, et c'est voulu : un
+    `depouiller()` ignore les types de blocs qu'il ne connaît pas, et c'est voulu : un
     bloc inattendu ne doit pas clore une conversation par une exception. Mais quand le
     message n'en porte **que** un — un `thinking` seul —, il ne reste rien à émettre, et
     la boucle rendait son issue **sans avoir produit un seul événement**. Le client

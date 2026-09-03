@@ -133,44 +133,60 @@ Trois cas résiduels, tranchés :
 * **`ask_clarification` avec un autre outil** — tous s'exécutent, tous ont leur
   `tool_result`, la question part et les autres résultats sont perdus ;
 * **aucun `tool_use`, que du texte** — fin normale du tour.
+
+---
+
+### Ce qui n'est plus dans ce module depuis l'étape 16
+
+`IssueDuTour`, `TourProduit`, les deux rôles et les deux phrases de repli sont passés dans
+`raiyon.orchestration.contrat` ; les six helpers de blocs, **rendus publics**, dans
+`raiyon.orchestration.blocs`. Ils avaient deux appelants depuis l'étape 15 et n'en
+nommaient qu'un — le module neutre lui-même dépendait de celui-ci pour le type de retour
+des deux orchestrations.
+
+Reste ici ce qui n'appartient qu'à la boucle : `_Executions`, `_executer_les_appels()` et
+`_journaliser_le_rejet()`. **Aucune ligne de `repondre()` n'a changé** ; les cinq documents
+de `docs/eval/` se régénèrent à l'identique, et c'est la preuve.
 """
 
-import json
 from collections.abc import Generator, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import structlog
 
 from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import (
-    CriteresMisAJour,
     Evenement,
     MotifDeRepli,
-    ProduitsTrouves,
     QuestionPosee,
-    QuestionSuggeree,
     Repli,
-    Sondage,
     Texte,
     TexteRejete,
 )
-from raiyon.agent.prompts import message_de_grief
 from raiyon.matching.moteur import ResultatMatching
+from raiyon.orchestration.blocs import (
+    ajouter_les_resultats,
+    bloc_tool_result,
+    catalogue_de,
+    depouiller,
+    empiler_la_reprise,
+    evenement_de,
+)
+from raiyon.orchestration.contrat import (
+    PHRASE_DE_REPLI,
+    PHRASE_REPONSE_VIDE,
+    ROLE_ASSISTANT,
+    ROLE_CLIENT,
+    IssueDuTour,
+    TourProduit,
+)
 from raiyon.tools.erreurs import OutilRefuse
 from raiyon.tools.etat import EtatSession
-from raiyon.tools.outils import (
-    ResultatEnregistrement,
-    ResultatOutil,
-    ResultatPrecision,
-    ResultatQuestion,
-    ResultatRecherche,
-    ResultatSondage,
-    en_tool_result,
-)
+from raiyon.tools.outils import ResultatPrecision, ResultatRecherche, ResultatSondage
 from raiyon.tools.repartiteur import ContexteOutils, executer
 from raiyon.validateur.contexte import contexte_des_messages
-from raiyon.validateur.repli import EtatDuCatalogue, rediger
+from raiyon.validateur.repli import rediger
 from raiyon.validateur.validateur import (
     VERDICT_SANS_GRIEF,
     OrigineRejet,
@@ -179,71 +195,6 @@ from raiyon.validateur.validateur import (
 )
 
 logueur = structlog.get_logger(__name__)
-
-PHRASE_DE_REPLI = (
-    "Je m'y perds un peu — pouvez-vous me redire ce que vous cherchez, et pour quel usage ?"
-)
-"""Écrite en Python, jamais générée. Voir l'alternative écartée dans `Repli`.
-
-Celle du repli de validation vit dans `validateur/repli.py` : deux situations, donc deux
-phrases. Ici le modèle a tourné en rond ; là il a affirmé ce qu'il n'avait pas."""
-
-PHRASE_REPONSE_VIDE = (
-    "Je n'ai rien produit en réponse à votre message — c'est de mon côté, pas du vôtre. "
-    "Pouvez-vous me le redire ?"
-)
-"""Écrite en Python, jamais générée (correctif de l'étape 12). Troisième phrase du lot.
-
-Elle ne renvoie pas le client à sa formulation — le message était très bien — mais dit
-d'où vient la faute. C'est la seule des trois qui décrit un défaut **de la boucle**, et
-la seule où l'on peut le dire au client sans lui montrer de mécanique interne.
-
-⚠️ Elle ne cite aucun chiffre et aucun produit : elle n'a pas de contexte fourni à
-respecter, puisqu'elle est rendue quand le modèle n'a rien produit du tout."""
-
-SEPARATEUR_DE_BLOCS = "\n"
-"""Ce qui recolle les blocs `text` d'un même message assistant avant validation.
-
-L'API n'en rend qu'un en pratique ; en rendre plusieurs et les valider séparément
-laisserait passer une phrase coupée en deux blocs — et le découpage en phrases du
-validateur, qui coupe déjà sur le saut de ligne, retrouve exactement la même granularité
-que si les blocs étaient restés séparés."""
-
-ROLE_ASSISTANT = "assistant"
-ROLE_CLIENT = "user"
-"""⚠️ Les `tool_result` portent le rôle `user` dans l'API Anthropic : il n'existe pas de
-rôle « outil ». Le commentaire de `models.py` dit la même chose sur la colonne."""
-
-
-@dataclass(frozen=True, slots=True)
-class TourProduit:
-    """Une ligne à écrire dans `tours_conversation`. Le numéro est posé par `session.py`."""
-
-    role: str
-    blocs: list[dict[str, Any]]
-
-
-@dataclass(frozen=True, slots=True)
-class IssueDuTour:
-    """Ce que la boucle laisse derrière elle, et que seule la persistance consomme."""
-
-    etat: EtatSession
-    tours: tuple[TourProduit, ...]
-    iterations: int
-    outils_appeles: tuple[str, ...]
-
-
-@dataclass
-class _Message:
-    """Le dépouillement d'un message assistant : ses textes, ses appels d'outils."""
-
-    textes: list[str] = field(default_factory=list)
-    appels: list[dict[str, Any]] = field(default_factory=list)
-
-    @property
-    def texte(self) -> str:
-        """Le texte du message, **entier**. C'est lui que le validateur relit."""
-        return SEPARATEUR_DE_BLOCS.join(self.textes).strip()
 
 
 @dataclass(frozen=True, slots=True)
@@ -310,7 +261,7 @@ def repondre(
         messages.append({"role": ROLE_ASSISTANT, "content": reponse.blocs})
         tours.append(TourProduit(ROLE_ASSISTANT, reponse.blocs))
 
-        message = _depouiller(reponse.blocs)
+        message = depouiller(reponse.blocs)
         verdict = valider(message.texte, fourni) if message.texte else VERDICT_SANS_GRIEF
 
         if verdict.griefs:
@@ -343,12 +294,12 @@ def repondre(
                 # dernier texte refusé du tour, celui que la régénération n'a **pas** su
                 # corriger, réapparaîtrait au client après un F5. Ce n'est donc pas du code
                 # mort : c'est l'invariant dont `prose.py` dépend (correctif de l'étape 11).
-                _empiler_la_reprise(messages, tours, executions.resultats, verdict)
+                empiler_la_reprise(messages, tours, executions.resultats, verdict)
                 yield Repli(
                     rediger(
                         derniere_recherche,
                         OrigineRejet.TEXTE,
-                        _catalogue_de(dernier_sondage),
+                        catalogue_de(dernier_sondage),
                     ),
                     iteration,
                     tuple(outils_appeles),
@@ -359,12 +310,12 @@ def repondre(
             # Le grief part **après** les `tool_result`, dans le même bloc `user` :
             # l'API exige les résultats appairés avant tout autre contenu utilisateur.
             # Quand le message ne portait que du texte, le bloc ne contient que le grief.
-            _empiler_la_reprise(messages, tours, executions.resultats, verdict)
+            empiler_la_reprise(messages, tours, executions.resultats, verdict)
             continue
 
         if not message.texte and not message.appels:
             # ⚠️ **Ni texte ni appel d'outil : le message ne porte que des blocs que
-            # `_depouiller()` ignore** — un `thinking` seul, observé en conversation réelle
+            # `depouiller()` ignore** — un `thinking` seul, observé en conversation réelle
             # au correctif de l'étape 12. Sans cette branche, la boucle tombait dans le
             # « fin de tour normale » ci-dessous et rendait son issue **sans avoir émis un
             # seul événement** : le client recevait `done` et rien d'autre.
@@ -449,7 +400,7 @@ def repondre(
                 # question d'`ask_clarification` qui a été refusée deux fois — elle non
                 # plus n'a jamais atteint le client, et elle ne doit pas l'atteindre par la
                 # porte du rechargement. `raiyon.api.prose` en dépend.
-                _empiler_la_reprise(messages, tours, executions.resultats, verdict_question)
+                empiler_la_reprise(messages, tours, executions.resultats, verdict_question)
                 yield Repli(
                     # Jamais le template : on ne répond pas par un classement de produits
                     # à quelqu'un qu'on était en train d'interroger.
@@ -463,13 +414,13 @@ def repondre(
             # Le tour **ne se clôt pas** : `ask_clarification` est terminal pour l'outil,
             # pas pour la boucle quand sa question est refusée. Son `tool_result` est bien
             # présent — l'outil s'est exécuté — et le grief le suit dans le même bloc.
-            _empiler_la_reprise(messages, tours, executions.resultats, verdict_question)
+            empiler_la_reprise(messages, tours, executions.resultats, verdict_question)
             continue
 
         # Un seul bloc `user` porte **tous** les `tool_result`, dans l'ordre des
         # `tool_use`. C'est ce que l'API attend, et c'est ce qui rend l'appairage
         # vérifiable par une simple comparaison de listes.
-        _ajouter_les_resultats(messages, tours, executions.resultats)
+        ajouter_les_resultats(messages, tours, executions.resultats)
 
         if executions.question is not None:
             question = executions.question
@@ -488,52 +439,6 @@ def repondre(
     )
     yield Repli(PHRASE_DE_REPLI, iteration, tuple(outils_appeles), MotifDeRepli.MAX_ITERATIONS)
     return IssueDuTour(etat, tuple(tours), iteration, tuple(outils_appeles))
-
-
-def _ajouter_les_resultats(
-    messages: list[dict[str, Any]], tours: list[TourProduit], resultats: list[dict[str, Any]]
-) -> None:
-    """Pose le bloc `user` des `tool_result`, s'il y en a.
-
-    Le garde-fou n'est pas cosmétique : un message assistant sans `tool_use` ne produit
-    aucun résultat, et l'API refuse un bloc de contenu vide.
-    """
-    if not resultats:
-        return
-    messages.append({"role": ROLE_CLIENT, "content": resultats})
-    tours.append(TourProduit(ROLE_CLIENT, resultats))
-
-
-def _empiler_la_reprise(
-    messages: list[dict[str, Any]],
-    tours: list[TourProduit],
-    resultats: list[dict[str, Any]],
-    verdict: Verdict,
-) -> None:
-    """Le bloc `user` qui suit **tout** message refusé : les `tool_result`, puis le grief.
-
-    ⚠️ **C'est l'invariant dont `raiyon.api.prose` dépend**, et il est tenu ici et nulle
-    part ailleurs : *un message assistant refusé est toujours suivi d'un message portant une
-    reprise.* Quatre chemins l'appellent — les deux qui régénèrent, et les deux qui
-    abandonnent faute de budget —, et c'est précisément parce que les deux derniers l'ont
-    oublié que le correctif de l'étape 11 a dû être écrit.
-
-    Sur les chemins qui abandonnent, ce bloc n'est **jamais relu par le modèle** : le tour
-    se termine juste après. Il n'existe donc que pour la trace persistée, et c'est ce qui le
-    rend fragile — il ressemble à du code mort à qui ne lit pas `prose.py`.
-
-    L'ordre n'est pas négociable : l'API exige les `tool_result` appairés **avant** tout
-    autre contenu utilisateur. Quand le message fautif ne portait que du texte, `resultats`
-    est vide et le bloc ne contient que le grief.
-    """
-    reprise = [*resultats, _bloc_de_grief(verdict)]
-    messages.append({"role": ROLE_CLIENT, "content": reprise})
-    tours.append(TourProduit(ROLE_CLIENT, reprise))
-
-
-def _bloc_de_grief(verdict: Verdict) -> dict[str, Any]:
-    """Le message de reprise, en bloc `text`. Le texte vit dans `prompts/grief.v1.md`."""
-    return {"type": "text", "text": message_de_grief(verdict.en_lignes())}
 
 
 def _journaliser_le_rejet(
@@ -588,7 +493,7 @@ def _executer_les_appels(
         nom = str(appel.get("name", ""))
         entree = appel.get("input") or {}
         etat, resultat = executer(nom, entree, etat, contexte)
-        resultats.append(_bloc_tool_result(str(appel.get("id", "")), resultat))
+        resultats.append(bloc_tool_result(str(appel.get("id", "")), resultat))
 
         if isinstance(resultat, OutilRefuse):
             # Aucun événement : un refus est un échange avec le modèle, pas avec le
@@ -614,101 +519,8 @@ def _executer_les_appels(
         elif isinstance(resultat, ResultatSondage):
             sondage = resultat
 
-        evenement = _evenement_de(resultat)
+        evenement = evenement_de(resultat)
         if evenement is not None and question is None:
             yield evenement
 
     return _Executions(etat, resultats, question, recherche, sondage)
-
-
-def _catalogue_de(sondage: ResultatSondage | None) -> EtatDuCatalogue | None:
-    """Le sondage réduit à ce que le repli de domaine a besoin de dire.
-
-    ⚠️ **La réduction est le point, pas une commodité.** `ResultatSondage` porte un
-    `EtatSession` ; le passer tel quel à `repli.py` ferait entrer l'état de session dans le
-    rédacteur de la réponse, ce que `evenements.py` interdit pour tout ce qui sort vers le
-    client — et ferait importer `raiyon.tools` par `raiyon.validateur`.
-    """
-    if sondage is None:
-        return None
-    return EtatDuCatalogue(
-        categorie=sondage.categorie,
-        candidats=sondage.dans_le_budget,
-        champs=sondage.champs,
-    )
-
-
-def _evenement_de(resultat: ResultatOutil) -> Evenement | None:
-    """Le résultat typé d'un outil vers l'événement qui lui correspond.
-
-    `ResultatPrecision` n'a pas de ligne ici : il est terminal, et c'est la boucle qui
-    décide de son sort — la seconde d'un même message étant ignorée, l'événement ne peut
-    pas être construit à cet endroit.
-    """
-    if isinstance(resultat, ResultatEnregistrement):
-        return CriteresMisAJour(
-            categorie=resultat.categorie,
-            criteres=resultat.criteres,
-            budget_usd=resultat.budget_usd,
-            optimisation=resultat.optimisation,
-            mouvements_refuses=resultat.mouvements_refuses,
-        )
-    if isinstance(resultat, ResultatSondage):
-        return Sondage(
-            categorie=resultat.categorie,
-            dans_le_budget=resultat.dans_le_budget,
-            dans_la_zone_de_tolerance=resultat.dans_la_zone_de_tolerance,
-            fourchette_prix=resultat.fourchette_prix,
-            champs=resultat.champs,
-        )
-    if isinstance(resultat, ResultatQuestion):
-        return QuestionSuggeree(
-            categorie=resultat.categorie,
-            candidats=resultat.candidats,
-            budget=resultat.budget,
-            champ=resultat.champ,
-        )
-    if isinstance(resultat, ResultatRecherche):
-        return ProduitsTrouves(resultat.resultat)
-    return None
-
-
-def _bloc_tool_result(identifiant: str, resultat: ResultatOutil | OutilRefuse) -> dict[str, Any]:
-    """Le bloc à réinjecter. `en_tool_result()` est seule à nommer les clés du protocole.
-
-    `ensure_ascii=False` : le message d'un refus est écrit **pour le modèle**, en
-    français, et l'échappement `\\uXXXX` le rendrait illisible dans les logs comme dans
-    une cassette de l'étape 12 pour un gain nul.
-    """
-    return {
-        "type": "tool_result",
-        "tool_use_id": identifiant,
-        "content": json.dumps(en_tool_result(resultat), ensure_ascii=False),
-        "is_error": isinstance(resultat, OutilRefuse),
-    }
-
-
-def _depouiller(blocs: Sequence[dict[str, Any]]) -> _Message:
-    """Sépare textes et appels d'outils. Tout autre type de bloc est ignoré.
-
-    ~~Il n'y en a pas en v1 — le thinking étendu est écarté (arbitrage 12)~~ — mais un bloc
-    inconnu qui ferait lever ici clorait une conversation pour une raison qui n'a rien à
-    voir avec le produit.
-
-    ⚠️ **La première moitié est fausse, et les cassettes de l'étape 12 le prouvent.**
-    L'arbitrage 12 décrit ce qu'on **demande** — aucun `thinking` n'est activé dans
-    `client_anthropic.py` — et non ce qu'on **reçoit** : `claude-sonnet-5` émet des blocs
-    `thinking`, avec leur `signature`, sans qu'on les sollicite. La décision n'est pas
-    renversée, sa portée l'est ; la ligne est barrée plutôt qu'effacée.
-
-    Conséquence directe, et c'est le correctif de l'étape 12 : un message qui ne porte
-    **que** de tels blocs n'est plus une hypothèse d'école. `repondre()` le clôt désormais
-    par un `Repli(REPONSE_VIDE)` au lieu de ne rien émettre.
-    """
-    message = _Message()
-    for bloc in blocs:
-        if bloc.get("type") == "text":
-            message.textes.append(str(bloc.get("text", "")))
-        elif bloc.get("type") == "tool_use":
-            message.appels.append(bloc)
-    return message

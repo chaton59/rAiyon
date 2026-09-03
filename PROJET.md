@@ -4256,6 +4256,55 @@ l'invariant du budget que personne n'avait écrit. Ils survivraient à un verdic
 
 ---
 
+### Étape 16 — Consolidation ⏳
+
+Deux jalons **sans un seul appel API**, qui referment ce que le dépôt s'était engagé à
+traiter et que l'étape 15 laissait ouvert. Rien de neuf n'est ajouté : une dette se solde,
+une mesure publie ce qu'elle savait déjà.
+
+#### Jalon 1 — le contrat partagé sort de l'agent ✅
+
+**Le couplage réel était de douze noms, pas de six, et le plus structurant était public.**
+`src/raiyon/orchestration.py` — le module **neutre**, celui qui porte le `Protocol`
+`Orchestrateur` — faisait `from raiyon.agent.boucle import IssueDuTour` : le contrat commun
+aux deux orchestrations était défini à l'intérieur de l'une d'elles, et `machine/` en
+dépendait pour son **type de retour** et ses constantes de rôle. Ne déplacer que les six
+helpers privés aurait laissé le même couplage sous un nom public.
+
+`orchestration.py` devient donc un paquet de trois modules :
+
+| Module | Contenu |
+|---|---|
+| `__init__.py` | le `Protocol`, la table, `repondre_en_vigueur()` |
+| `contrat.py` | `IssueDuTour`, `TourProduit`, les deux rôles, les deux phrases de repli |
+| `blocs.py` | les six helpers, **rendus publics** — ils ont deux appelants depuis l'étape 15 |
+
+⚠️ **Le piège de circularité était réel, et la règle qui devait l'éviter ne suffisait pas.**
+« Les sous-modules n'importent jamais le `__init__` » ne dit rien du mécanisme : en Python,
+importer `raiyon.orchestration.contrat` **exécute d'abord** `orchestration/__init__.py`. Un
+`import raiyon.agent.boucle` partait donc en `boucle (partiel) → orchestration.contrat →
+orchestration/__init__ → boucle.repondre`, et levait `ImportError: partially initialized
+module`. Reproduit en quinze lignes avant d'écrire une seule ligne du jalon.
+
+**La table `ORCHESTRATIONS` devient la fonction `orchestrations()`**, qui résout les deux
+implémentations à l'appel. C'est ce qui ferme le cycle, et rien n'est perdu : mypy vérifie
+le littéral contre `dict[str, Orchestrateur]` exactement comme il vérifiait l'annotation du
+dictionnaire de module, donc la substituabilité reste contrôlée à la compilation — c'est
+toute la raison d'être de ce module. *Alternative écartée — sortir `contrat` et `blocs` du
+paquet, dans un `raiyon/partage/`* : le graphe redevient acyclique sans rien rendre
+paresseux et la façade ne bouge pas d'une ligne, mais on chercherait `IssueDuTour` sous
+`orchestration`, où le `Protocol` la nomme, et elle serait ailleurs.
+
+**Ce que le jalon n'est pas : un refactor de comportement.** Aucune logique ne bouge, aucun
+invariant ne se déplace, aucun message de log ne se reformule. La preuve est **dans ce qui
+ne bouge pas** — `make check` rend exactement 1002, `make test-int` 98, et les **cinq**
+documents de `docs/eval/` se régénèrent à l'identique, ce qui couvre les deux orchestrations
+à la fois.
+
+#### Jalon 2 — la mesure nº7 publie les jetons ⏳
+
+---
+
 ## 6. Ordre non négociable
 
 **Moteur de matching → couche outils → boucle agent.**
@@ -4298,7 +4347,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **« Ne pas chercher tant que le budget manque » n'est écrite dans aucun prompt** | **Éteinte à l'étape 15** — la règle est désormais écrite quelque part | L'agent la tient par l'**affordance** de `question_suivante`, qui remonte `BesoinDeBudget` en tête, et jamais par une instruction. `Attente.AUCUNE_RECHERCHE_SANS_BUDGET` la mesure depuis l'étape 12 sans que personne ait remarqué qu'**aucune section du prompt ne la portait** — la relecture section par section du jalon 3 l'a établi. `decider()` l'écrit pour la première fois, en une garde. Une garantie tenue **par chance de conception** d'un côté, **par construction** de l'autre. ⚠️ **Écrire la seconde orchestration était la seule façon de s'en apercevoir**, et c'est l'argument le plus fort en faveur d'avoir fait l'étape |
 | **`ecart_non_dit` n'était pas une règle dormante — elle n'avait jamais été sollicitée** | Faible, et c'est une **bonne** nouvelle | Le README déclarait trois codes sur six jamais déclenchés. La machine en fait tirer un **24 fois**, et le validateur les a tous refusés avant livraison : les critères nº1 et nº2 tiennent **des deux côtés**. Le filet est décoratif chez l'agent (2 rejets par passe) et **porteur** chez la machine (17). C'est §3.11 — « les garanties ne vivent pas dans l'orchestration, elles vivent dans les outils » — vérifié dans une direction que personne n'avait prévue : la garantie a tenu sous une orchestration pour laquelle elle n'avait pas été conçue. ⚠️ **Ce que cela dit des deux autres est ouvert, et doit rester écrit comme ouvert** : `id_inconnu` et `nom_reecrit` ne se déclenchent toujours sur aucune des deux orchestrations. Ils restent **non sollicités, pas démontrés morts** |
 | **`RAIYON_ORCHESTRATION` n'a plus d'effet au rejeu** | Faible — **changement de comportement d'une variable documentée**, donc il se dit | Depuis le correctif du jalon 5 : l'orchestration voyage **par valeur** dans `Reglages`, comme `systeme` le fait depuis l'étape 13, et elle se lit dans l'**en-tête de chaque cassette**. La raison est la même que pour le prompt : `make eval-comparer` rejoue **deux jeux dans un même processus**, et une variable d'environnement n'a qu'une valeur — les cassettes de la machine partaient dans la boucle de l'agent et divergeaient au premier tour. Rejouer une prise sous une autre orchestration que celle qui l'a enregistrée n'est pas un choix, c'est une erreur : la variable ne sert donc plus qu'à `make eval-enregistrer` et à `make chat`. **Le champ que le jalon 0 avait écrit sans le consommer est devenu la source de vérité** |
-| **La machine importe six helpers privés de `boucle.py`** | Faible — **dette assumée, datée et bornée** | `raiyon/machine/orchestrateur.py` importe `_bloc_tool_result`, `_ajouter_les_resultats`, `_empiler_la_reprise`, `_evenement_de`, `_catalogue_de` et `_depouiller` sous leur nom privé. **Les trois options ont été pesées, et c'est la moins mauvaise.** *Les dupliquer* donnerait deux rédactions de la forme des blocs persistés et de l'invariant de reprise dont `prose.py` dépend — c'est-à-dire la maladie de la dette nº1 ci-dessous, appliquée au seul endroit du dépôt où elle a déjà coûté un correctif (étape 11). *Les extraire dans un module commun* est la bonne réponse et elle touche `boucle.py`, ce que le jalon 2 s'interdit **pour que `make eval` puisse prouver que l'agent n'a pas bougé** — un rapport inchangé est la seule preuve non déclarative disponible. La dette se solde donc dans une version où l'agent a le droit de bouger, c'est-à-dire **après la campagne de l'étape 15 — donc dès maintenant, la campagne étant passée** ; d'ici là, un import privé qui casserait se verrait immédiatement, `make check` jouant les deux orchestrations |
+| ~~**La machine importe six helpers privés de `boucle.py`**~~ | **Fermée à l'étape 16, jalon 1 — et le couplage réel était le double** | Le compte était faux : `machine/orchestrateur.py` importait **douze** noms de `boucle.py`, six privés et six publics, et le plus structurant des douze était public. Pire, `orchestration.py` — le module **neutre**, celui qui porte le `Protocol` — faisait `from raiyon.agent.boucle import IssueDuTour` : **le contrat commun aux deux orchestrations était défini à l'intérieur de l'une d'elles**, et la machine dépendait de l'agent pour son propre type de retour et ses constantes de rôle. Ne déplacer que les six privés aurait laissé le même couplage sous un nom public. Les douze sont donc sortis ensemble, dans le paquet `raiyon/orchestration/` — `contrat.py` pour les types, les rôles et les phrases, `blocs.py` pour les six helpers **rendus publics**, ce qu'ils auraient dû être dès qu'un second appelant est apparu. La ligne se ferme sur la preuve qu'elle réclamait elle-même : les **cinq** documents de `docs/eval/` se régénèrent à l'identique, pour les deux orchestrations à la fois, et `make check` rend exactement 1002. ⚠️ **Ce qui reste, et qui n'est pas la même dette** : `orchestration/blocs.py` importe encore `agent.evenements` (le vocabulaire de sortie, partagé) et `agent.prompts` (un chargeur de fichiers). Reste de nommage, pas reste de couplage — mais les déplacer demanderait de bouger deux modules de plus, ce que cette étape s'interdisait |
 | **La dette nº1 de l'étape 8 n'est pas résorbée** | Faible — **reportée deux fois, et la raison a changé** | `DESCRIPTION_SONDER` et `DESCRIPTION_PRECISION` portent des règles de dialogue que le prompt système redit — « une fourchette n'est jamais le prix d'un produit », « ne jamais demander sans donner quelque chose ». Deux rédactions d'une même règle finissent par en dire deux choses. Reportée à l'étape 8 parce qu'« on ne savait pas laquelle des deux portait l'effet » ; **reportée à l'étape 13 pour une autre raison, plus dure** : `schema_outils.py` est dans le préfixe mis en cache, le toucher périme les cassettes au même titre qu'un prompt, et le faire dans la même version qu'un changement de prompt rendrait l'effet inattribuable — exactement ce que la dette dit vouloir éviter. Elle se règle donc dans une version **à un seul changement**, où le prompt ne bouge pas |
 | **Le découpage v2/v3 n'a pas eu lieu** | Faible — **arbitrage budgétaire, écrit et daté** | L'étape 13 prévoyait `systeme.v2` (rédaction chiffrée seule) puis `systeme.v3` (domaine et markdown), pour attribuer chaque effet par isolation. Le plan coûtait ~500 appels ; les crédits en couvraient ~200. Les trois cibles sont donc parties ensemble, et **l'attribution vient de l'inspection des appendices, pas de l'isolation expérimentale** — plus faible, et suffisant ici parce que les cibles se lisent sur des artefacts différents. Les deux documents de `docs/prompts/` — la décision et sa révision — se lisent ensemble |
 | **Le prompt fuit peut-être ses propres exemples chiffrés** | **Ouverte** — hypothèse testable, pas un constat | `systeme.v1.md` illustre quatre de ses onze sections avec des chiffres : « il reste 32 écrans entre 180 et 395 dollars » (§4), « du 27 pouces » (§5), « je garde le 144 Hz » (§9), « celui-ci est à 120 Hz, pas 144 » (§11). Un rapprochement, et **il ne prouve rien** : la phrase refusée de `budget_serre.1` est « redescendre à **120 Hz** », et 120 est le seul chiffre de §11. Ce peut être une coïncidence — 120 est aussi le cran plausible sous 144, et le modèle le connaît sans le prompt. ⚠️ **Ce qui est sûr, c'est que la question n'a jamais été posée**, et qu'un prompt qui enseigne par l'exemple donne au modèle des chiffres qu'aucun outil n'a rendus. Non traité à l'étape 13 : retirer ces exemples modifierait des sections **existantes**, et v2 est une addition pure — deux sections qui bougent, c'est une attribution perdue. **Candidat pour une v3 à un seul changement**, où l'effet serait attribuable. La v2 elle-même n'ajoute aucun chiffre inventé : son §13 a été réécrit pour enseigner le geste (« dites la répartition que le sondage vient de rendre ») au lieu de montrer une réponse chiffrée en bloc de citation, qui est la forme qui appelle le plus l'imitation |

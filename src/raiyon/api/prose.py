@@ -192,7 +192,7 @@ def _a_ete_refuse(historique: Sequence[Mapping[str, Any]], rang: int) -> bool:
     pour le modèle** — le tour se termine, plus personne ne relira `messages` — et elle
     ressemblait donc à du code inutile. Le dernier texte refusé du tour, celui que la
     régénération n'a pas su corriger, revenait par ici au rechargement. C'est là qu'un
-    futur `return` anticipé rouvrirait le trou sans bruit ; `_empiler_la_reprise()` porte
+    futur `return` anticipé rouvrirait le trou sans bruit ; `empiler_la_reprise()` porte
     l'avertissement du côté où il se lit.
 
     Le grief est cherché dans **tous** les blocs `text` du message suivant, pas seulement

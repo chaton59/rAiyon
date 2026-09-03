@@ -43,11 +43,15 @@ MODULES_PURS = ("raiyon.machine.decision",)
 MODULES_ORCHESTRATION = ("raiyon.machine.orchestrateur",)
 """Il **doit** importer `raiyon.agent`, et l'y autoriser explicitement est une décision.
 
-La machine réutilise de l'agent tout ce qui n'est pas la décision : les types d'événements,
-`IssueDuTour`, la forme des blocs persistés, l'appairage `tool_use` / `tool_result`, la
-reprise dont `prose.py` dépend. **Ne pas les réutiliser serait le défaut**, pas la vertu :
-deux orchestrations qui émettraient des événements différents ne se compareraient plus sur
-les mêmes mesures, et c'est le fondement de l'étape 15 qui tomberait.
+La machine réutilise de l'agent tout ce qui n'est pas la décision. ⚠️ **L'étape 16 a réduit
+ce « tout » à sa moitié qui le méritait** : `IssueDuTour`, la forme des blocs persistés,
+l'appairage `tool_use` / `tool_result` et la reprise dont `prose.py` dépend vivent
+désormais dans `raiyon.orchestration`, qui n'est ni l'une ni l'autre des deux
+orchestrations. Ce qui reste sous `raiyon.agent` est le **vocabulaire de sortie** —
+`evenements.py`, par `orchestration.blocs` — et `client.py`. **Ne pas les réutiliser serait
+le défaut**, pas la vertu : deux orchestrations qui émettraient des événements différents ne
+se compareraient plus sur les mêmes mesures, et c'est le fondement de l'étape 15 qui
+tomberait.
 
 ⚠️ **La garantie n'est donc pas déplacée, elle est resserrée là où elle compte** : c'est
 `decision.py` qui doit ignorer la boucle d'agent, parce que c'est lui la variable de
@@ -99,9 +103,14 @@ def test_le_classement_couvre_tous_les_modules_du_paquet():
 def test_lorchestrateur_charge_bien_la_boucle_dagent(module: str):
     """Contre-épreuve **et** énoncé : la réutilisation est voulue, pas subie.
 
-    Si ce test venait à passer à vide, c'est que l'orchestrateur a cessé de partager les
-    événements et les blocs de l'agent — donc que les deux orchestrations ne se comparent
+    Si ce test venait à passer à vide, c'est que l'orchestrateur a cessé de partager le
+    vocabulaire d'événements de l'agent — donc que les deux orchestrations ne se comparent
     plus sur les mêmes mesures.
+
+    ⚠️ **Son nom est daté depuis l'étape 16 et il est gardé tel quel** : ce qu'il charge
+    n'est plus `agent.boucle` mais `agent.evenements` et `agent.client`, les blocs partagés
+    ayant quitté la boucle. Le renommer dans la version qui déplace le code ferait perdre la
+    trace de ce qu'il garantissait avant, et la garantie, elle, n'a pas changé.
     """
     assert modules_charges_sous(module, INTERDITS_INTERNES) != []
 
