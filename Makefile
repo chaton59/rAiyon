@@ -118,6 +118,12 @@ eval-comparer: ## Deux jeux côte à côte — make eval-comparer AVANT=v1 APRES
 	uv run python scripts/eval.py comparer $(AVANT) $(APRES) --question '$(Q)'
 
 eval-enregistrer: ## (Ré)enregistre les cassettes du jeu en vigueur — consomme la clé et des jetons
+	@# ⚠️ Les commandes d'exemple ci-dessous tiennent sur **une seule ligne**, même longues.
+	@# Un `\` en fin de ligne de recette est une continuation de make : les deux lignes `@#`
+	@# sont jointes, le shell ferme le commentaire au premier saut de ligne réel, et le `@#`
+	@# de la seconde devient une commande introuvable. Défaut latent depuis l'étape 15,
+	@# jalon 0, découvert au premier `make eval-enregistrer` du jalon 4.
+	@#
 	@# SCENARIO=<nom> n'en refait qu'un. À lancer à chaque changement de prompt ou de
 	@# schéma d'outils : l'écart d'empreinte fait échouer `make eval` en le disant.
 	@#
@@ -133,15 +139,13 @@ eval-enregistrer: ## (Ré)enregistre les cassettes du jeu en vigueur — consomm
 	@# la faute la plus chère de l'étape 15 : sans PROMPT_SYSTEME les cassettes partent
 	@# dans systeme.v2/ et périment la ligne de base ; sans ORCHESTRATION elles portent
 	@# `orchestration: agent` et décrivent une campagne qui n'a pas eu lieu.
-	@#   RAIYON_ORCHESTRATION=machine RAIYON_PROMPT_SYSTEME=systeme.machine.v1 \
-	@#       make eval-enregistrer
+	@#   RAIYON_ORCHESTRATION=machine RAIYON_PROMPT_SYSTEME=systeme.machine.v1 make eval-enregistrer
 	@#
 	@# ⚠️ RAIYON_ORCHESTRATION (agent | machine, étape 15) est inscrite dans l'en-tête de
 	@# chaque cassette produite. Une garde refuse d'écrire dans un jeu qui en porte déjà
 	@# une autre — mais elle ne voit rien sur la PREMIÈRE campagne d'un jeu, dont le
 	@# répertoire est vide. C'est le tir d'essai qui couvre ce cas-là, pas la garde :
-	@#   RAIYON_ORCHESTRATION=machine RAIYON_PROMPT_SYSTEME=systeme.machine.v1 \
-	@#       make eval-enregistrer SCENARIO=hors_catalogue
+	@#   RAIYON_ORCHESTRATION=machine RAIYON_PROMPT_SYSTEME=systeme.machine.v1 make eval-enregistrer SCENARIO=hors_catalogue
 	uv run python scripts/eval.py enregistrer $(if $(SCENARIO),--scenario $(SCENARIO),) $(if $(JEU),--jeu $(JEU),)
 
 eval-live: ## 2-3 conversations avec le client simulé — clé requise, hors CI, rien n'est écrit

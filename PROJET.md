@@ -3966,9 +3966,54 @@ l'effet est déjà obtenu par `GARDE_DE_CONTEXTE`.
 qu'aucun rapport ne bouge, `prompts/systeme.v2.md` absent de `git status`, et le `diff` des
 deux prompts ne contient que des suppressions. **Zéro appel API.**
 
+#### Jalon 4 — le tir d'essai ✅
+
+Six cassettes, **25 appels**, sur `hors_catalogue` (le bord : catégorie absente du
+catalogue) et `budget_serre` (la mécanique chère : `ProduitsTrouves`, une recommandation,
+le chemin du validateur). C'est la reprise du motif de `make fumee` — mesurer ce que l'API
+accepte **avant** que 170 appels en dépendent.
+
+**Ce que le tir d'essai prouve :**
+
+- l'en-tête porte `orchestration: machine` — le champ du jalon 0, renseigné pour la
+  première fois —, `prompt_version: systeme.machine.v1`, l'empreinte `595d66d5383e` du
+  jalon 3, et son `usage` complet. C'est le contrôle que la garde du jalon 0 **ne peut pas
+  faire** : un répertoire vide ne contient rien à comparer ;
+- le rejeu est **déterministe à réponses du modèle fixées** : aucune `DivergenceDeRequete`,
+  aucune conversation raccourcie, sur les six prises ;
+- **aucune attente binaire n'est manquée**, et aucune n'est absente : la machine émet les
+  événements que `metriques.py` lit, ce qui était le signal d'arrêt du point E du jalon 2 ;
+- la borne `max_iterations` n'a jamais mordu — zéro repli, tous motifs confondus ;
+- `docs/eval/rapport.machine.v1.md` **n'est pas écrit**, et c'est correct : la garde de
+  l'étape 13 refuse un rapport tiré d'un jeu incomplet. Le texte est produit et s'affiche.
+
+**Un défaut réel, trouvé et corrigé** : les exemples de commande du `Makefile` portaient un
+`\` de continuation dans des lignes `@#`. Make joint les deux lignes, le shell ferme le
+commentaire au premier saut de ligne réel, et le `@#` de la seconde devient une commande
+introuvable — `make eval-enregistrer` était **cassé depuis le jalon 0**, et personne ne
+l'avait lancé depuis. C'est la seule ligne de code de ce jalon.
+
+**Une note du jalon 3 était fausse, corrigée contre une cassette réelle** : `outils_empreinte`
+enregistre **les cinq outils** (`ae1370a553ae`), pas le seul que la machine envoie. Le
+harnais la calcule depuis `schema_des_outils()`, et c'est ce qu'il recalcule au rejeu ;
+enregistrer autre chose ferait échouer le rejeu. Le comportement est plus strict que
+nécessaire — faux positif de péremption, jamais faux négatif — et le rendre exact demande de
+toucher `scripts/eval.py` et le `Protocol`. À faire avec la dette des helpers privés.
+
+⚠️ **Une observation de conduite, à ne pas confondre avec un défaut de mécanique.** Sur
+`budget_serre.3`, l'appel d'extraction n'a pas enregistré les critères du client ; la
+machine a donc cherché avec un état incomplet et rendu trois écrans de 21 pouces à 100 Hz.
+Le validateur a refusé le texte, la régénération l'a rattrapé, **aucun critère bloquant n'est
+violé** — mais le mode d'échec est propre à cette orchestration : `enregistrer_criteres`
+n'étant pas une action de `decider()`, **une extraction manquée ne se rattrape pas dans le
+tour**. L'agent, lui, pouvait rappeler l'outil après avoir vu de mauvais résultats. C'est
+exactement ce que la campagne doit mesurer, et ce n'est pas une raison de corriger quoi que
+ce soit maintenant.
+
 #### Reste à faire
 
-- Jalon 4 — tir d'essai `hors_catalogue`, campagne, comparaison `v2` contre `machine.v1`.
+- Jalon 5 — les prédictions dans `PREDICTIONS`, **avant** l'enregistrement, puis la
+  campagne et la comparaison `v2` contre `machine.v1`.
 
 #### Hors de cette étape
 

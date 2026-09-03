@@ -1,0 +1,80 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "hors_catalogue",
+    "prise": 3,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.machine.v1",
+    "prompt_empreinte": "595d66d5383e",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-03",
+    "usage": {
+      "appels": 4,
+      "jetons_entree": 894,
+      "jetons_sortie": 472,
+      "cache_ecrit": 0,
+      "cache_lu": 25348
+    },
+    "orchestration": "machine"
+  },
+  "prises": [
+    {
+      "requete": "ef4623c1f903",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Bonjour. Je suis désolé, mais je ne vends pas d'outillage — je conseille uniquement sur les composants et périphériques PC : processeurs, écrans, cartes graphiques, mémoire vive, stockage interne et casques.\n\nAvez-vous besoin d'aide sur l'un de ces produits ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "ffb7c86d55f2",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
+        " 2 user text «Répondez maintenant au client, en français, à partir des seuls résultats d'outil…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Bonjour, je suis désolé mais je ne vends pas d'outillage : mon catalogue couvre les composants et périphériques PC, comme les processeurs, les écrans, les cartes graphiques, la mémoire vive, le stockage interne ou les casques.\n\nSi vous cherchez un de ces produits, dites-moi lequel et votre budget, je regarde ce que j'ai.",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "cbf2a1656793",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
+        " 2 assistant text «Bonjour, je suis désolé mais je ne vends pas d'outillage : mon catalogue couvre …»",
+        " 3 user text «Vraiment rien ? C'est pour percer du béton.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Non, vraiment rien de ce côté-là, désolé. Mon catalogue ne contient que du matériel informatique : processeurs, écrans, cartes graphiques, mémoire vive, stockage interne et casques.\n\nSi un besoin dans ces catégories se présente, je suis là.",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "fd790e43a13e",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
+        " 2 assistant text «Bonjour, je suis désolé mais je ne vends pas d'outillage : mon catalogue couvre …»",
+        " 3 user text «Vraiment rien ? C'est pour percer du béton.»",
+        " 4 user text «Répondez maintenant au client, en français, à partir des seuls résultats d'outil…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Non, vraiment rien : mon catalogue ne contient aucun outillage, donc pas de perceuse, béton ou pas.\n\nJe peux vous aider sur des composants et périphériques PC : processeur, écran, carte graphique, mémoire vive, stockage interne ou casque. Si l'un de ces produits vous intéresse, dites-moi lequel et votre budget.",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

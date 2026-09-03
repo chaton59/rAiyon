@@ -211,24 +211,54 @@ qui ne le concernent pas ; l'appel de rédaction lit §9, dont il ne peut rien f
 la **redondance inerte**, pas une contradiction — aucune des deux moitiés ne dit à l'autre
 de faire l'inverse de ce qu'elle fait.
 
-### `outils_empreinte` enregistre le jeu d'outils de l'extraction
+### ⚠️ `outils_empreinte` enregistre **les cinq outils**, pas le seul que la machine envoie
 
-C'est le seul jeu non vide des deux appels, et c'est complet au regard de ce que l'empreinte
-sert à faire : périmer la cassette quand le schéma d'outils change. `record_criteria` est le
-seul outil que la machine expose, donc le seul dont le schéma puisse la périmer.
+**Correction du jalon 4, contre une cassette réelle.** Ce document annonçait au jalon 3 que
+le champ porterait le jeu d'outils de l'extraction. C'est faux : la première cassette de la
+machine porte `ae1370a553ae`, **la même empreinte que celles de l'agent**.
 
-### ⚠️ La conséquence sur le cache, et une prédiction posée avant la campagne
+La raison est dans `scripts/eval.py` : `_reglages_pour()` calcule l'empreinte depuis
+`schema_des_outils()` — la vue du **harnais**, pas celle de l'orchestration —, et c'est
+cette même valeur que `verifier()` recalcule au rejeu. Enregistrer l'empreinte du seul outil
+envoyé ferait donc échouer le rejeu comme « cassette périmée », faute d'être comparée à la
+même chose. Les deux côtés sont cohérents ; c'est la note qui ne l'était pas.
 
-Le préfixe mis en cache est `tools` + `system` (§3.13). Les deux appels de la machine
-n'envoient **pas** les mêmes outils — l'extraction expose `record_criteria`, la rédaction
-n'en expose aucun. Il y a donc **deux préfixes distincts** là où l'agent n'en a qu'un.
+**Et le comportement est acceptable, plus strict que nécessaire :** une description modifiée
+sur l'un des quatre outils que la machine n'envoie pas périmerait ses cassettes alors que
+son préfixe n'a pas bougé. C'est un faux positif de péremption, jamais un faux négatif — le
+sens dans lequel on veut se tromper sur une garde de fraîcheur.
 
-> **Prédiction.** `cache_ecrit` de la machine sera nettement supérieur à celui de l'agent,
-> et `jetons_entree` ne baissera pas proportionnellement au nombre d'appels. La mesure nº7
-> doit donc publier **les jetons autant que les appels** : une orchestration deux fois moins
-> bavarde en appels peut être plus chère en entrée.
+Le rendre exact demanderait que le harnais interroge l'orchestration sur les outils qu'elle
+envoie, donc de toucher `scripts/eval.py` **et** le `Protocol` `Orchestrateur`. Ce n'est ni
+urgent ni gratuit : à faire avec la dette des helpers privés, après la campagne.
 
-À reporter dans `PREDICTIONS`, sous la clé du jeu, **avant** l'enregistrement de la campagne.
+### ⚠️ La conséquence sur les jetons — prédiction **corrigée au jalon 4**
+
+**Le mécanisme annoncé au jalon 3 était faux, et il faut le dire avant d'aller plus loin.**
+La note affirmait que « les deux appels de la machine n'envoient pas les mêmes outils, donc
+deux préfixes distincts ». C'est inexact : le jalon 2 fait passer **le même** jeu d'outils
+aux deux appels — `record_criteria` seul — précisément pour n'avoir qu'un préfixe, et
+`test_les_deux_appels_du_tour_partagent_le_meme_prefixe` le vérifie.
+
+Le préfixe mis en cache (§3.13) est donc **unique**, et il est même **plus petit** que celui
+de l'agent : un outil au lieu de cinq.
+
+La conclusion tient quand même, pour une autre raison — et c'est le corps des `messages`,
+pas le préfixe :
+
+* la machine appelle le modèle **deux fois par tour**, et chaque appel renvoie la
+  conversation entière ;
+* cette conversation **grossit plus vite** : trois paires `tool_use` / `tool_result` par
+  tour (extraction, recherche, sondage) là où l'agent en produit une ou deux.
+
+> **Prédiction corrigée.** `cache_ecrit` de la machine sera **inférieur** à celui de l'agent
+> — préfixe plus petit —, mais `jetons_entree`, la part **non mise en cache**, sera nettement
+> supérieure, et elle ne baissera pas proportionnellement au nombre d'appels. La mesure nº7
+> doit donc publier **les jetons autant que les appels** : le compte d'appels et le coût
+> d'entrée ne vont pas dans le même sens.
+
+À reporter dans `PREDICTIONS`, sous la clé du jeu, **avant** l'enregistrement de la campagne
+— dans sa version corrigée, et en disant qu'elle l'a été.
 
 ---
 
