@@ -1,0 +1,139 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "categorie_efface_budget",
+    "prise": 2,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.machine.v1",
+    "prompt_empreinte": "595d66d5383e",
+    "outils_empreinte": "ae1370a553ae",
+    "enregistree_le": "2026-09-03",
+    "usage": {
+      "appels": 4,
+      "jetons_entree": 15281,
+      "jetons_sortie": 1246,
+      "cache_ecrit": 0,
+      "cache_lu": 25348
+    },
+    "orchestration": "machine"
+  },
+  "prises": [
+    {
+      "requete": "8312ed811e00",
+      "apercu": [
+        " 1 user text «Un écran de 27 pouces au minimum, 144 Hz au moins, 250 dollars maximum.»"
+      ],
+      "fin": "tool_use",
+      "blocs": [
+        {
+          "signature": "Et0CCpABCBEYAipAxwCLmrgDYpZig+AtgnnTssyvneB/t7XL39f1k5q+3y0XChVs/EvEe50+/kJWlQVg6jz3CJitUTr+QwI955+LkjIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAeWR5tQGEgxyjxI/nN7v/dmXx4oaDDSgRL229gbUb9OcgSIwwI8017mITpKc3aa2u8fEnDaTOmZpEjbj7bc8K0WySo0+PLX9qXWxbQ2H6/6jlfiKKnoSbdnjUYR+l1JR1E7MXf33iyH20OpSNVAKzxV6QNaxNOcG9/oxPnzNSlrwcbN5SofE5YIW36cAI2F6az+I9yw0ssN6DfsMCF6Uh40uEkapXCBuJ3/w8N4dt5U4Zl7cHt7BpqvQPGoreKXWEBbRkRVFS9b5r5VQVZs3KxgB",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01FzgpPPSJJivNL6K3yhVroa",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "categorie": "monitor",
+            "criteres": [
+              {
+                "champ": "screen_size",
+                "operateur": "au_moins",
+                "valeur": "27",
+                "importance": "bloquant"
+              },
+              {
+                "champ": "refresh_rate",
+                "operateur": "au_moins",
+                "valeur": "144",
+                "importance": "bloquant"
+              }
+            ],
+            "budget_usd": "250"
+          },
+          "name": "record_criteria",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "requete": "d65978241bf3",
+      "apercu": [
+        " 1 user text «Un écran de 27 pouces au minimum, 144 Hz au moins, 250 dollars maximum.»",
+        " 2 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"im…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        " 4 assistant tool_use search_products {}",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 9, \"produits\": [{\"id\":…»",
+        " 6 assistant tool_use probe_catalog {\"champs\":[]}",
+        " 7 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 9…»",
+        " 8 user text «Répondez maintenant au client, en français, à partir des seuls résultats d'outil…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Voici trois écrans de 27 pouces qui tiennent votre budget de 250 dollars, tous au-dessus de 144 Hz :\n\n**ASRock Phantom Gaming PG27FRS1A** (monitor-ba17c6131b), à 142.99 $. Dalle VA, 180 Hz.\n\n**Acer Nitro EDA270U P** (monitor-a075f4505b), à 179.99 $. Dalle VA, 170 Hz, en 2560x1440.\n\n**MSI MAG 274CQF** (monitor-6794f9ca20), à 189.99 $. Dalle VA, 180 Hz, 2560x1440, temps de réponse de 0.5 ms.\n\nDeux autres modèles de 27 pouces à 144 Hz ou plus dépassent votre budget, si vous voulez élargir un peu : le MSI G27C4 E3 à 258.00 $ (8.00 $ au-dessus), et le Samsung Odyssey G55A à 259.00 $ (9.00 $ au-dessus, mais celui-ci est à 165 Hz).\n\nDites-moi si l'un de ces trois vous intéresse, ou si vous voulez que je regarde du côté de la définition ou du type de dalle.",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "c01e560b1fc4",
+      "apercu": [
+        " 1 user text «Un écran de 27 pouces au minimum, 144 Hz au moins, 250 dollars maximum.»",
+        " 2 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"im…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        " 4 assistant tool_use search_products {}",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 9, \"produits\": [{\"id\":…»",
+        " 6 assistant tool_use probe_catalog {\"champs\":[]}",
+        " 7 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 9…»",
+        " 8 assistant text «Voici trois écrans de 27 pouces qui tiennent votre budget de 250 dollars, tous a…»",
+        " 9 user text «En fait je vais commencer par le processeur.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "signature": "EpsHCpABCBEYAipA/QfTC1ty7AeLuNyy0evOEgjE+LPWhNEfUfWIZaSF9sTP9PYwkWdJtqXJj1shC4k5VccTasgdwwmRAwKK9UEqHzIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAfGR5tQGEgwha+0SkPtVlOiiTZMaDLuW+H/gBC0fXKB1IyIwDjdACEgZSRxYdYJlYFWdYXMk5Esa6uipOofd6AdSyBvutXmTA4PF3UnVpvWrQ7y0KrcFp6MpvJwO1HLYDsvWs6eGw5ex//8dIFfSEAmuHcLMuBrPHyPE/ZInvO3juRqFuOgVaVmeOy65gQwURfep41bKw6PrAJaeRusxZ2v0ZjKTiL/0+lSHekwOywXuWpd7SnWNhP5KB5Rs1FB+nuPV7llhbt3TWi84yi5X6ZuqnUk6koxs36W+lKZpvsKLtHa0WNXjUn7gkLHc6n7NrK8sFLuw6xw/KN008r7EtDZDNe/sZAv7/bjNGfnCRdiEwXNDY58F18pdOTsl5Htt97wiCi/NW198g0oHaa3r/HzZNRlTgXl27Y448ATjutW+IrTRfQ4QiHmkJWDHT7s5EyYWo0Aa43KIQ7km1zCbB9vk72sfof8l9sSuAyYAk1WbyGsFYH13plJvG2YrPkW84Z47x4MNBjvxh4VCybxUle4kBksDx8hI0S6hx4x8rfKto09bjjQoUGEt49wRJti8PWDVp7AuqgltWte5AuAg2l5S1G6hjO+sQ9erCwAm6johRF19Rc06EbdSwEhm1xaqRKGVSHGDCFHlbDzZqBJJXmOE1R2WPKopiTO0xm4mowL7szyP+tj0oRcneC1ya/0k/HFTiY2e6bxLa8dyoyM2cTXAb5JXIdHs5gfD74dQxfE+bsVZoviL38fEIz58B3X0iGaEszO2Edtu064QSvBRRtc2LplHBbX66BjfzFj2Tk03vB+i2CKkbVikj1tpz+r/Bt4mHAYiulo6W0qEPMPQIgDq/YqDnjqxrc27hjJ6nU/tnZ+aH2LchxnVtNKNjcxNJU9Eluw6pll5ZPZQwisAr0Egsg2FJ2vMAh2F7Ew6J1u/FNiEL3hHBxG4tQyUBkUWiiFnGbM3p+W1UauenNuz3uEuXSXCUcwspeeJAYr7s6BqnpGO6zfd8c2+i4WOBV9y6RW3F3TMYLrEgMgGsqEYAQ==",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "text": "Avec plaisir. Pour vous orienter vers le bon processeur, j'ai besoin de quelques critères : un usage particulier (jeu, montage, bureautique), une marque préférée, un nombre de cœurs minimum, ou un budget ? Dites-moi ce qui compte pour vous.",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "03d949e9125d",
+      "apercu": [
+        " 1 user text «Un écran de 27 pouces au minimum, 144 Hz au moins, 250 dollars maximum.»",
+        " 2 assistant thinking | tool_use record_criteria {\"budget_usd\":\"250\",\"categorie\":\"monitor\",\"criteres\":[{\"champ\":\"screen_size\",\"im…",
+        " 3 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"criteres\": [{\"champ\": \"screen_size\", \"oper…»",
+        " 4 assistant tool_use search_products {}",
+        " 5 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 9, \"produits\": [{\"id\":…»",
+        " 6 assistant tool_use probe_catalog {\"champs\":[]}",
+        " 7 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 9…»",
+        " 8 assistant text «Voici trois écrans de 27 pouces qui tiennent votre budget de 250 dollars, tous a…»",
+        " 9 user text «En fait je vais commencer par le processeur.»",
+        "10 assistant tool_use search_products {}",
+        "11 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"candidats_trouves\": 9, \"produits\": [{\"id\":…»",
+        "12 assistant tool_use probe_catalog {\"champs\":[]}",
+        "13 user tool_result «{\"ok\": true, \"categorie\": \"monitor\", \"budget_usd\": \"250.00\", \"dans_le_budget\": 9…»",
+        "14 user text «Répondez maintenant au client, en français, à partir des seuls résultats d'outil…»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "signature": "ErwFCpABCBEYAipAlFD5dXDyUaHcNCdLir6Znvn5CIvVz5gdb+KHxY0bhcLlOxffBQssrQjzM91JNIGA6UbHvZuAwSpaKOrhW3iNwDIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAfWR5tQGEgw3O5JovZfn2Lt0El8aDB+aV4czalnph9LZxyIwzho+VJCrUYBaRtwZlw1s1wudpWIePFz5wvmyNsXN6ij/zRpchGDg3ikWuahWFHHhKtgDzvYxyghID767t0m6VM+agtRwTgqdBX/u4MVGBvOKcV/1CkxR404fu32ED+dOTvcT+P8F8TwOpfEU19B+386IuYPxNvS4FWp9FQv0lM/R6L1bYIt6kt1Ec+a5oUy/FcFa95SrIbgQcOB1ZyDEs7coXlNswXwgkNeplyFHuM0JyDISLsiOtjfSXynO0jG2HUsMkS7N8Y1IuP9Jj9n0OJszX6frFACL9MqXCcbEZwNTKcbFS4NfcuXSIO5RVsD92/Pz21KrCsM0DkGZ3H8zsgD7PIkr1h9AuhJ2EK0C6HK2uAAsHS3De/tAAsAM6SeDRt611cyMgQ5GJMQsMtw7Uxv53VpjYRIbiB64rW6h6GOmllE49Q/aYmB3SaTOEce2PNUTbncySpOCfamYnVru0ngn/d0o6dGZlRE8eu31K6Z6SkScCuF9qqSn/Ae3qYePyjsTVrUdSL7m8C1PSDLHUKDxzef0hypJbH4leYBHujgJrilKOHkD3JUmPAVkVzAA4dazV88AvQ/6p8FoBGbZAQoq2S3FMU5Cp9YroIXmFAFgpVVJdMAZe1AaaASF1VnwLJL1eHDJEh4ECR5Wjgxy8/1/GX9Mq4K+ZfObqSd8XH39pj58E3J2DYCaUxgB",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "text": "Très bien, on passe au processeur. Le budget de 250 dollars que vous aviez donné pour l'écran ne s'applique plus : il faudra m'en donner un nouveau pour le processeur, si vous en avez un en tête.\n\nDites-moi ce qui compte pour vous : nombre de cœurs, fréquence, marque, budget... et je regarde ce que le catalogue propose.",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

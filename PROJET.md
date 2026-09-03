@@ -4010,10 +4010,123 @@ tour**. L'agent, lui, pouvait rappeler l'outil après avoir vu de mauvais résul
 exactement ce que la campagne doit mesurer, et ce n'est pas une raison de corriger quoi que
 ce soit maintenant.
 
+#### Jalon 5 — la campagne, et le verdict ✅
+
+**176 appels**, 36 prises, 81 tours client, `systeme.machine.v1`. Les sept prédictions
+étaient committées **avant** la commande d'enregistrement — commit séparé, horodaté.
+
+##### 1. Les six critères d'acceptation, avec leur verdict de dispersion
+
+| Critère | agent `v2` | machine `machine.v1` | Verdict |
+|---|---|---|---|
+| nº1 — griefs livrés | 0 | 0 | tenu des deux côtés |
+| nº2 — violations budget | 0 | 0 | tenu des deux côtés |
+| nº3 — tours avant valeur (médiane) | 1,0 | 1,0 | **dans le bruit** (+0,83 pour ± 8,00) |
+| nº4 — attendu en top 3 | 12/12 | **11/12** | 92 % contre 100 %, au-dessus du seuil de 80 % |
+| nº6 — zéro résultat traité | 12/12 | 14/14 | tenu des deux côtés |
+| Taux de rejet du validateur | 2,00/passe | **17,00/passe** | ⛔ **au-delà du bruit** (+15,00 pour ± 12,00) |
+
+**Un seul écart dépasse la dispersion, et la machine le perd.** Les cinq autres mesures —
+tours repliés, chiffres de domaine, markdown, itérations, délai avant valeur — sont **dans
+le bruit**. C'était la prédiction nº7, et elle est tenue.
+
+⚠️ **Trois attentes de scénario ne sont pas tenues**, ce que les six critères ne montrent
+pas : `budget_efface` sur `categorie_efface_budget.2`, et `zero_resultat` +
+`critere_trop_strict` sur `sur_specifie.3`. `make eval` sort donc en **code non nul** sur le
+jeu de la machine. C'est un **résultat**, pas un défaut : `IssueDuTour` est bien formé, le
+rejeu ne diverge nulle part, et les deux traces vers le même mécanisme — voir §5 ci-dessous.
+
+##### 2. La mesure nº7 — appels **et** jetons, jamais l'un sans l'autre
+
+| | agent `v2` | machine `machine.v1` | |
+|---|---|---|---|
+| appels par tour | 2,36 | **2,17** | ×0,92 |
+| jetons d'entrée non cachés | 358 088 | **657 010** | ×1,83 |
+| cache écrit | 9 744 | 6 337 | ×0,65 |
+| cache lu | 1 851 360 | 1 108 975 | ×0,60 |
+| **entrée facturée** | 367 832 | **663 347** | **×1,80** |
+
+⚠️ **Publier les appels seuls dirait « moins chère » d'une orchestration qui coûte 1,8 fois
+plus en entrée facturée.** C'est la prédiction nº1, et elle est tenue sur ses deux moitiés :
+2,17 tombe dans l'intervalle [2,00 ; 2,20] annoncé, et le surcoût d'entrée dans
+l'intervalle [1,3 ; 2,0]. Le cache écrit **baisse** — préfixe plus petit, un outil au lieu
+de cinq —, exactement comme la correction du jalon 4 le prévoyait après avoir invalidé le
+mécanisme du jalon 3.
+
+##### 3. La mesure nº8 — 17 contre 0
+
+**17 tests de conduite du dialogue** tournent dans `make check` chez la machine, **0** chez
+l'agent. Le zéro est écrit au §7 depuis l'étape 8, il n'a pas été remesuré pour l'occasion.
+
+> ⚠️ Ces tests vérifient que la machine conduit le dialogue **comme on l'a écrit**. Ils ne
+> vérifient **pas que la conduite est bonne**, ni que le modèle qui rédige derrière respecte
+> quoi que ce soit. La machine rend testable **sa propre décision**, pas la conversation.
+
+##### 4. D'où vient la suite qui les départage
+
+**Les onze scénarios ont été écrits pour l'agent, à l'étape 12, avant que la variante
+machine à états soit envisagée.** Ils ne sont donc truqués dans aucun des deux sens — et
+cela vaut d'être dit ici, où la machine perd le seul écart significatif.
+
+---
+
+#### Les deux résultats structurels — ce que l'étape a réellement appris
+
+Ils viennent du parcours, pas du tableau, et ils survivraient à une campagne au verdict
+inverse.
+
+##### 1. L'extraction en un coup, **sans recours**
+
+`enregistrer_criteres` n'est pas une action de `decider()` : **une extraction manquée ne se
+rattrape pas dans le tour.** L'agent, lui, rappelle l'outil après avoir vu de mauvais
+résultats.
+
+Le mécanisme est **observé**, avec son cas exact. Sur `sur_specifie.3`, l'extraction pose
+`panel_type` en `bloquant` ; la couche outils refuse (§3.4quater — un champ de rôle `score`
+ne peut pas être bloquant), et **l'appel étant atomique, tout est perdu** : la taille, la
+fréquence *et* le budget. L'agent reçoit le refus dans son `tool_result` et rappelle l'outil
+en `important` — c'est visible dans sa cassette. La machine ne peut pas. Sur
+`categorie_efface_budget.2`, l'extraction n'émet **aucun** `tool_use` au second tour : la
+bascule vers `cpu` n'est jamais enregistrée, le budget n'est jamais effacé, et la rédaction
+dit pourtant au client qu'il ne s'applique plus — la prose est juste, l'état ne l'est pas.
+
+C'est le mécanisme derrière la phrase de §3.6 — « l'agent encaisse naturellement les
+virages » —, **désormais observé plutôt qu'affirmé**, et il est plus profond que le tour de
+parole.
+
+*Ne pas le corriger dans cette étape.* Laisser `decider()` redéclencher une extraction
+ajouterait un appel modèle, casserait le plancher de 2,00 et changerait le coût au milieu de
+la comparaison. C'est un candidat pour une `systeme.machine.v2`.
+
+##### 2. « Ne pas chercher tant que le budget manque » n'est écrite dans aucun prompt
+
+L'agent la tient par **l'affordance** de `question_suivante`, qui remonte `BesoinDeBudget`
+en tête. `Attente.AUCUNE_RECHERCHE_SANS_BUDGET` la mesure depuis l'étape 12 sans que
+personne ait remarqué qu'**aucune instruction ne la portait**. `decider()` l'écrit pour la
+première fois.
+
+Une garantie tenue par chance de conception d'un côté, par construction de l'autre — et
+c'est la seule façon de s'en apercevoir : écrire la seconde orchestration.
+
+---
+
+#### Ce que la campagne a cassé, et qu'il a fallu réparer
+
+`make eval-comparer` rejoue **deux jeux dans le même processus** : les cassettes de la
+machine partaient dans la boucle d'agent et divergeaient au premier tour. `systeme` voyage
+déjà **par valeur** dans `Reglages` pour exactement cette raison ; l'orchestration ne le
+faisait pas.
+
+Elle le fait désormais, et **elle se lit dans l'en-tête de chaque cassette** — le champ que
+le jalon 0 avait écrit sans le consommer. Conséquence : `RAIYON_ORCHESTRATION` est **sans
+effet au rejeu**, et c'est voulu. Rejouer une prise sous une autre orchestration que celle
+qui l'a enregistrée n'est pas un choix, c'est une erreur ; la variable ne sert qu'à
+l'enregistrement. Aucun réenregistrement n'a été nécessaire : les cassettes étaient justes.
+
 #### Reste à faire
 
-- Jalon 5 — les prédictions dans `PREDICTIONS`, **avant** l'enregistrement, puis la
-  campagne et la comparaison `v2` contre `machine.v1`.
+- Jalon 6 — clore l'étape : §5 en ✅, le README à deux colonnes, la ligne de §7 qui passe à
+  moitié fermée. Ne coûte rien.
 
 #### Hors de cette étape
 

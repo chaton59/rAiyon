@@ -10,10 +10,10 @@
     "enregistree_le": "2026-09-03",
     "usage": {
       "appels": 4,
-      "jetons_entree": 852,
-      "jetons_sortie": 448,
-      "cache_ecrit": 6337,
-      "cache_lu": 19011
+      "jetons_entree": 884,
+      "jetons_sortie": 647,
+      "cache_ecrit": 0,
+      "cache_lu": 25348
     },
     "orchestration": "machine"
   },
@@ -26,7 +26,12 @@
       "fin": "end_turn",
       "blocs": [
         {
-          "text": "Bonjour. Je suis désolé, mais je ne vends pas d'outillage : mon catalogue couvre uniquement les composants et périphériques PC — processeurs, cartes graphiques, mémoire vive, stockage interne, écrans et casques.\n\nEst-ce que je peux vous aider sur l'une de ces catégories ?",
+          "signature": "Er4DCpABCBEYAipA/gAeIW9K8FLLeGHzJ3H9bj1rPzGEiiWj/9Qid5OaelzVEMh2Hsk6L8ksi5BrBGSU+2g6TaNY4cIC2lftuv2z+jIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiRhYTNiMjdmNy0zMWY1LTQ3ZjktYWVkNi1kNThkMTE2MDUyMGWoAYeO5tQGEgyL7TUKCTkptN22DHYaDOdCWEwEveSh6r9YsyIwHkhWuXAlQDS651T38R+0IvJ4DcQRHGbiQmV7auT34rYF788NCwxvjp9R7ByjFk/GKtoBdkbLkljJVTC/lG2OCxwOs+l5CPqgK6OGrDHCKtiGFTL0UdPLXn51yF1VpTF58TtKhTGSviwNjdieCUqdbdM4Iz3sNftqGEo9QOaodSoeWv8m4mhNWTgsq16lmLbvNrg5260OVjP/VwmtD9Sjo9snHO2LKT87BAJXBV+krAINRlpxo1j80PxQwU6KR40JL7BcR1B6HkUYVlXircWec1NZW4oNlonA+MQIAqeeREPYJP53nCF91EuiA+xQ0UrHtw/HxAn5d2SmZg+Kw+QZoh0UiVNNDEkY0J2PKZEYAQ==",
+          "thinking": "",
+          "type": "thinking"
+        },
+        {
+          "text": "Bonjour. Je suis vendeur en composants et périphériques PC — processeurs, écrans, cartes graphiques, mémoire vive, stockage interne et casques. Je n'ai pas de perceuse ni d'outillage à vous proposer, ce n'est pas mon rayon.\n\nSi vous avez un besoin côté informatique (un écran, une carte graphique, un casque...), je suis à votre disposition.",
           "type": "text"
         }
       ]
@@ -40,38 +45,38 @@
       "fin": "end_turn",
       "blocs": [
         {
-          "text": "Bonjour, je suis désolé, mais je ne vends pas d'outillage. Mon rayon couvre les composants et périphériques PC : processeurs, cartes graphiques, mémoire vive, stockage interne, écrans et casques.\n\nSi vous avez besoin d'un de ces produits, je suis à votre disposition.",
+          "text": "Bonjour, je suis désolé mais je ne vends pas d'outillage : mon catalogue couvre uniquement les composants et périphériques informatiques — processeurs, cartes graphiques, mémoire vive, stockage interne, écrans et casques.\n\nSi vous cherchez du côté d'un de ces produits, je suis là pour vous conseiller avec plaisir.",
           "type": "text"
         }
       ]
     },
     {
-      "requete": "aaa05489a975",
+      "requete": "ac413a5448a6",
       "apercu": [
         " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
-        " 2 assistant text «Bonjour, je suis désolé, mais je ne vends pas d'outillage. Mon rayon couvre les …»",
+        " 2 assistant text «Bonjour, je suis désolé mais je ne vends pas d'outillage : mon catalogue couvre …»",
         " 3 user text «Vraiment rien ? C'est pour percer du béton.»"
       ],
       "fin": "end_turn",
       "blocs": [
         {
-          "text": "Vraiment rien, désolé. Je ne peux vous conseiller que sur des composants et périphériques PC (processeur, carte graphique, mémoire vive, stockage interne, écran, casque) — rien qui perce du béton dans ce rayon.\n\nSi un besoin PC se présente, n'hésitez pas.",
+          "text": "Non, vraiment rien de ce côté : je ne vends que du matériel informatique (processeurs, cartes graphiques, mémoire, stockage, écrans, casques). Pour une perceuse à béton, il vous faudra un vendeur en outillage.\n\nSi en revanche vous avez besoin d'un composant ou d'un périphérique PC, dites-moi ce que vous cherchez et je vous aide tout de suite.",
           "type": "text"
         }
       ]
     },
     {
-      "requete": "2e2aef69ef25",
+      "requete": "4f1fa869bdbc",
       "apercu": [
         " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
-        " 2 assistant text «Bonjour, je suis désolé, mais je ne vends pas d'outillage. Mon rayon couvre les …»",
+        " 2 assistant text «Bonjour, je suis désolé mais je ne vends pas d'outillage : mon catalogue couvre …»",
         " 3 user text «Vraiment rien ? C'est pour percer du béton.»",
         " 4 user text «Répondez maintenant au client, en français, à partir des seuls résultats d'outil…»"
       ],
       "fin": "end_turn",
       "blocs": [
         {
-          "text": "Non, vraiment rien, même pour du béton. Mon catalogue ne contient aucun outillage : uniquement des composants et périphériques PC (processeurs, cartes graphiques, mémoire vive, stockage interne, écrans, casques).\n\nSi un jour vous avez besoin d'un de ces produits, je suis là.",
+          "text": "Non, vraiment rien de ce côté : je ne vends que des composants et périphériques informatiques (processeurs, cartes graphiques, mémoire vive, stockage interne, écrans, casques). Une perceuse, même pour du béton, ne fait pas partie de mon catalogue.\n\nSi un projet informatique se profile à côté — un écran, une carte graphique, du stockage — je peux vous aider avec plaisir.",
           "type": "text"
         }
       ]

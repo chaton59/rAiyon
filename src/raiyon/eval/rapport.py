@@ -157,8 +157,16 @@ def _reserves(reserves: Sequence[str]) -> list[str]:
 
 
 def _en_citation(reserve: str) -> list[str]:
+    """Une réserve en bloc de citation markdown, tiret sur la première ligne.
+
+    ⚠️ **Une ligne vide d'une réserve rend `">"` nu, jamais `">   "`.** Le préfixe de citation
+    appliqué à une chaîne vide laisserait trois espaces en fin de ligne : le crochet
+    `trailing-whitespace` les retire au commit, le rendu les remet au `make eval` suivant, et
+    le fichier committé produit un diff permanent — celui qu'on cesse de lire. Découvert à
+    l'étape 15, jalon 5, sur la première réserve à plusieurs paragraphes.
+    """
     return [
-        f"> - {ligne}" if rang == 0 else f">   {ligne}"
+        (f"> - {ligne}" if rang == 0 else f">   {ligne}").rstrip()
         for rang, ligne in enumerate(reserve.splitlines())
     ]
 

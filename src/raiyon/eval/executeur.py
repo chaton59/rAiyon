@@ -36,6 +36,7 @@ from raiyon.db.models import SessionConversation
 from raiyon.eval.metriques import PriseJouee, TourJoue
 from raiyon.eval.scenario import Scenario
 from raiyon.matching.depot import DepotProduits
+from raiyon.orchestration import Orchestrateur
 
 logueur = structlog.get_logger(__name__)
 
@@ -49,6 +50,15 @@ class Reglages:
     max_iterations: int
     max_regenerations: int
     tolerance: Decimal | None = None
+
+    orchestrateur: Orchestrateur | None = None
+    """Qui conduit le tour. `None` = celle que la configuration désigne.
+
+    ⚠️ **Elle voyage ici pour la même raison que `systeme`** : la comparaison rejoue deux
+    jeux dans le **même processus**, et une variable d'environnement n'a qu'une valeur.
+    `scripts/eval.py` la dérive de l'en-tête de chaque cassette — celle qui a enregistré la
+    prise est celle qui doit la rejouer, et l'inverse produit une `DivergenceDeRequete` dès
+    le premier tour."""
 
 
 def jouer(
@@ -122,6 +132,7 @@ def jouer_un_tour(
         max_iterations=reglages.max_iterations,
         max_regenerations=reglages.max_regenerations,
         tolerance=reglages.tolerance,
+        orchestrateur=reglages.orchestrateur,
     )
     evenements: list[Evenement] = []
     while True:

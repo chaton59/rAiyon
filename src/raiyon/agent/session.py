@@ -60,7 +60,7 @@ from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import Evenement
 from raiyon.db.models import SessionConversation, TourConversation
 from raiyon.matching.depot import DepotProduits
-from raiyon.orchestration import repondre_en_vigueur
+from raiyon.orchestration import Orchestrateur, repondre_en_vigueur
 from raiyon.tools.etat import EtatSession, depuis_jsonb
 from raiyon.tools.repartiteur import ContexteOutils
 
@@ -138,8 +138,20 @@ def tour(
     max_iterations: int,
     max_regenerations: int,
     tolerance: Decimal | None = None,
+    orchestrateur: Orchestrateur | None = None,
 ) -> Generator[Evenement, None, IssueDuTour]:
-    """Un tour client complet : relire, tourner, écrire, commit. **À consommer en entier.**"""
+    """Un tour client complet : relire, tourner, écrire, commit. **À consommer en entier.**
+
+    `orchestrateur` **par valeur**, exactement comme `systeme` : `None` veut dire « celle
+    que la configuration désigne », et la passer sert à ce que l'environnement ne peut pas
+    faire — conduire **deux orchestrations dans un même processus**.
+
+    ⚠️ C'est ce dont `make eval-comparer` a besoin, et le besoin est le même que pour le
+    prompt : la comparaison rejoue deux jeux dans le même processus, et une variable
+    d'environnement n'a qu'une valeur. Sans ce paramètre, les cassettes de la machine se
+    rejouaient dans la boucle d'agent et divergeaient au premier tour — constaté à l'étape
+    15, jalon 5.
+    """
     identifiant = conversation.id
     etat = etat_de(conversation)
     historique = historique_de(session, identifiant)
@@ -161,7 +173,7 @@ def tour(
     # `session.tour()` ne connaît aucune des deux : il connaît la signature que le
     # `Protocol` `Orchestrateur` porte, et c'est mypy qui vérifie que la substitution en
     # est une.
-    issue = yield from repondre_en_vigueur()(
+    issue = yield from (orchestrateur or repondre_en_vigueur())(
         client=client,
         systeme=systeme,
         outils=outils,

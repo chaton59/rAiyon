@@ -10,8 +10,8 @@
     "enregistree_le": "2026-09-03",
     "usage": {
       "appels": 4,
-      "jetons_entree": 852,
-      "jetons_sortie": 506,
+      "jetons_entree": 874,
+      "jetons_sortie": 409,
       "cache_ecrit": 0,
       "cache_lu": 25348
     },
@@ -26,7 +26,7 @@
       "fin": "end_turn",
       "blocs": [
         {
-          "text": "Bonjour. Je suis vendeur en composants informatiques et périphériques PC — je ne vends pas d'outillage, donc je ne peux pas vous conseiller sur une perceuse.\n\nEn revanche, si vous cherchez du côté des processeurs, écrans, cartes graphiques, mémoire vive, stockage interne ou casques, je suis là pour ça. Souhaitez-vous que je vous aide sur l'une de ces catégories ?",
+          "text": "Bonjour. Malheureusement, je ne vends pas d'outillage — mon catalogue couvre les composants et périphériques PC : processeurs, écrans, cartes graphiques, mémoire vive, stockage interne et casques.\n\nEst-ce que je peux vous aider sur l'une de ces catégories ?",
           "type": "text"
         }
       ]
@@ -40,38 +40,38 @@
       "fin": "end_turn",
       "blocs": [
         {
-          "text": "Bonjour, je suis désolé mais je ne vends pas d'outillage. Mon catalogue couvre les composants et périphériques PC : processeurs, cartes graphiques, mémoire vive, stockage interne, écrans et casques.\n\nSi vous avez besoin d'un de ces produits, je suis à votre écoute.",
+          "text": "Bonjour, je suis désolé, mais je ne vends pas d'outillage. Mon catalogue couvre uniquement les composants et périphériques PC : processeurs, écrans, cartes graphiques, mémoire vive, stockage interne et casques.\n\nSi vous cherchez dans l'une de ces catégories, je peux vous aider avec plaisir.",
           "type": "text"
         }
       ]
     },
     {
-      "requete": "f79e7cafc348",
+      "requete": "6c49cba7d6ad",
       "apercu": [
         " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
-        " 2 assistant text «Bonjour, je suis désolé mais je ne vends pas d'outillage. Mon catalogue couvre l…»",
+        " 2 assistant text «Bonjour, je suis désolé, mais je ne vends pas d'outillage. Mon catalogue couvre …»",
         " 3 user text «Vraiment rien ? C'est pour percer du béton.»"
       ],
       "fin": "end_turn",
       "blocs": [
         {
-          "text": "Non, vraiment rien de ce côté : mon catalogue ne contient aucun outillage, uniquement des composants et périphériques PC (processeurs, cartes graphiques, mémoire vive, stockage interne, écrans, casques).\n\nSi un besoin PC se présente à vous, je peux vous aider tout de suite.",
+          "text": "Vraiment rien, je le confirme : mon catalogue ne contient aucun outillage, uniquement des composants et périphériques informatiques (processeurs, écrans, cartes graphiques, mémoire vive, stockage interne, casques).\n\nSi vous avez un besoin côté PC, je suis à votre disposition.",
           "type": "text"
         }
       ]
     },
     {
-      "requete": "0be5e3e70fea",
+      "requete": "4bfb960274d6",
       "apercu": [
         " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
-        " 2 assistant text «Bonjour, je suis désolé mais je ne vends pas d'outillage. Mon catalogue couvre l…»",
+        " 2 assistant text «Bonjour, je suis désolé, mais je ne vends pas d'outillage. Mon catalogue couvre …»",
         " 3 user text «Vraiment rien ? C'est pour percer du béton.»",
         " 4 user text «Répondez maintenant au client, en français, à partir des seuls résultats d'outil…»"
       ],
       "fin": "end_turn",
       "blocs": [
         {
-          "text": "Non, vraiment rien, désolé. Mon catalogue ne contient que des composants et périphériques informatiques : processeurs, cartes graphiques, mémoire vive, stockage interne, écrans et casques. Aucune perceuse, aucun outillage de bricolage.\n\nSi un jour vous avez besoin d'un PC ou d'un périphérique, je suis là.",
+          "text": "Non, vraiment rien, même pour du béton. Mon catalogue ne contient aucun outillage, seulement des composants et périphériques PC.\n\nSi un besoin PC se présente, je suis là.",
           "type": "text"
         }
       ]

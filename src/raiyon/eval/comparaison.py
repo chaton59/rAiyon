@@ -525,7 +525,9 @@ def _reserves(reserves: Sequence[str]) -> list[str]:
         "> ⚠️ **Ce que ces chiffres ne disent pas d'eux-mêmes.**",
         ">",
         *[
-            (f"> - {ligne}" if rang == 0 else f">   {ligne}")
+            # `.rstrip()` : voir `rapport._en_citation` — une ligne vide rendrait `">   "`,
+            # et le fichier committé produirait un diff permanent.
+            (f"> - {ligne}" if rang == 0 else f">   {ligne}").rstrip()
             for reserve in reserves
             for rang, ligne in enumerate(reserve.splitlines())
         ],

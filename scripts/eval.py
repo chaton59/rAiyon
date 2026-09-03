@@ -36,7 +36,7 @@ import argparse
 import datetime as dt
 import sys
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import structlog
@@ -76,6 +76,7 @@ from raiyon.eval.metriques import Mesures, MesuresDunePrise, agreger, mesurer, p
 from raiyon.eval.rapport import rendre
 from raiyon.eval.scenario import SCENARIOS, Scenario, ScenarioInconnu, par_nom
 from raiyon.matching.depot import DepotSql
+from raiyon.orchestration import ORCHESTRATIONS
 from raiyon.tools.schema_outils import schema_des_outils
 
 logueur = structlog.get_logger(__name__)
@@ -601,6 +602,20 @@ def mesurer_le_jeu(
             source=source,
         )
         client = ClientCassette(cassette, source=source)
+        # ⚠️ **L'orchestration se lit dans la cassette, jamais dans l'environnement.**
+        # C'est le champ que le jalon 0 a écrit sans le consommer, et voici son usage :
+        # `comparer` rejoue deux jeux dans le **même processus**, et une variable
+        # d'environnement n'a qu'une valeur. Rejouer une prise sous une autre orchestration
+        # que celle qui l'a enregistrée produit une `DivergenceDeRequete` au premier tour —
+        # constaté au jalon 5, sur `besoin_flou.1`.
+        #
+        # C'est aussi ce qui rend `RAIYON_ORCHESTRATION` **sans effet au rejeu**, et c'est
+        # voulu : le choix n'existe pas, il est enregistré. La variable ne sert qu'à
+        # l'enregistrement.
+        reglages_de_la_prise = replace(
+            reglages,
+            orchestrateur=ORCHESTRATIONS[cassette.entete.orchestration or ORCHESTRATION_IMPLICITE],
+        )
 
         cle = (jeu.source_du_scenario(scenario.nom) or jeu.nom, scenario.nom, prise)
         try:
@@ -611,7 +626,7 @@ def mesurer_le_jeu(
                     prise,
                     client=client,
                     depot=DepotSql(base),
-                    reglages=reglages,
+                    reglages=reglages_de_la_prise,
                 )
         except DivergenceDeRequete:
             # ⚠️ **Une divergence non listée remonte**, exactement comme avant : c'est le
