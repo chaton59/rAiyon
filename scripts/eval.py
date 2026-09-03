@@ -85,14 +85,36 @@ RACINE = Path(__file__).resolve().parents[1]
 CASSETTES = RACINE / "evals" / "cassettes"
 RAPPORTS = RACINE / "docs" / "eval"
 
+MECANISME = (
+    "**Le défaut de l'étape 18** : `regle_ecart_au_budget` exigeait l'écart dans la "
+    "phrase qui nomme le produit, pendant que `regle_montants` refusait ce même écart "
+    "dans une phrase sans produit — `hors_budget.values()` n'était pas dans les montants "
+    "admis. Le nom sur une ligne, « il dépasse de X $ » sur la suivante, et les deux "
+    "règles devenaient **conjointement insatisfaisables**. La section 14 du prompt, qui "
+    "demande un produit par ligne, mène droit à ce découpage. "
+)
+"""Le mécanisme commun aux sept divergences de l'étape 18. Écrit une fois : sept copies
+d'une même phrase divergeraient à la première reformulation, et la liste dirait alors sept
+choses là où le dépôt n'en a corrigé qu'une."""
+
+DIVERGENCE_MACHINE = (
+    MECANISME + "Cette prise de `machine.v1` en porte la forme complète et répétée : "
+    "`ecart_non_dit` sur les lignes qui nomment le LG 27GP750-B et l'Asus TUF Gaming "
+    "VG279QM1A, **et** `montant_non_fourni` sur « 26,99 $ » et « 29,00 $ » — qui sont "
+    "exactement leurs écarts au budget de 200 $, écrits une ligne plus bas. Le tour "
+    "n'est plus refusé, la reprise disparaît, l'empreinte du tour suivant change. "
+    "⚠️ **Ces prises portent 22 des 24 `ecart_non_dit` de la campagne de la machine** — "
+    "l'unique écart au-delà de la dispersion de l'étape 15. En sortant du rejeu, elles "
+    "sortent aussi de toute mesure : le rapport ne dit **pas** que ces 22 étaient des "
+    "faux positifs, il dit qu'on ne peut plus les compter. Seule `comparaison.1`, qui "
+    "reste rejouable, tranche pour les 2 qu'elle portait — elles ont disparu. Voir §5 "
+    "étape 15, verdict suspendu, et §7."
+)
+"""La raison des six prises de `machine.v1`. **Identique par construction** : c'est la
+même pathologie, dans le même scénario de comparaison hors budget, sur les deux mêmes
+produits. Six rédactions différentes suggéreraient six causes."""
+
 DIVERGENCES_ATTENDUES: dict[tuple[str, str, int], str] = {
-    ("v1-etape12", "desserrage_refuse", 1): (
-        "le correctif de validateur de l'étape 13 (jalon 1, point D) fait tomber 2 des 4 "
-        "griefs de ce tour. La reprise empilée avant la régénération porte donc 2 lignes "
-        "au lieu de 4, l'empreinte de requête du tour régénéré change, et la prise 7 n'est "
-        "plus reconstituable. Le modèle aurait reçu une autre reprise : sa réponse "
-        "enregistrée n'est pas celle qu'il aurait donnée."
-    ),
     ("v2", "categorie_efface_budget", 3): (
         "le correctif de `NOMBRE` de l'étape 17 fait tomber les **deux** griefs du tour 1 "
         "— les seuls de cette prise. « en 1920x1080 180 Hz » et « en 2560x1440 165 Hz » "
@@ -108,6 +130,31 @@ DIVERGENCES_ATTENDUES: dict[tuple[str, str, int], str] = {
         "vérifié avant la campagne en rejouant les quatre motifs d'extraction, ancien "
         "contre nouveau, sur la prose de chaque prise enregistrée."
     ),
+    ("v2", "zero_budget_trop_bas", 3): (
+        MECANISME + "Ici le grief tombé est l'unique de la prise : un "
+        "`montant_non_fourni` sur « 12,99 $ », qui est **l'écart au budget** de l'ASRock "
+        "Phantom Gaming PG27FRS1A rendu par le moteur. Le message de grief disait « aucun "
+        "outil n'a rendu ce montant » d'un chiffre que `search_products` avait rendu. Le "
+        "tour n'est donc plus refusé, aucune reprise n'est empilée, et la suite de la "
+        "conversation part sur un autre historique : sa réponse enregistrée, écrite sous "
+        "une reprise qui n'existe plus, n'est pas celle que le modèle aurait donnée."
+    ),
+    ("v1-etape12", "zero_budget_trop_bas", 1): (
+        MECANISME + "Ici le grief tombé est un `ecart_non_dit` sur la phrase qui nomme "
+        "l'ASRock Phantom Gaming PG27FRS1A sans dire de combien il dépasse — l'écart est "
+        "écrit ailleurs dans le même message, ce que la règle 4 ne regardait pas. "
+        "⚠️ **Cette prise remplace `desserrage_refuse.1` dans cette liste**, qui y était "
+        "depuis l'étape 13 et n'y est plus : le correctif fait tomber les deux griefs qui "
+        "restaient à son dernier tour, le texte n'est plus refusé du tout, donc plus "
+        "régénéré — la prise 7 n'est simplement plus consommée, et il n'y a plus de "
+        "divergence à absorber."
+    ),
+    ("machine.v1", "changement_davis", 1): DIVERGENCE_MACHINE,
+    ("machine.v1", "changement_davis", 2): DIVERGENCE_MACHINE,
+    ("machine.v1", "changement_davis", 3): DIVERGENCE_MACHINE,
+    ("machine.v1", "desserrage_refuse", 1): DIVERGENCE_MACHINE,
+    ("machine.v1", "desserrage_refuse", 2): DIVERGENCE_MACHINE,
+    ("machine.v1", "desserrage_refuse", 3): DIVERGENCE_MACHINE,
 }
 """Les cassettes dont on **sait** qu'elles divergent, et pourquoi. **Une assertion, pas un skip.**
 
@@ -687,6 +734,23 @@ def mesurer_le_jeu(
     )
 
 
+def divergences_du_jeu(
+    jeu: Jeu, prises: Sequence[tuple[Scenario, int]]
+) -> list[tuple[tuple[str, str, int], str]]:
+    """Les prises de ce jeu que `DIVERGENCES_ATTENDUES` écarte, avec leur raison.
+
+    Extraite de `reserves_du_jeu` à l'étape 18 : leur **nombre** part aussi au rendu, qui
+    en a besoin pour qualifier la ligne « règles jamais déclenchées ». Deux endroits qui
+    filtreraient la même table à la main finiraient par ne plus filtrer pareil.
+    """
+    return [
+        (cle, raison)
+        for cle, raison in sorted(DIVERGENCES_ATTENDUES.items())
+        if cle[0] in jeu.composants
+        and any(scenario.nom == cle[1] and prise == cle[2] for scenario, prise in prises)
+    ]
+
+
 def reserves_du_jeu(jeu: Jeu, prises: Sequence[tuple[Scenario, int]]) -> tuple[str, ...]:
     """Ce que le rapport de ce jeu doit dire de lui-même avant d'afficher un chiffre.
 
@@ -698,17 +762,25 @@ def reserves_du_jeu(jeu: Jeu, prises: Sequence[tuple[Scenario, int]]) -> tuple[s
     lignes: list[str] = []
     if prediction := PREDICTIONS.get(jeu.nom):
         lignes.append(prediction)
-    ecartees = [
-        (cle, raison)
-        for cle, raison in sorted(DIVERGENCES_ATTENDUES.items())
-        if cle[0] in jeu.composants
-        and any(scenario.nom == cle[1] and prise == cle[2] for scenario, prise in prises)
-    ]
+    ecartees = divergences_du_jeu(jeu, prises)
+    # ⚠️ **Groupées par raison, pas une réserve par prise** — étape 18. Le correctif y a
+    # écarté six prises de `machine.v1` pour **une seule** cause, et six paragraphes
+    # identiques en tête d'un rapport se sautent comme un bandeau juridique. Ce que le
+    # lecteur doit voir est le nombre de prises et la cause, une fois.
+    par_raison: dict[str, list[str]] = {}
     for (source, scenario, prise), raison in ecartees:
+        par_raison.setdefault(raison, []).append(f"{source}/{scenario}.{prise}")
+    for raison, noms in par_raison.items():
+        titre = (
+            f"**{noms[0]} est écartée de ce rapport**"
+            if len(noms) == 1
+            else f"**{len(noms)} prises sont écartées de ce rapport** — "
+            + ", ".join(f"`{nom}`" for nom in noms)
+        )
         lignes.append(
-            f"**{source}/{scenario}.{prise} est écartée de ce rapport** — divergence "
-            f"attendue au rejeu.\n{raison}\nLes tours et les griefs de cette prise ne "
-            "sont donc comptés nulle part ci-dessous."
+            f"{titre} — divergence attendue au rejeu.\n{raison}\nLes tours et les griefs "
+            + ("de cette prise ne sont" if len(noms) == 1 else "de ces prises ne sont")
+            + " donc comptés nulle part ci-dessous."
         )
     if jeu.compose:
         origines = {scenario.nom: jeu.source_du_scenario(scenario.nom) for scenario, _ in prises}
@@ -846,7 +918,12 @@ def _rejouer(nom: str | None = None, jeu_nomme: str | None = None) -> int:
         )
 
     agregat, cout = mesurer_le_jeu(jeu, prises, reglages, prompt, empreinte_outils)
-    texte = rendre(agregat, reserves=reserves_du_jeu(jeu, prises), cout=cout)
+    texte = rendre(
+        agregat,
+        reserves=reserves_du_jeu(jeu, prises),
+        cout=cout,
+        ecartees=len(divergences_du_jeu(jeu, prises)),
+    )
     if nom is not None:
         print(f"\n(rapport partiel — {jeu.rapport.relative_to(RACINE)} n'est pas réécrit)\n")
     elif partiel := _prises_manquantes(jeu, prises):

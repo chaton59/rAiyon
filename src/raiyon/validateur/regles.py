@@ -6,13 +6,15 @@ aucune ne connaît la boucle, aucune n'a besoin d'une base ni d'une clé.
 1. **Identifiants** — tout jeton au format d'identifiant existe dans `contexte.produits`.
    *Ferme le produit inventé et l'`id` approximatif.*
 2. **Montants** — dans une phrase qui nomme un produit, un montant en `$` est le prix
-   **de ce produit** ou son écart au budget ; ailleurs, c'est un prix fourni ou un
-   agrégat fourni. *Ferme le prix modifié, **et le prix de sondage attribué à un
-   produit**.*
+   **de ce produit** ou son écart au budget ; ailleurs, c'est un prix fourni, un agrégat
+   fourni ou un **écart** fourni. *Ferme le prix modifié, **et le prix de sondage
+   attribué à un produit**.*
 3. **Noms** — un nom fourni qui apparaît dans le texte y apparaît **verbatim**.
    *Ferme la francisation et la réécriture (§3.4ter).*
-4. **Écart au budget** — un produit hors budget cité l'est dans une phrase qui porte son
-   `ecart_usd` exact. *C'est le **critère d'acceptation nº2**, vérifié sur la phrase.*
+4. **Écart au budget** — un produit hors budget cité l'est dans un message qui porte son
+   `ecart_usd` exact, **par identifiant**. *C'est le **critère d'acceptation nº2**,
+   vérifié sur le message depuis l'étape 18 — la phrase y fabriquait une contrainte
+   impossible à satisfaire avec la règle 2.*
 5. **Valeurs unitaires** — tout nombre suivi d'une unité connue est une valeur de spec
    ou d'agrégat fournie ; une valeur de **distribution** n'est admise que dans une phrase
    qui ne nomme aucun produit. *Ferme la spec transformée et la spec déduite d'un
@@ -216,10 +218,20 @@ def regle_montants(texte: str, contexte: ContexteFourni) -> tuple[Grief, ...]:
             # 300 $ n'a pas été pris en compte »), il ne s'attribue jamais à un produit.
             # La valeur y est écrite par le modèle, pas par le moteur — voir
             # `ContexteFourni.valeurs_refusees`.
+            #
+            # ⚠️ **`hors_budget.values()` y est depuis l'étape 18, et il y manquait.**
+            # Un écart au budget est produit par le **moteur** ; « aucun outil n'a rendu
+            # ce montant » était donc faux sur son propre terrain, et la règle 4 exigeait
+            # au même moment que ce chiffre soit écrit. Deux règles conjointement
+            # insatisfaisables dès que le nom et l'écart tombaient dans deux phrases —
+            # voir §7. L'argument de sûreté est structurel : cette branche admet déjà
+            # `valeurs_refusees`, **écrites par le modèle** ; y admettre des écarts
+            # **écrits par le moteur** est strictement plus sûr que ce qui s'y trouve.
             autorises = (
                 set(contexte.prix.values())
                 | set(contexte.agregats)
                 | set(contexte.valeurs_refusees)
+                | set(contexte.hors_budget.values())
             )
             code = CodeGrief.MONTANT_NON_FOURNI
             correction = (
@@ -280,20 +292,37 @@ def regle_ecart_au_budget(texte: str, contexte: ContexteFourni) -> tuple[Grief, 
 
     C'est le **critère d'acceptation nº2** qui cesse d'être une propriété structurelle
     du moteur — `produits` et `au_dessus_du_budget` sont deux champs distincts — pour
-    devenir aussi une vérification sur la phrase. Le moteur garantit que le modèle a
+    devenir aussi une vérification sur le texte. Le moteur garantit que le modèle a
     reçu les deux ensembles séparés ; cette règle garantit qu'il ne les a pas
     recollés en écrivant.
+
+    ⚠️ **La présence de l'écart se vérifie sur le message entier, pas sur la phrase**
+    — desserrage de l'étape 18, et il s'arbitre. Le critère nº2 dit « budget jamais
+    dépassé sans **présentation explicite** » : le dire **une fois** *est* la
+    présentation. L'exiger dans chaque phrase qui nomme le produit était un artefact du
+    découpage, dont §7 dit déjà qu'il « devient trop **étroit**, jamais trop large » —
+    et ici l'étroitesse ne se contentait pas de rater : conjuguée à la règle 2, elle
+    **fabriquait une contrainte impossible à satisfaire**. Dans une comparaison, un
+    produit est nommé trois ou quatre fois : c'était trois ou quatre griefs, et deux
+    régénérations sans aucune chance d'aboutir.
+
+    **Ce que le desserrage ne concède pas.** La vérification reste **par identifiant** :
+    citer l'écart du produit A ne satisfait pas le produit B. Et un produit hors budget
+    dont l'écart n'est écrit **nulle part** dans le message lève toujours son grief —
+    trois tests bornent exactement cela. Le grief reste attaché à la **première** phrase
+    qui nomme le produit, pour que la reprise dise au modèle où il a écrit le nom.
     """
+    cites = {montant.valeur for phrase in phrases(texte) for montant in montants(phrase)}
     griefs = []
+    deja_reproches: set[str] = set()
     for phrase in phrases(texte):
-        nommes = produits_nommes(phrase, contexte)
-        if not nommes:
-            continue
-        cites = {montant.valeur for montant in montants(phrase)}
-        for identifiant in nommes:
+        for identifiant in produits_nommes(phrase, contexte):
+            if identifiant in deja_reproches:
+                continue
             ecart = contexte.hors_budget.get(identifiant)
             if ecart is None or ecart in cites:
                 continue
+            deja_reproches.add(identifiant)
             produit = contexte.produits[identifiant]
             griefs.append(
                 Grief(
@@ -301,7 +330,8 @@ def regle_ecart_au_budget(texte: str, contexte: ContexteFourni) -> tuple[Grief, 
                     phrase,
                     f"{produit.nom} est au-dessus du budget : le citer exige de dire "
                     f"qu'il dépasse et **de combien** — {ecart} $ exactement, tel que "
-                    "`ecart_usd` le donne. Le glisser dans la liste ne se fait pas.",
+                    "`ecart_usd` le donne, **quelque part dans ce message**. Le glisser "
+                    "dans la liste ne se fait pas.",
                 )
             )
     return _uniques(griefs)

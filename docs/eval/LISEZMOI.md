@@ -19,14 +19,26 @@ telle quelle, et le markdown que le front n'affiche pas.
 |---|---|---|---|
 | `rapport.v1-etape12.md` | Le tirage de l'**étape 12**, celui que §7 de `PROJET.md` cite | `systeme.v1` | 19, dont **1 écartée** |
 | `rapport.v1-base.md` | La **ligne de base** contre laquelle v2 est comparée | `systeme.v1` | 31, **trois enregistrements** |
-| `rapport.v2.md` | La campagne de l'**étape 13**, prompt en vigueur | `systeme.v2` | 36 |
-| `rapport.machine.v1.md` | La campagne de l'**étape 15** : la variante **machine à états** | `systeme.machine.v1` | 36 |
+| `rapport.v2.md` | La campagne de l'**étape 13**, prompt en vigueur | `systeme.v2` | 36, dont **2 écartées** |
+| `rapport.machine.v1.md` | La campagne de l'**étape 15** : la variante **machine à états** | `systeme.machine.v1` | 36, dont **6 écartées** |
 
 ⚠️ **`rapport.v1-etape12.md` n'est pas une base de comparaison.** C'est une archive : le
 tirage que §7 et le correctif de l'étape 12 décrivent, conservé pour qu'ils citent quelque
-chose qui existe. Une de ses dix-neuf prises — `desserrage_refuse.1` — ne se rejoue plus
-depuis le correctif de validateur de l'étape 13, et le rapport le déclare en tête. Elle
-portait **4 des 11 griefs** : ses totaux ne se comparent donc à rien tels quels.
+chose qui existe. Une de ses dix-neuf prises est écartée du rejeu, et le rapport le déclare
+en tête : ses totaux ne se comparent donc à rien tels quels. ⚠️ **Ce n'est plus la même
+prise depuis l'étape 18** : `desserrage_refuse.1` sortait depuis le correctif de l'étape 13
+et **se rejoue de nouveau** — le correctif de l'étape 18 fait tomber les griefs qui
+restaient, donc la régénération n'a plus lieu et l'empreinte cesse de diverger. C'est
+`zero_budget_trop_bas.1` qui prend sa place.
+
+🔴 **Un rapport dont des prises sont écartées ne se lit pas comme un rapport complet, et
+c'est vrai des trois.** Un correctif de validateur change des listes de griefs, donc des
+reprises, donc des empreintes de requête : les prises qui portaient le défaut corrigé sont
+précisément celles qui cessent d'être rejouables. **La mesure d'un correctif de validateur
+est donc en partie auto-annulante**, et le sens de l'erreur est toujours le même — le
+« après » se lit sur un sous-ensemble d'où le phénomène a été retiré. Chaque rapport
+l'annonce en tête, avec les prises concernées et la raison. Pour `rapport.machine.v1.md`,
+l'effet est majeur : voir `PROJET.md` §5 étape 15, verdict suspendu.
 
 ⚠️ **`rapport.machine.v1.md` ne change pas de prompt, il change d'orchestration.**
 `systeme.machine.v1.md` est `systeme.v2.md` **moins §5, §6 et §8** — une soustraction pure,
@@ -59,6 +71,13 @@ deux côtés ; le prompt ne diffère que des trois sections passées dans le cod
 est l'orchestration. ⚠️ **Les onze scénarios ont été écrits pour l'agent à l'étape 12**,
 avant que la machine soit envisagée : la suite n'est truquée dans aucun des deux sens, et
 c'est vrai que la machine y gagne ou qu'elle y perde.
+
+🔴 **Depuis l'étape 18, elle ne porte plus que sur 9 scénarios sur 11.** `changement_davis`
+et `desserrage_refuse` ont quitté le rejeu du côté machine, et ils portaient l'écart qui
+faisait le verdict de l'étape 15. Le fichier le dit lui-même en tête — la réduction aux
+scénarios communs et l'avertissement « l'exclusion n'est pas neutre » sont **écrits par le
+harnais**, pas rédigés à la main. Lire `PROJET.md` §5 étape 15 avant d'en tirer une
+conclusion : le verdict y est **suspendu**, et le tableau ci-dessous ne le remplace pas.
 
 ⚠️ **La borne de dérive majore, elle ne mesure pas.** L'écart entre deux enregistrements
 du même prompt confond ce que le modèle a changé et le bruit d'échantillonnage que §7

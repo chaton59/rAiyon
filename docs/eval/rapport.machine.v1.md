@@ -55,6 +55,9 @@
 >   **7 — Le résultat d'ensemble le plus probable** : aucun écart au-delà de la dispersion sur
 >   les six critères, **sauf le coût**. C'est un verdict **valide**, accepté d'avance, et il ne
 >   clôt pas l'étape — les mesures nº7 et nº8 la closent.
+> - **6 prises sont écartées de ce rapport** — `machine.v1/changement_davis.1`, `machine.v1/changement_davis.2`, `machine.v1/changement_davis.3`, `machine.v1/desserrage_refuse.1`, `machine.v1/desserrage_refuse.2`, `machine.v1/desserrage_refuse.3` — divergence attendue au rejeu.
+>   **Le défaut de l'étape 18** : `regle_ecart_au_budget` exigeait l'écart dans la phrase qui nomme le produit, pendant que `regle_montants` refusait ce même écart dans une phrase sans produit — `hors_budget.values()` n'était pas dans les montants admis. Le nom sur une ligne, « il dépasse de X $ » sur la suivante, et les deux règles devenaient **conjointement insatisfaisables**. La section 14 du prompt, qui demande un produit par ligne, mène droit à ce découpage. Cette prise de `machine.v1` en porte la forme complète et répétée : `ecart_non_dit` sur les lignes qui nomment le LG 27GP750-B et l'Asus TUF Gaming VG279QM1A, **et** `montant_non_fourni` sur « 26,99 $ » et « 29,00 $ » — qui sont exactement leurs écarts au budget de 200 $, écrits une ligne plus bas. Le tour n'est plus refusé, la reprise disparaît, l'empreinte du tour suivant change. ⚠️ **Ces prises portent 22 des 24 `ecart_non_dit` de la campagne de la machine** — l'unique écart au-delà de la dispersion de l'étape 15. En sortant du rejeu, elles sortent aussi de toute mesure : le rapport ne dit **pas** que ces 22 étaient des faux positifs, il dit qu'on ne peut plus les compter. Seule `comparaison.1`, qui reste rejouable, tranche pour les 2 qu'elle portait — elles ont disparu. Voir §5 étape 15, verdict suspendu, et §7.
+>   Les tours et les griefs de ces prises ne sont donc comptés nulle part ci-dessous.
 
 ## Critères d'acceptation
 
@@ -62,25 +65,25 @@
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief(s) | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation(s) | ✅ |
-| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 29 prise(s) | ✅ |
-| 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 92 % — 11/12 prise(s) à réponse de référence | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 23 prise(s) | ✅ |
+| 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 89 % — 8/9 prise(s) à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | hors de ce rapport — `make check` | — |
-| 6 | Cas zéro résultat traité proprement | binaire | 14/14 traité(s) | ✅ |
+| 6 | Cas zéro résultat traité proprement | binaire | 8/8 traité(s) | ✅ |
 
 ## Ce que le modèle a tenté, et ce qui a fini en repli
 
 | Mesure | Valeur | Seuil |
 |---|---|---|
-| Taux de rejet du validateur | 51 grief(s) sur 81 tour(s) — 0.63/tour | publié |
-| Taux de repli | 8 tour(s) sur 81 — 10 % | publié |
+| Taux de rejet du validateur | 10 grief(s) sur 69 tour(s) — 0.14/tour | publié |
+| Taux de repli | 1 tour(s) sur 69 — 1 % | publié |
 | Itérations par tour | 2 à 3 (médiane 2.0) | publié |
-| Prises sans aucune valeur livrée | 7 sur 36 | publié |
-| Questions posées avant la première valeur | médiane 0.0 sur 29 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
-| Règles du validateur jamais déclenchées | 3 sur 6 : `id_inconnu`, `prix_etranger_au_produit`, `nom_reecrit` | publié — voir `tests/validateur/test_pieges.py` |
-| Prises où `suggest_next_question` a signalé le budget manquant | 5 sur 36 | publié — **observation, pas exigence** |
-| Appels au modèle par tour client (mesure nº7) | 176 appel(s) sur 81 tour(s) — 2.17 appel/tour | publié — **figé à l'enregistrement**, voir la note ci-dessous |
-| Jetons d'entrée facturés (mesure nº7) | 663 347 facturés (657 010 hors cache + 6 337 de cache écrit) ; 1 108 975 lus du cache, à un autre tarif | publié — **figé à l'enregistrement**, voir la note ci-dessous |
-| Jetons de sortie (mesure nº7) | 65 958 jetons | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Prises sans aucune valeur livrée | 7 sur 30 | publié |
+| Questions posées avant la première valeur | médiane 0.0 sur 23 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
+| Règles du validateur jamais déclenchées | 4 sur 6 : `id_inconnu`, `prix_etranger_au_produit`, `nom_reecrit`, `ecart_non_dit` | publié — voir `tests/validateur/test_pieges.py`. ⚠️ **Sur ce qui reste rejouable** : un code peut être muet ici parce que les prises qui le levaient sont écartées, et non parce qu'il a cessé de tirer |
+| Prises où `suggest_next_question` a signalé le budget manquant | 5 sur 30 | publié — **observation, pas exigence** |
+| Appels au modèle par tour client (mesure nº7) | 144 appel(s) sur 69 tour(s) — 2.09 appel/tour | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons d'entrée facturés (mesure nº7) | 534 629 facturés (528 292 hors cache + 6 337 de cache écrit) ; 906 191 lus du cache, à un autre tarif | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons de sortie (mesure nº7) | 50 552 jetons | publié — **figé à l'enregistrement**, voir la note ci-dessous |
 
 ⚠️ **La mesure nº7 ne vient pas du rejeu.** Ce sont les seules lignes de ce fichier qui soient lues
 dans l'en-tête des cassettes plutôt que recalculées : elles sont **figées à l'enregistrement** et ne
@@ -102,16 +105,14 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 
 | Origine | Code de grief | Rejets |
 |---|---|---|
-| texte | ecart_non_dit | 24 |
-| texte | montant_non_fourni | 19 |
+| texte | montant_non_fourni | 2 |
 | texte | valeur_non_fournie | 8 |
 
 ### Replis par motif
 
 | Motif | Tours repliés |
 |---|---|
-| reponse_vide | 2 |
-| validation | 6 |
+| validation | 1 |
 
 ## Par scénario
 
@@ -129,15 +130,9 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 | categorie_efface_budget | 1 | 2 | 1 | 0 | — | 0 | 0 | 2 | ✅ |
 | categorie_efface_budget | 2 | 2 | 1 | 0 | — | 0 | 0 | 2 | ❌ |
 | categorie_efface_budget | 3 | 2 | 1 | 0 | — | 0 | 0 | 2 | ✅ |
-| changement_davis | 1 | 2 | 2 | 0 | oui | 8 | 1 | 2 à 3 (médiane 2.5) | ✅ |
-| changement_davis | 2 | 2 | 2 | 0 | oui | 1 | 0 | 2 à 3 (médiane 2.5) | ✅ |
-| changement_davis | 3 | 2 | 2 | 0 | oui | 9 | 1 | 3 | ✅ |
-| comparaison | 1 | 2 | 1 | 0 | non | 3 | 1 | 2 à 3 (médiane 2.5) | ✅ |
+| comparaison | 1 | 2 | 1 | 0 | non | 0 | 0 | 2 | ✅ |
 | comparaison | 2 | 2 | 1 | 0 | oui | 0 | 0 | 2 | ✅ |
 | comparaison | 3 | 2 | 1 | 0 | oui | 0 | 0 | 2 | ✅ |
-| desserrage_refuse | 1 | 2 | 2 | 0 | — | 10 | 2 | 3 | ✅ |
-| desserrage_refuse | 2 | 2 | 2 | 0 | — | 8 | 1 | 2 à 3 (médiane 2.5) | ✅ |
-| desserrage_refuse | 3 | 2 | 2 | 0 | — | 2 | 1 | 2 à 3 (médiane 2.5) | ✅ |
 | hors_catalogue | 1 | 2 | — | — | — | 0 | 0 | 2 | ✅ |
 | hors_catalogue | 2 | 2 | — | — | — | 0 | 0 | 2 | ✅ |
 | hors_catalogue | 3 | 2 | — | — | — | 0 | 0 | 2 | ✅ |
@@ -171,9 +166,7 @@ un signal.
 | budget_absent | 3 | 2 | 3/3 |
 | budget_serre | 3 | 1 | 3/3 |
 | categorie_efface_budget | 3 | 1 | — |
-| changement_davis | 3 | 2 | 3/3 |
 | comparaison | 3 | 1 | 2/3 |
-| desserrage_refuse | 3 | 2 | — |
 | hors_catalogue | 3 | — | — |
 | question_de_domaine | 6 | 1 | — |
 | sur_specifie | 3 | 1 à 2 (+1 sans valeur livrée) | — |
@@ -197,47 +190,6 @@ laquelle de ces formes a disparu.
 | Scénario | Prise | Tour | Origine | Code | Extrait | Phrase refusée |
 |---|---|---|---|---|---|---|
 | besoin_flou | 1 | 2 | texte | `valeur_non_fournie` | 25 pouces | Et une taille d'écran en tête, plutôt du 24-25 pouces ou du 27 pouces (c'est la taille la plus représentée, avec 20 modèles) |
-| changement_davis | 1 | 1 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A** (id monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz | **Asus TUF Gaming VG279QM1A** (id monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz |
-| changement_davis | 1 | 1 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A** (id monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz | **Asus TUF Gaming VG279QM1A** (id monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz |
-| changement_davis | 1 | 1 | texte | `ecart_non_dit` | **LG 27GP750-B** (id monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz | **LG 27GP750-B** (id monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz |
-| changement_davis | 1 | 1 | texte | `ecart_non_dit` | **LG 27GP750-B** (id monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz | **LG 27GP750-B** (id monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz |
-| changement_davis | 1 | 1 | texte | `montant_non_fourni` | 26,99 $ | **LG 27GP750-B** (id monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz |
-| changement_davis | 1 | 1 | texte | `montant_non_fourni` | 26,99 $ | **LG 27GP750-B** (id monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz |
-| changement_davis | 1 | 1 | texte | `montant_non_fourni` | 29,00 $ | **Asus TUF Gaming VG279QM1A** (id monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz |
-| changement_davis | 1 | 1 | texte | `montant_non_fourni` | 29,00 $ | **Asus TUF Gaming VG279QM1A** (id monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz |
-| changement_davis | 2 | 2 | texte | `ecart_non_dit` | Pour information, les deux écrans à 240 Hz et plus restent disponibles si vous changez d'avis : le LG 27GP750-B à 226.99 dollars et l'Asus TUF Gaming VG279QM1A à 229.00 dollars, mais tous deux dépassent votre budget, respectivement de 26.99 et 29.00 dollars | Pour information, les deux écrans à 240 Hz et plus restent disponibles si vous changez d'avis : le LG 27GP750-B à 226.99 dollars et l'Asus TUF Gaming VG279QM1A à 229.00 dollars, mais tous deux dépassent votre budget, respectivement de 26.99 et 29.00 dollars |
-| changement_davis | 3 | 1 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS |
-| changement_davis | 3 | 1 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS |
-| changement_davis | 3 | 1 | texte | `ecart_non_dit` | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS |
-| changement_davis | 3 | 1 | texte | `ecart_non_dit` | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS |
-| changement_davis | 3 | 1 | texte | `montant_non_fourni` | 26,99 $ | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS |
-| changement_davis | 3 | 1 | texte | `montant_non_fourni` | 26,99 $ | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS |
-| changement_davis | 3 | 1 | texte | `montant_non_fourni` | 29,00 $ | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS |
-| changement_davis | 3 | 1 | texte | `montant_non_fourni` | 29,00 $ | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS |
-| changement_davis | 3 | 2 | texte | `ecart_non_dit` | Si vous vouliez vraiment du 240 Hz ou plus, il y avait aussi le LG 27GP750-B à 226,99 $ et l'Asus TUF Gaming VG279QM1A à 229,00 $, mais tous les deux dépassent votre budget de 200 dollars | Si vous vouliez vraiment du 240 Hz ou plus, il y avait aussi le LG 27GP750-B à 226,99 $ et l'Asus TUF Gaming VG279QM1A à 229,00 $, mais tous les deux dépassent votre budget de 200 dollars |
-| comparaison | 1 | 2 | texte | `ecart_non_dit` | Pour du jeu compétitif, c'est le taux de rafraîchissement qui compte le plus : le MSI G27C4 E3 monte à 180 Hz, contre 165 Hz pour le Samsung Odyssey G55A | Pour du jeu compétitif, c'est le taux de rafraîchissement qui compte le plus : le MSI G27C4 E3 monte à 180 Hz, contre 165 Hz pour le Samsung Odyssey G55A |
-| comparaison | 1 | 2 | texte | `ecart_non_dit` | Pour du jeu compétitif, c'est le taux de rafraîchissement qui compte le plus : le MSI G27C4 E3 monte à 180 Hz, contre 165 Hz pour le Samsung Odyssey G55A | Pour du jeu compétitif, c'est le taux de rafraîchissement qui compte le plus : le MSI G27C4 E3 monte à 180 Hz, contre 165 Hz pour le Samsung Odyssey G55A |
-| comparaison | 1 | 2 | texte | `montant_non_fourni` | 8,00 $ | Sur ce critère, le MSI est mieux placé, mais il dépasse votre budget de 8,00 $ |
-| desserrage_refuse | 1 | 1 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A**, id monitor-9b319219eb, à 229,00 dollars, 27 pouces, 280 Hz, dalle IPS | **Asus TUF Gaming VG279QM1A**, id monitor-9b319219eb, à 229,00 dollars, 27 pouces, 280 Hz, dalle IPS |
-| desserrage_refuse | 1 | 1 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A**, id monitor-9b319219eb, à 229,00 dollars, 27 pouces, même 280 Hz, dalle IPS | **Asus TUF Gaming VG279QM1A**, id monitor-9b319219eb, à 229,00 dollars, 27 pouces, même 280 Hz, dalle IPS |
-| desserrage_refuse | 1 | 1 | texte | `ecart_non_dit` | **LG 27GP750-B**, id monitor-fab2487414, à 226,99 dollars, 27 pouces, 240 Hz, dalle IPS | **LG 27GP750-B**, id monitor-fab2487414, à 226,99 dollars, 27 pouces, 240 Hz, dalle IPS |
-| desserrage_refuse | 1 | 1 | texte | `ecart_non_dit` | **LG 27GP750-B**, id monitor-fab2487414, à 226,99 dollars, 27 pouces, 240 Hz, dalle IPS | **LG 27GP750-B**, id monitor-fab2487414, à 226,99 dollars, 27 pouces, 240 Hz, dalle IPS |
-| desserrage_refuse | 1 | 1 | texte | `montant_non_fourni` | 26,99 dollars | **LG 27GP750-B**, id monitor-fab2487414, à 226,99 dollars, 27 pouces, 240 Hz, dalle IPS |
-| desserrage_refuse | 1 | 1 | texte | `montant_non_fourni` | 26.99 $ | Il dépasse votre budget de 26.99 $ |
-| desserrage_refuse | 1 | 1 | texte | `montant_non_fourni` | 29,00 dollars | **Asus TUF Gaming VG279QM1A**, id monitor-9b319219eb, à 229,00 dollars, 27 pouces, même 280 Hz, dalle IPS |
-| desserrage_refuse | 1 | 1 | texte | `montant_non_fourni` | 29.00 $ | Il dépasse votre budget de 29.00 $ |
-| desserrage_refuse | 1 | 2 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A**, id monitor-9b319219eb, à 229,00 dollars, 27 pouces, 280 Hz, dalle IPS | **Asus TUF Gaming VG279QM1A**, id monitor-9b319219eb, à 229,00 dollars, 27 pouces, 280 Hz, dalle IPS |
-| desserrage_refuse | 1 | 2 | texte | `ecart_non_dit` | **LG 27GP750-B**, id monitor-fab2487414, à 226,99 dollars, 27 pouces, 240 Hz, dalle IPS | **LG 27GP750-B**, id monitor-fab2487414, à 226,99 dollars, 27 pouces, 240 Hz, dalle IPS |
-| desserrage_refuse | 2 | 1 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS |
-| desserrage_refuse | 2 | 1 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS |
-| desserrage_refuse | 2 | 1 | texte | `ecart_non_dit` | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS |
-| desserrage_refuse | 2 | 1 | texte | `ecart_non_dit` | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS |
-| desserrage_refuse | 2 | 1 | texte | `montant_non_fourni` | 26,99 $ | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS |
-| desserrage_refuse | 2 | 1 | texte | `montant_non_fourni` | 26,99 $ | **LG 27GP750-B** (monitor-fab2487414) — 226,99 $, 27 pouces, 240 Hz, dalle IPS |
-| desserrage_refuse | 2 | 1 | texte | `montant_non_fourni` | 29,00 $ | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS |
-| desserrage_refuse | 2 | 1 | texte | `montant_non_fourni` | 29,00 $ | **Asus TUF Gaming VG279QM1A** (monitor-9b319219eb) — 229,00 $, 27 pouces, 280 Hz, dalle IPS |
-| desserrage_refuse | 3 | 2 | texte | `ecart_non_dit` | **Asus TUF Gaming VG279QM1A** — 229,00 $ | **Asus TUF Gaming VG279QM1A** — 229,00 $ |
-| desserrage_refuse | 3 | 2 | texte | `ecart_non_dit` | **LG 27GP750-B** — 226,99 $ | **LG 27GP750-B** — 226,99 $ |
 | sur_specifie | 1 | 1 | texte | `valeur_non_fournie` | 500 Hz | Ensuite, et c'est plus embêtant : 500 Hz n'existe pas dans ce catalogue d'écrans |
 | sur_specifie | 1 | 1 | texte | `valeur_non_fournie` | 500 Hz | Ensuite, sur les 500 Hz que vous demandez : en sondant les fréquences de rafraîchissement disponibles dans ce catalogue, je ne vois rien qui s'en approche |
 | sur_specifie | 2 | 1 | texte | `montant_non_fourni` | 400 dollars | Les autres critères sont bien notés : 27 pouces minimum, 500 Hz minimum, et un budget de 400 dollars, tous bloquants |
@@ -366,6 +318,6 @@ Compté sur la prose **livrée**, sans seuil.
 | Forme | Occurrences |
 |---|---|
 | backtick | 0 |
-| puce | 12 |
+| puce | 2 |
 | liste numérotée | 0 |
 | titre | 0 |

@@ -376,18 +376,32 @@ def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu(monkeypatch, base_s
     assert "DIVERGENCES_ATTENDUES" in message
 
 
-def test_le_rapport_du_jeu_archive_declare_la_prise_ecartee():
+def test_le_rapport_du_jeu_archive_declare_ses_prises_ecartees():
     """Un rapport dont une cassette a été écartée affiche ses totaux avec **exactement la
-    même autorité** qu'un rapport complet. La prise écartée portait 4 des 11 griefs de
-    l'étape 12 : la taire ferait lire « 7 griefs » comme une amélioration."""
-    from eval import Jeu, prises_du_jeu, reserves_du_jeu
+    même autorité** qu'un rapport complet. Les taire ferait lire un taux de rejet qui baisse
+    comme une amélioration, alors qu'il baisse parce qu'on compte moins de prises.
+
+    ⚠️ **Aucun nom de prise n'est écrit ici, et c'est le correctif de l'étape 18** : la
+    première rédaction attendait `desserrage_refuse.1`, écartée depuis l'étape 13. Le
+    correctif de l'étape 18 a fait tomber les griefs qui restaient à son dernier tour — elle
+    a cessé de diverger, `zero_budget_trop_bas.1` a pris sa place, et le test échouait sur un
+    nom au lieu de vérifier la propriété. Ce qui doit être vrai est indépendant du nom :
+    **chaque prise écartée est déclarée, et le rapport committé les déclare toutes.**
+    """
+    from eval import Jeu, divergences_du_jeu, prises_du_jeu, reserves_du_jeu
 
     archive = Jeu(nom=JEU_ETAPE_12, version="systeme.v1")
+    prises = prises_du_jeu(archive)
+    ecartees = divergences_du_jeu(archive, prises)
+    assert ecartees, "l'archive n'a plus de prise écartée : ce test ne vérifie plus rien"
 
-    reserves = reserves_du_jeu(archive, prises_du_jeu(archive))
+    reserves = reserves_du_jeu(archive, prises)
+    rapport = archive.rapport.read_text(encoding="utf-8")
 
-    assert any("desserrage_refuse.1 est écartée" in reserve for reserve in reserves)
-    assert archive.rapport.read_text(encoding="utf-8").count("est écartée de ce rapport") == 1
+    for (source, scenario, prise), _ in ecartees:
+        nom = f"{source}/{scenario}.{prise}"
+        assert any(nom in reserve for reserve in reserves), f"{nom} écartée sans réserve"
+        assert nom in rapport, f"{nom} écartée sans que le rapport committé le dise"
 
 
 # --------------------------------------------------------------------------- #

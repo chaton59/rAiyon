@@ -57,18 +57,18 @@ des rapports décrit quoi.
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation | ✅ |
-| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1,0 tour sur 25 prises | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1,0 tour sur 24 prises | ✅ |
 | 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 12/12 prises à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | `tests/matching/` tourne dans `make check` | ✅ |
-| 6 | Cas zéro résultat traité proprement | binaire | 12/12 traités | ✅ |
+| 6 | Cas zéro résultat traité proprement | binaire | 11/11 traités | ✅ |
 
-*Sur 35 prises, 11 scénarios, 79 tours client, prompt `systeme.v2`.
+*Sur 34 prises, 11 scénarios, 77 tours client, prompt `systeme.v2`.
 `make eval` sort en code non nul si l'un des critères bloquants — 1, 2 et 6 — est violé,
 ou si une attente de scénario n'est pas tenue.
-Une 36ᵉ prise est **écartée du compte**, et le rapport le dit en tête : le correctif de
-`NOMBRE` livré à l'étape 17 lève le faux positif qu'elle portait, donc sa réponse
-enregistrée n'est plus celle que le modèle aurait donnée. Elle est annoncée plutôt que
-mesurée quand même — voir [Le harnais](#le-harnais).
+Deux prises sur 36 sont **écartées du compte**, et le rapport le dit en tête : les
+correctifs de validateur des étapes 17 et 18 lèvent les faux positifs qu'elles portaient,
+donc leurs réponses enregistrées ne sont plus celles que le modèle aurait données. Elles
+sont annoncées plutôt que mesurées quand même — voir [Le harnais](#le-harnais).
 Quatre autres rapports coexistent dans `docs/eval/` : lequel décrit quoi est dans
 `docs/eval/LISEZMOI.md`.*
 
@@ -86,11 +86,11 @@ plus intéressantes :
 | Couche | Campagne `systeme.v2` — `docs/eval/rapport.v2.md` |
 |---|---|
 | Ce qui est **livré** | 0 grief, 0 violation budget — les deux critères ci-dessus |
-| Ce que le modèle a **tenté** | **4 griefs refusés sur 79 tours**, soit 0,05 par tour : 2 `montant_non_fourni`, 1 `prix_etranger_au_produit`, 1 `valeur_non_fournie` |
-| Ce qui a fini en **repli** | **0 tour sur 79** — aucune réponse dégradée servie au client |
+| Ce que le modèle a **tenté** | **3 griefs refusés sur 77 tours**, soit 0,04 par tour : 1 `montant_non_fourni`, 1 `prix_etranger_au_produit`, 1 `valeur_non_fournie` |
+| Ce qui a fini en **repli** | **0 tour sur 77** — aucune réponse dégradée servie au client |
 
 ⚠️ **Le taux de rejet ne se lit pas seul.** Il valait 0,13 par tour sur le prompt v1 et
-0,05 sur v2, mais l'écart reste **en deçà de la dispersion mesurée** : sur trois prises par
+0,04 sur v2, mais l'écart reste **en deçà de la dispersion mesurée** : sur trois prises par
 scénario, l'étendue prise-à-prise vaut plusieurs fois cet écart. Ce que la comparaison
 démontre vraiment est ailleurs — le markdown que le front n'affiche pas tombe de 51
 occurrences à **0**, seul écart au-delà du bruit, et l'appendice de domaine montre un
@@ -106,11 +106,19 @@ Quatre choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.
   `nom_reecrit` —, et ils ne se déclenchent sur **aucune des deux orchestrations**. Le
   rapport le publie, parce qu'une règle qui ne tire jamais est indistinguable d'une règle
   absente. Elles sont exercées par `tests/validateur/test_pieges.py`, pas par les
-  scénarios. ⚠️ **Cette ligne en annonçait trois jusqu'à l'étape 15, et elle avait tort** :
-  `ecart_non_dit` ne tire jamais **chez l'agent**, et tire **24 fois chez la machine à
-  états**. Elle n'était pas dormante, elle n'avait jamais été sollicitée — et il aura fallu
-  une seconde orchestration pour faire la différence. Le raisonnement d'origine en sort
-  **renforcé**, pas affaibli : c'est exactement ce qu'il annonçait ;
+  scénarios.
+  **`ecart_non_dit` est l'histoire de cette ligne, et elle a été fausse deux fois.**
+  Elle annonçait trois codes dormants jusqu'à l'étape 15 : la seconde orchestration a fait
+  tirer `ecart_non_dit` **24 fois**, il n'était pas dormant, il n'avait jamais été
+  sollicité. ⚠️ **Puis l'étape 18 a montré qu'une part de ces 24 était un faux positif** —
+  deux règles du validateur pouvaient être conjointement insatisfaisables, et le modèle
+  était refusé quoi qu'il écrive. Sur les 24, **2 sont démontrées fausses** (la prise qui
+  les portait reste rejouable et n'en lève plus aucune) et **22 sont hors de portée** : les
+  prises qui les portaient divergent depuis le correctif et sortent du rejeu. **Un
+  compteur qui monte n'est donc pas une preuve que la règle est juste**, et le rapport de
+  la machine affiche aujourd'hui `ecart_non_dit` comme muet — avec la réserve qui dit
+  pourquoi. C'est écrit en toutes lettres au §5 étape 15 de `PROJET.md`, dont le verdict
+  est **suspendu sur cette mesure** ;
 - **le critère nº1 ne détecte pas une règle manquante.** Le harnais mesure le validateur
   avec le validateur ; retirer une règle rend les deux aveugles. Ce qui détecte une règle
   manquante, c'est l'effondrement du taux de rejet — vérifié en la retirant pour de bon ;
@@ -138,20 +146,35 @@ soustraction pure, vérifiée par un test).
 | Qui décide de l'outil suivant | le modèle | `raiyon/machine/decision.py`, **pure** |
 | Critères nº1, nº2, nº6 | tenus | tenus |
 | Critère nº3 — délai avant valeur (médiane) | 1,0 tour | 1,0 tour |
-| Critère nº4 — attendu en top 3 | 12/12 — 100 % | 11/12 — 92 % |
-| Taux de rejet du validateur | 4 sur 79 tours — 0,05/tour | **51 sur 81 tours — 0,63/tour** |
-| Taux de repli | 0 sur 79 — 0 % | 8 sur 81 — 10 % |
-| Mesure nº7 — appels par tour | 2,34 | **2,17** |
-| Mesure nº7 — entrée facturée | 349 903 jetons | **663 347 jetons** |
+| Critère nº4 — attendu en top 3 | 12/12 — 100 % | 8/9 — 89 % |
+| Taux de rejet du validateur | 3 sur 77 tours — 0,04/tour | 10 sur 69 tours — 0,14/tour ⚠️ |
+| Taux de repli | 0 sur 77 — 0 % | 1 sur 69 — 1 % ⚠️ |
+| Mesure nº7 — appels par tour | 2,32 | **2,09** |
+| Mesure nº7 — entrée facturée | 342 154 jetons | **534 629 jetons** |
 | Mesure nº8 — conduite testée hors ligne | **0** | **17** |
 
 *Tout vient de `docs/eval/rapport.v2.md` et `docs/eval/rapport.machine.v1.md`, jetons
 compris depuis l'étape 16 : la mesure nº7 les publie, et l'écart des deux campagnes est dans
 `docs/eval/comparaison.v2-machine.v1.md`.*
 
-**Un seul écart dépasse la dispersion, et c'est la machine qui le perd** : le taux de rejet,
-+15,67 par passe pour une étendue de ± 11,00, dominé par `ecart_non_dit` (0 → 24). Les cinq
-autres mesures sont **dans le bruit** — `docs/eval/comparaison.v2-machine.v1.md`.
+⚠️ **Les deux lignes marquées ci-dessus portent sur 30 prises de la machine sur 36, et
+c'est le point le plus important de ce tableau.** Le correctif de validateur de l'étape 18
+fait diverger six prises de `machine.v1`, qui sortent du rejeu — et elles portaient **22 des
+24 `ecart_non_dit`** de la campagne, c'est-à-dire l'unique écart au-delà de la dispersion.
+
+**Jusqu'à l'étape 18, cette place portait un verdict** : « un seul écart dépasse la
+dispersion, et c'est la machine qui le perd — le taux de rejet, +15,67 par passe pour une
+étendue de ± 11,00, dominé par `ecart_non_dit` (0 → 24) ». Il n'est plus soutenable en
+l'état, et il n'est pas remplacé par son contraire. Ce qui est su : sur les 24, **2** sont
+démontrées faux positifs — la prise qui les portait reste rejouable et n'en lève plus
+aucune. Ce qui ne l'est pas : les **22** autres, dont les prises ne sont plus comptables.
+
+`docs/eval/comparaison.v2-machine.v1.md` se réduit aujourd'hui aux **9 scénarios communs**
+et n'y voit **aucun écart au-delà de la dispersion**. ⚠️ Ce n'est pas un démenti : c'est la
+disparition de ce qui permettait de trancher. Trancher pour de bon demanderait de
+réenregistrer la campagne de la machine sous le validateur corrigé — ~176 appels, arbitrage
+non pris. `PROJET.md` §5 étape 15 porte le verdict **suspendu**, avec ce qu'il faudrait pour
+le rouvrir.
 
 > **Où gagne chacune.** La machine gagne la **testabilité de sa décision** et rend explicite
 > un invariant que personne n'avait écrit — « ne pas chercher tant que le budget manque »
@@ -225,16 +248,18 @@ voient donc dans les métriques **sans rien réenregistrer**. La contrepartie es
 rejeu a besoin de Postgres et du seed, et que `make eval` reste une commande à part de
 `make check`.
 
-**Ce que coûte une campagne.** Les prises **mesurées** de chaque jeu — 35 pour l'agent,
-36 pour la machine —, sommées sur le champ `usage` de leurs en-têtes. Ces compteurs sont
+**Ce que coûte une campagne.** Les prises **mesurées** de chaque jeu — 34 pour l'agent,
+30 pour la machine —, sommées sur le champ `usage` de leurs en-têtes. ⚠️ Les deux colonnes
+ne portent donc plus sur le même nombre de prises depuis l'étape 18 : le total est ce qu'a
+coûté ce qui est **mesuré**, pas ce qu'a coûté la campagne complète. Ces compteurs sont
 **publiés par la mesure nº7** depuis l'étape 16 — ce tableau reprend ce que portent
 `docs/eval/rapport.v2.md` et
 `docs/eval/rapport.machine.v1.md`, il ne le calcule plus à côté d'eux :
 
 | Campagne | Appels | Jetons entrants | Entrée facturée | Sortants |
 | --- | --- | --- | --- | --- |
-| agent, `systeme.v2` | **185** | 340 159 | 349 903 | 44 743 |
-| machine à états, `systeme.machine.v1` | **176** | 657 010 | **663 347** | 65 958 |
+| agent, `systeme.v2` | **179** | 332 410 | 342 154 | 42 679 |
+| machine à états, `systeme.machine.v1` | **144** | 528 292 | **534 629** | 50 552 |
 
 ⚠️ **Moins d'appels et presque le double d'entrée facturée.** La machine fait exactement
 deux appels par tour, mais chacun renvoie la conversation entière, et celle-ci grossit plus

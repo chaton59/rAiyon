@@ -67,7 +67,13 @@ VIOLE = "❌"
 SANS_OBJET = "—"
 
 
-def rendre(mesures: Mesures, *, reserves: Sequence[str] = (), cout: Cout | None = None) -> str:
+def rendre(
+    mesures: Mesures,
+    *,
+    reserves: Sequence[str] = (),
+    cout: Cout | None = None,
+    ecartees: int = 0,
+) -> str:
     """Le rapport entier. Une seule fonction publique : c'est un fichier, pas une API.
 
     `cout` porte la **mesure nº7** — les appels au modèle par tour client. Il est séparé de
@@ -84,6 +90,12 @@ def rendre(mesures: Mesures, *, reserves: Sequence[str] = (), cout: Cout | None 
     tours » avec exactement la même autorité qu'un rapport complet, et rien ne dit que la
     prise manquante en portait quatre. C'est le mode d'échec que ce fichier existe pour
     empêcher, appliqué à lui-même.
+
+    `ecartees` est le **nombre** de ces prises, et il ne sert qu'à une ligne : « règles du
+    validateur jamais déclenchées ». Ajouté à l'étape 18, où six prises de `machine.v1`
+    sont sorties du rejeu en emportant **22 des 24** déclenchements d'`ecart_non_dit` — le
+    code passait alors pour muet, dans le rapport même qui l'avait vu tirer le plus. Une
+    réserve en tête ne suffit pas quand une ligne du corps affirme le contraire.
     """
     sections = [
         TITRE,
@@ -97,7 +109,7 @@ def rendre(mesures: Mesures, *, reserves: Sequence[str] = (), cout: Cout | None 
         "",
         "## Ce que le modèle a tenté, et ce qui a fini en repli",
         "",
-        *_tableau_des_couches(mesures, cout),
+        *_tableau_des_couches(mesures, cout, ecartees),
         "",
         *_notes_des_couches(cout),
         "### Rejets par origine et par code",
@@ -222,7 +234,9 @@ def _tableau_des_criteres(mesures: Mesures) -> list[str]:
     )
 
 
-def _tableau_des_couches(mesures: Mesures, cout: Cout | None = None) -> list[str]:
+def _tableau_des_couches(
+    mesures: Mesures, cout: Cout | None = None, ecartees: int = 0
+) -> list[str]:
     """Les trois lignes sans seuil. Ce sont elles que l'étape 13 fera bouger.
 
     La mesure nº7 s'y ajoute en dernier, sur **trois** lignes depuis l'étape 16 — les
@@ -265,7 +279,14 @@ def _tableau_des_couches(mesures: Mesures, cout: Cout | None = None) -> list[str
             (
                 "Règles du validateur jamais déclenchées",
                 _regles_muettes(mesures),
-                "publié — voir `tests/validateur/test_pieges.py`",
+                "publié — voir `tests/validateur/test_pieges.py`"
+                + (
+                    ""
+                    if not ecartees
+                    else ". ⚠️ **Sur ce qui reste rejouable** : un code peut être muet ici "
+                    "parce que les prises qui le levaient sont écartées, et non parce qu'il "
+                    "a cessé de tirer"
+                ),
             ),
             (
                 "Prises où `suggest_next_question` a signalé le budget manquant",

@@ -19,6 +19,9 @@
 > - **v2/categorie_efface_budget.3 est écartée de ce rapport** — divergence attendue au rejeu.
 >   le correctif de `NOMBRE` de l'étape 17 fait tomber les **deux** griefs du tour 1 — les seuls de cette prise. « en 1920x1080 180 Hz » et « en 2560x1440 165 Hz » étaient lus comme 1 080 180 Hz et 1 440 165 Hz, deux valeurs qu'aucun produit ne déclare, et la règle 5 levait un `valeur_non_fournie` sur une phrase exacte. Le tour n'est donc plus refusé du tout : aucune reprise n'est empilée avant régénération, et le 4e appel de la cassette — qui **était** la régénération — devient le premier appel du tour 2, avec une liste de messages entièrement différente. D'où la divergence d'empreinte à cette prise. Le modèle aurait reçu l'historique d'une conversation où sa première réponse a été acceptée : sa réponse enregistrée, écrite sous une reprise qui n'existe plus, n'est pas celle qu'il aurait donnée. ⚠️ **Seule cassette touchée des quatre jeux du dépôt** — vérifié avant la campagne en rejouant les quatre motifs d'extraction, ancien contre nouveau, sur la prose de chaque prise enregistrée.
 >   Les tours et les griefs de cette prise ne sont donc comptés nulle part ci-dessous.
+> - **v2/zero_budget_trop_bas.3 est écartée de ce rapport** — divergence attendue au rejeu.
+>   **Le défaut de l'étape 18** : `regle_ecart_au_budget` exigeait l'écart dans la phrase qui nomme le produit, pendant que `regle_montants` refusait ce même écart dans une phrase sans produit — `hors_budget.values()` n'était pas dans les montants admis. Le nom sur une ligne, « il dépasse de X $ » sur la suivante, et les deux règles devenaient **conjointement insatisfaisables**. La section 14 du prompt, qui demande un produit par ligne, mène droit à ce découpage. Ici le grief tombé est l'unique de la prise : un `montant_non_fourni` sur « 12,99 $ », qui est **l'écart au budget** de l'ASRock Phantom Gaming PG27FRS1A rendu par le moteur. Le message de grief disait « aucun outil n'a rendu ce montant » d'un chiffre que `search_products` avait rendu. Le tour n'est donc plus refusé, aucune reprise n'est empilée, et la suite de la conversation part sur un autre historique : sa réponse enregistrée, écrite sous une reprise qui n'existe plus, n'est pas celle que le modèle aurait donnée.
+>   Les tours et les griefs de cette prise ne sont donc comptés nulle part ci-dessous.
 > - **Sept prédictions posées le 3 septembre 2026, avant la campagne de la machine à états.**
 >   ⚠️ **Trois d'entre elles ont été révisées — par le tir d'essai du jalon 4, jamais par la
 >   campagne.** Une prédiction corrigée avant la mesure est honnête ; corrigée après, elle ne
@@ -61,12 +64,29 @@
 >   **7 — Le résultat d'ensemble le plus probable** : aucun écart au-delà de la dispersion sur
 >   les six critères, **sauf le coût**. C'est un verdict **valide**, accepté d'avance, et il ne
 >   clôt pas l'étape — les mesures nº7 et nº8 la closent.
+> - **6 prises sont écartées de ce rapport** — `machine.v1/changement_davis.1`, `machine.v1/changement_davis.2`, `machine.v1/changement_davis.3`, `machine.v1/desserrage_refuse.1`, `machine.v1/desserrage_refuse.2`, `machine.v1/desserrage_refuse.3` — divergence attendue au rejeu.
+>   **Le défaut de l'étape 18** : `regle_ecart_au_budget` exigeait l'écart dans la phrase qui nomme le produit, pendant que `regle_montants` refusait ce même écart dans une phrase sans produit — `hors_budget.values()` n'était pas dans les montants admis. Le nom sur une ligne, « il dépasse de X $ » sur la suivante, et les deux règles devenaient **conjointement insatisfaisables**. La section 14 du prompt, qui demande un produit par ligne, mène droit à ce découpage. Cette prise de `machine.v1` en porte la forme complète et répétée : `ecart_non_dit` sur les lignes qui nomment le LG 27GP750-B et l'Asus TUF Gaming VG279QM1A, **et** `montant_non_fourni` sur « 26,99 $ » et « 29,00 $ » — qui sont exactement leurs écarts au budget de 200 $, écrits une ligne plus bas. Le tour n'est plus refusé, la reprise disparaît, l'empreinte du tour suivant change. ⚠️ **Ces prises portent 22 des 24 `ecart_non_dit` de la campagne de la machine** — l'unique écart au-delà de la dispersion de l'étape 15. En sortant du rejeu, elles sortent aussi de toute mesure : le rapport ne dit **pas** que ces 22 étaient des faux positifs, il dit qu'on ne peut plus les compter. Seule `comparaison.1`, qui reste rejouable, tranche pour les 2 qu'elle portait — elles ont disparu. Voir §5 étape 15, verdict suspendu, et §7.
+>   Les tours et les griefs de ces prises ne sont donc comptés nulle part ci-dessous.
 
-**Couverture.** Les deux jeux portent les mêmes 11 scénarios — 35 prises contre 36. La comparaison est complète.
-
-Les valeurs comparées sont, par scénario, la **moyenne sur ses prises**, sommée
-sur les scénarios : ce qu'une passe complète produit en moyenne. Un total comparerait
-des tailles d'échantillon.
+> ⚠️ **Comparaison sur les 9 scénarios communs.** Les deux jeux ne portent pas
+> les mêmes scénarios. La comparaison est donc réduite à ceux présents des **deux**
+> côtés — 28 prises de **v2** contre 30 de **machine.v1**.
+>
+> ⚠️ **Les prises ne sont pas appariées, et elles ne peuvent pas l'être** : un numéro
+> de prise est un index, pas une identité. La température n'est pas fixée, et la
+> prise 2 d'une campagne n'a aucun lien avec la prise 2 de l'autre. Les valeurs
+> comparées sont donc, par scénario, la **moyenne sur ses prises**, sommée sur les
+> scénarios : ce qu'une passe complète produit en moyenne.
+>
+> Scénarios écartés : `changement_davis`, `desserrage_refuse`.
+> Absents de **machine.v1** : `changement_davis`, `desserrage_refuse`.
+>
+> ⚠️ **L'exclusion n'est pas neutre, et voici de combien** : les prises écartées
+> portaient **2 des 3 rejets** de v2. La comparaison porte donc sur ses
+> scénarios les plus **calmes**, où tout écart est mécaniquement plus petit. Ce qui
+> est publié ici **sous-estime** vraisemblablement l'écart réel entre les deux
+> campagnes ; ce n'est pas une borne inférieure démontrée, c'est une raison de ne
+> pas lire un petit écart comme une absence d'effet.
 
 > ⚠️ **Comment lire la colonne « Verdict ».** La dispersion est l'étendue `max - min`
 > des prises de **v2**, scénario par scénario, sommée. C'est de combien le total
@@ -87,12 +107,12 @@ des tailles d'échantillon.
 
 | Mesure | v2 | machine.v1 | Écart | Dispersion | Verdict | Sens cherché |
 |---|---|---|---|---|---|---|
-| Rejets du validateur | 1.33 | 17.00 | +15.67 | ± 11.00 | au-delà | baisse |
-| Tours repliés | 0.00 | 2.67 | +2.67 | ± 11.00 | dans le bruit | baisse |
-| Chiffres sur les tours de domaine | 7.67 | 11.50 | +3.83 | ± 16.00 | dans le bruit | stable |
-| Markdown non rendu par le front | 0.00 | 4.00 | +4.00 | ± 11.00 | dans le bruit | baisse |
-| Itérations | 57.17 | 52.67 | -4.50 | ± 13.00 | dans le bruit | stable |
-| Tours avant la première valeur (nº3) | 12.67 | 13.50 | +0.83 | ± 8.00 | dans le bruit | stable |
+| Rejets du validateur | 0.33 | 3.33 | +3.00 | ± 9.00 | dans le bruit | baisse |
+| Tours repliés | 0.00 | 0.33 | +0.33 | ± 9.00 | dans le bruit | baisse |
+| Chiffres sur les tours de domaine | 7.67 | 11.50 | +3.83 | ± 14.00 | dans le bruit | stable |
+| Markdown non rendu par le front | 0.00 | 0.67 | +0.67 | ± 9.00 | dans le bruit | baisse |
+| Itérations | 43.83 | 41.67 | -2.17 | ± 10.00 | dans le bruit | stable |
+| Tours avant la première valeur (nº3) | 8.67 | 9.50 | +0.83 | ± 6.00 | dans le bruit | stable |
 
 ⚠️ **`Itérations` ne se compare pas d'une orchestration à l'autre.** Chez une machine à états,
 c'est une **constante** décidée par le graphe, pas un résultat : sa variance nulle est une
@@ -103,9 +123,9 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 
 | Mesure | v2 | machine.v1 | Écart |
 |---|---|---|---|
-| Appels au modèle par tour client (nº7) | 185 appel(s) sur 79 tour(s) — 2.34 appel/tour | 176 appel(s) sur 81 tour(s) — 2.17 appel/tour | -0.17 appel/tour |
-| Jetons d'entrée facturés (nº7) | 349 903 facturés (340 159 hors cache + 9 744 de cache écrit) ; 1 792 896 lus du cache, à un autre tarif | 663 347 facturés (657 010 hors cache + 6 337 de cache écrit) ; 1 108 975 lus du cache, à un autre tarif | +313 444 jetons — facteur 1,90 |
-| Jetons de sortie (nº7) | 44 743 jetons | 65 958 jetons | +21 215 jetons — facteur 1,47 |
+| Appels au modèle par tour client (nº7) | 179 appel(s) sur 77 tour(s) — 2.32 appel/tour | 144 appel(s) sur 69 tour(s) — 2.09 appel/tour | -0.24 appel/tour |
+| Jetons d'entrée facturés (nº7) | 342 154 facturés (332 410 hors cache + 9 744 de cache écrit) ; 1 734 432 lus du cache, à un autre tarif | 534 629 facturés (528 292 hors cache + 6 337 de cache écrit) ; 906 191 lus du cache, à un autre tarif | +192 475 jetons — facteur 1,56 |
+| Jetons de sortie (nº7) | 42 679 jetons | 50 552 jetons | +7 873 jetons — facteur 1,18 |
 
 ⚠️ **La mesure nº7 ne vient pas du rejeu.** Ce sont les seules lignes de ce fichier qui soient lues
 dans l'en-tête des cassettes plutôt que recalculées : elles sont **figées à l'enregistrement** et ne
@@ -133,9 +153,9 @@ pas aux scénarios communs.
 | nº1 — griefs livrés | 0 | 0 |
 | nº2 — violations budget | 0 | 0 |
 | nº3 — tours avant valeur (médiane) | 1.0 | 1.0 |
-| nº4 — attendu en top 3 | 12/12 | 11/12 |
-| nº6 — zéro résultat traité | 12/12 | 14/14 |
-| Prises sans aucune valeur livrée | 10/35 | 7/36 |
+| nº4 — attendu en top 3 | 9/9 | 8/9 |
+| nº6 — zéro résultat traité | 5/5 | 8/8 |
+| Prises sans aucune valeur livrée | 8/28 | 7/30 |
 
 ⚠️ **La métrique nº3 est un garde-fou, pas une cible.** Elle compte les tours client
 avant la première valeur : son minimum atteignable est **1**, et il est déjà atteint.
@@ -152,10 +172,8 @@ il aurait raison.
 
 | Code de grief | v2 /passe | machine.v1 /passe | Écart | Bruts |
 |---|---|---|---|---|
-| `ecart_non_dit` | 0.00 | 8.00 | +8.00 | 0 → 24 |
-| `montant_non_fourni` | 0.67 | 6.33 | +5.67 | 2 → 19 |
-| `prix_etranger_au_produit` | 0.33 | 0.00 | -0.33 | 1 → 0 |
-| `valeur_non_fournie` | 0.33 | 2.67 | +2.33 | 1 → 8 |
+| `montant_non_fourni` | 0.33 | 0.67 | +0.33 | 1 → 2 |
+| `valeur_non_fournie` | 0.00 | 2.67 | +2.67 | 0 → 8 |
 
 ⚠️ **Un code qui cesse de tirer n'est pas en soi une bonne nouvelle.** Si la forme
 correspondante a disparu des appendices A des deux rapports, c'est le prompt ; si le

@@ -4221,6 +4221,53 @@ restent lançables et mesurables : `RAIYON_ORCHESTRATION` choisit qui conduit le
 ne sont publiés par aucun rapport »**, et c'est l'étape 16 qui l'a rendue fausse : la mesure
 nº7 les publie, et plus une ligne de ce tableau n'est sommée à la main.*
 
+> ### 🔴 Le verdict de cette étape est **suspendu sur sa mesure principale** — 3 septembre 2026
+>
+> **Les chiffres du tableau ci-dessus sont ceux de la campagne, et ils ne sont pas
+> réécrits.** Ce qui suit dit ce qui est su depuis, et ce qui ne l'est plus.
+>
+> Le seul écart au-delà de la dispersion était le **taux de rejet du validateur** — 51
+> contre 6, dominé par `ecart_non_dit`, qui tirait **24 fois** chez la machine et **0** chez
+> l'agent. C'est sur lui que reposait « la machine perd sur ce point, et sur celui-là seul ».
+>
+> **L'étape 18 a trouvé, en conversation réelle, que deux règles du validateur pouvaient
+> être conjointement insatisfaisables** — voir §7. Le modèle qui nommait un produit hors
+> budget sur une ligne et écrivait son écart sur la suivante était refusé quoi qu'il écrive.
+> **C'est exactement la forme des 24** : `ecart_non_dit` sur la ligne du produit,
+> `montant_non_fourni` sur l'écart écrit une ligne plus bas. Et la section 14 du prompt, qui
+> demande un produit par ligne, y menait.
+>
+> **Ce qui est su, et il est mince** : `comparaison.1` est la seule prise concernée qui reste
+> rejouable après le correctif. Elle portait **2 des 24**, et elle en porte désormais **0**,
+> sans repli. Ces deux-là étaient des faux positifs de validateur, pas un fait
+> d'orchestration.
+>
+> **Ce qui n'est pas su, et qui est l'essentiel** : les 22 autres vivaient dans six prises —
+> `changement_davis` 1-3 et `desserrage_refuse` 1-3 — dont la liste de griefs change, donc
+> la reprise, donc l'empreinte de requête. Elles **divergent** au rejeu et sortent de toute
+> mesure. Le rapport régénéré affiche 10 griefs sur 69 tours et `ecart_non_dit` muet : **cela
+> ne dit pas que les 22 étaient des faux positifs**, cela dit que les prises qui les
+> portaient ne sont plus comptables. La mesure s'est annulée elle-même, et c'était prévu
+> avant de la lancer.
+>
+> **Conséquence sur la comparaison** : `docs/eval/comparaison.v2-machine.v1.md` se réduit
+> désormais aux **9 scénarios communs**, et le taux de rejet y est passé « **dans le
+> bruit** ». ⚠️ Ce n'est pas un démenti du verdict : c'est la disparition de ce qui
+> permettait de le trancher. Le fichier le dit lui-même, en tête, et il l'écrit tout seul —
+> la réduction aux scénarios communs et l'avertissement qui l'accompagne sont produits par le
+> harnais, pas rédigés ici.
+>
+> **Ce qui reste vrai sans être touché** : la mesure nº7 (coût), la mesure nº8 (17 tests de
+> conduite hors ligne contre 0), les critères nº1, nº2 et nº6, l'extraction atomique sans
+> recours, et l'invariant du budget que personne n'avait écrit. Aucun de ces résultats ne
+> passe par `ecart_non_dit`.
+>
+> **Ce qu'il faudrait pour trancher** : réenregistrer le jeu de la machine sous le validateur
+> corrigé — **~176 appels**. C'est un arbitrage de budget, il n'est pas pris, et il est écrit
+> comme tel plutôt que tranché en douce dans un sens ou dans l'autre. Ce que ce dépôt ne fera
+> pas : réécrire le verdict de l'étape 15 dans la direction qui l'arrange, avec des chiffres
+> mesurés sur le sous-ensemble d'où le phénomène a été retiré.
+
 ### Les six arbitrages, avec leur alternative écartée
 
 1. **La machine partage tout sauf la conduite** — validateur, couche outils, moteur,
@@ -4510,6 +4557,110 @@ un renvoi.
 
 ---
 
+### Étape 18 — Deux règles qui ne pouvaient pas être satisfaites ensemble ✅
+
+**Zéro appel API, zéro cassette réenregistrée.** Un correctif de gravité **élevée** — le
+produit ne savait pas répondre à une demande courante — et une mesure qui s'annule
+elle-même, écrite comme telle plutôt que présentée comme un résultat.
+
+#### Le défaut, et il n'a pas été trouvé par une commande
+
+Un client demande une comparaison entre deux cartes graphiques **au-dessus de son budget**.
+Le texte est refusé deux fois, le tour se replie. Les deux griefs se contredisent :
+
+| Règle | Ce qu'elle dit |
+|---|---|
+| 4 — `ecart_non_dit` | « le citer exige de dire qu'il dépasse et **de combien** — 11.59 $ exactement, tel que `ecart_usd` le donne » |
+| 2 — `montant_non_fourni` sur « 11,59 $ » | « **aucun outil n'a rendu ce montant** dans cette conversation » |
+
+L'une réclame le chiffre, l'autre affirme qu'il n'existe pas. Le mécanisme est le
+découpage : les deux règles raisonnent `for phrase in phrases(texte)`, le saut de ligne est
+une fin de phrase, et la **section 14 du prompt demande un produit par ligne**. Dès que le
+nom et l'écart tombent dans deux phrases, aucune rédaction ne satisfait les deux règles.
+Aggravation : la règle 4 exigeait l'écart dans **chaque** phrase nommant le produit — dans
+une comparaison, trois ou quatre fois, donc trois ou quatre griefs et deux régénérations
+sans issue.
+
+⚠️ **C'est le second défaut du projet trouvé en conversation réelle**, après celui que
+`make eval-live` a montré à l'étape 12. Deux occurrences, donc un motif : ce que trente-six
+prises scriptées ne voient pas, une conversation le voit — et rien dans le dépôt n'oblige à
+en tenir une. La ligne de §7 le dit à cet endroit-là plutôt qu'ici, pour qu'un relecteur du
+§7 seul le lise aussi.
+
+#### Le correctif, en deux gestes
+
+1. **Un écart est un montant fourni.** `hors_budget.values()` entre dans les montants admis
+   de la branche « la phrase ne nomme aucun produit ». *L'argument de sûreté est
+   structurel* : cette branche admettait déjà `valeurs_refusees`, qui sont **écrites par le
+   modèle** (§7) ; y admettre des écarts **écrits par le moteur** est strictement plus sûr
+   que ce qui s'y trouvait. La branche `if nommes:` n'est **pas** touchée — le piège nº6 de
+   `test_pieges.py` est le seul test qui échoue si quelqu'un aplatit le contexte, et il
+   reste exactement aussi strict.
+2. **L'écart se dit une fois par message, pas par phrase.** `regle_ecart_au_budget` vérifie
+   la présence de l'écart sur le message entier, **par identifiant**, et attache le grief à
+   la première phrase qui nomme le produit. *C'est un desserrage assumé du critère nº2* :
+   « budget jamais dépassé sans **présentation explicite** » est satisfait en le disant une
+   fois. Trois tests le bornent — le cas de terrain passe, un produit dont l'écart n'est
+   écrit nulle part reste refusé, et l'écart de A ne couvre pas B.
+
+#### Ce que la mesure a donné, et ce qu'elle ne peut pas donner
+
+| Jeu | Griefs avant | Griefs après | Prises écartées |
+|---|---|---|---|
+| `v2` | 4 sur 79 tours | **3 sur 77** | 1 de plus — `zero_budget_trop_bas.3` |
+| `v1-etape12` | 7 sur 42 tours | **6 sur 42** | 1 — `zero_budget_trop_bas.1` |
+| `machine.v1` | 51 sur 81 tours | **10 sur 69** | **6** — `changement_davis` 1-3, `desserrage_refuse` 1-3 |
+
+🔴 **Le chiffre de `machine.v1` ne veut pas dire ce qu'il a l'air de dire, et c'était prévu
+avant de lancer.** Les six prises écartées portaient **22 des 24** `ecart_non_dit` de la
+campagne — l'unique écart au-delà de la dispersion de l'étape 15, c'est-à-dire le résultat
+sur lequel reposait tout son verdict. Leur liste de griefs change, donc la reprise, donc
+l'empreinte : elles divergent et sortent de toute mesure. **Le rapport ne dit pas que ces 22
+étaient des faux positifs ; il dit qu'on ne peut plus les compter.** Voir le verdict suspendu
+de l'étape 15.
+
+**Ce qui est su, et il tient en une prise** : `comparaison.1` portait les 2 autres, elle
+reste rejouable, et elle en porte désormais **0**, sans repli. Ces deux-là étaient bien des
+faux positifs de validateur. Pour les 22 autres, il faudrait réenregistrer le jeu de la
+machine — **~176 appels**, arbitrage de budget non pris.
+
+#### Deux effets de bord, et les deux sont des signaux
+
+* **`v1-etape12/desserrage_refuse.1` a cessé de diverger**, et `DIVERGENCES_ATTENDUES` l'a
+  **fait échouer** : `DivergenceAttendueAbsente`, « ces cassettes sont listées comme
+  divergentes et se rejouent pourtant sans divergence ». C'est la **première fois que
+  l'assertion tire dans ce sens-là** — celui qui distingue une liste assertée d'une simple
+  tolérance, écrit à l'étape 13 et jamais exercé depuis. Le correctif fait tomber les deux
+  griefs que l'étape 13 avait laissés à son dernier tour : le texte n'est plus refusé, donc
+  plus régénéré, donc la prise 7 n'est plus consommée du tout. L'entrée est retirée.
+* **`docs/eval/comparaison.v2-machine.v1.md` s'est réduit tout seul aux 9 scénarios
+  communs**, et a écrit de lui-même que « l'exclusion n'est pas neutre ». `machine.v1` ne
+  porte plus `changement_davis` ni `desserrage_refuse` : le harnais l'a détecté, a réduit la
+  comparaison, et a publié l'avertissement. Le taux de rejet y est passé « **dans le
+  bruit** » — ce qui n'est pas un démenti du verdict de l'étape 15, mais la disparition de ce
+  qui permettait de le trancher.
+
+#### Deux ajouts au harnais, tous deux nés de cette mesure
+
+* **Les réserves sont groupées par raison.** Six prises écartées pour une cause unique
+  produisaient six paragraphes identiques en tête du rapport, qu'on saute comme un bandeau.
+* **La ligne « règles jamais déclenchées » porte une réserve quand des prises sont
+  écartées.** Sans elle, `ecart_non_dit` s'affichait **muet** dans le rapport même qui
+  l'avait vu tirer 24 fois. Une réserve en tête ne suffit pas quand une ligne du corps
+  affirme le contraire — et c'est la troisième fois que cette phrase-là doit être corrigée
+  dans ce dépôt.
+
+#### Reste après l'étape
+
+- **Le jalon 2, non lancé** : réenregistrer `machine.v1` sous le validateur corrigé,
+  ~176 appels, pour savoir ce que valait le verdict de l'étape 15 ;
+- `orchestration/blocs.py` importe encore `agent.evenements` et `agent.prompts` — reste de
+  nommage, pas de couplage ;
+- une `systeme.machine.v2`, si l'extraction atomique vaut qu'on y revienne ;
+- la recherche hybride `pgvector` (§3.5), hors périmètre du produit livrable.
+
+---
+
 ## 6. Ordre non négociable
 
 **Moteur de matching → couche outils → boucle agent.**
@@ -4547,6 +4698,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | ~~**Le prompt v1 n'est mesuré par rien avant l'étape 12**~~ | **Éteint** à l'étape 12 — harnais d'éval branché, seize prises rejouées, rapport committé. La ligne est barrée plutôt qu'effacée : c'est le dernier risque **Élevé** du projet, et il a décidé de l'ordre des étapes 12 et 13 | Les sections 4 (« une fourchette n'est jamais un prix »), 6 (« la question suggérée est une suggestion ») et 9 (« dire le refus plutôt que le contourner ») étaient des **atténuations déclarées, pas vérifiées**. **Ce que le harnais mesure réellement, et il faut le dire précisément :** la section 4 est mesurée — `regle_montants` et `regle_valeurs_unitaires` la constatent phrase par phrase, et le taux de rejet par code dit combien de fois le modèle a essayé (7 `montant_non_fourni` et 3 `valeur_non_fournie` sur 35 tours à la première exécution). La section 9 est mesurée **à moitié** : `Attente.CRITERE_TENU` constate qu'un desserrage refusé n'a pas fini par passer, mais rien ne constate que l'agent l'a **dit** au client — voir la ligne dédiée ci-dessous. La section 6 n'est **pas** mesurée, et le harnais l'a appris à ses dépens : une attente écrite sur l'appel à `suggest_next_question` mesurait quel outil l'agent avait choisi, pas ce que le produit avait fait. Restent donc des intentions bien rédigées : la conduite du dialogue au sens large, que seul `make eval-live` donne à lire |
 | ~~**Le faux client teste la boucle, pas le modèle**~~ | **À MOITIÉ fermée à l'étape 15** — et la moitié compte. **Fermée du côté de la machine** : `decider()` est pure, et **17 tests de conduite du dialogue** tournent dans `make check` sans base, sans conteneur et sans clé — un défaut de conduite de la machine ne passe plus. ⚠️ **Ouverte du côté de l'agent**, où elle l'était et le reste : il n'y a toujours aucune fonction de décision à assertionner, et c'est le prix de §3.6 que l'amendement de cette section confirme. La ligne est donc barrée à moitié, pas éteinte. ⚠️ **La réserve voyage avec le chiffre** : ces tests vérifient que la machine conduit le dialogue **comme on l'a écrit** ; ils ne vérifient pas que la conduite est bonne, ni que le modèle qui rédige derrière respecte quoi que ce soit. Le texte d'origine reste ci-contre parce qu'il décrit exactement ce qui vaut encore pour l'agent | `tests/agent/` couvre l'enchaînement, le réenchaînement de l'état, la terminalité, l'appairage des `tool_result` et la garde d'itérations — tout ce qui ne dépend pas de ce que le modèle répond. **Un défaut de conduite du dialogue passe donc entièrement à travers `make check`** : un agent qui interrogerait le client six fois de suite, ou qui citerait un prix jamais fourni, ferait une suite verte. C'est la contrepartie assumée de l'arbitrage 2, et elle ne se referme qu'avec les cassettes et le client simulé de l'étape 12 |
 | ~~**Le texte sortant n'est validé par rien jusqu'à l'étape 9**~~ | **Éteint** à l'étape 9 — validateur programmatique branché, texte bufferisé, une régénération puis repli sur template. La ligne est barrée plutôt qu'effacée : c'est le risque qui a décidé de l'ordre du plan | §2 reposait **uniquement sur le prompt système** : un prix recopié de travers, un `id` approximatif ou une spec déduite d'un sondage partaient au client. C'est pour cette raison que l'étape 9 est passée avant l'étape 10 — mettre une API et un front devant un texte non validé aurait multiplié la surface avant de fermer le trou. **Le trou est fermé au niveau du mécanisme, pas de la couverture** : les trois lignes qui suivent disent ce que le validateur ne voit pas |
+| ~~**Deux règles du validateur pouvaient être conjointement insatisfaisables**~~ | **🔴 Élevée — un chemin nominal du produit était impossible. Fermée à l'étape 18** | **Le défaut** : `regle_ecart_au_budget` exigeait l'écart au budget dans la **phrase** qui nomme le produit hors budget ; `regle_montants`, dans une phrase sans produit, n'admettait pas les écarts — `hors_budget.values()` n'était pas dans ses montants autorisés. Le nom sur une ligne et « il dépasse de 11,59 $ » sur la suivante, et les deux règles se contredisaient : l'une réclamait le chiffre, l'autre affirmait qu'« aucun outil n'a rendu ce montant » — d'un montant que le moteur avait rendu. **Le texte était refusé quoi que le modèle écrive**, deux fois, puis replié. ⚠️ **La section 14 du prompt y menait** : elle demande un produit par ligne, et `SEPARATEURS_DE_PHRASE` traite le saut de ligne comme une fin de phrase. Aggravation : la règle 4 exigeait l'écart dans **chaque** phrase nommant le produit — dans une comparaison, un produit est nommé trois ou quatre fois. **Ce que le produit ne savait donc pas faire** : comparer deux produits au-dessus du budget, une demande courante. **Le correctif, en deux gestes** : les écarts entrent dans les montants admis de la branche sans produit — strictement plus sûr que ce qui s'y trouvait déjà, qui admet des `valeurs_refusees` **écrites par le modèle** ; et la présence de l'écart se vérifie sur le **message**, plus sur la phrase, **par identifiant** — citer l'écart de A ne satisfait pas B. Trois tests bornent le desserrage. ⚠️ **C'est un desserrage assumé du critère nº2** : « sans présentation explicite » est satisfait en le disant **une fois** ; l'exiger à chaque phrase était un artefact du découpage — dont ce §7 disait déjà qu'il « devient trop étroit, jamais trop large », sans avoir envisagé qu'une étroitesse puisse **fabriquer une contrainte impossible**. ⚠️ **Trouvée en conversation réelle, par aucune commande automatique** — et c'est le **second** défaut du projet trouvé ainsi, après celui que `make eval-live` a montré à l'étape 12. Deux occurrences ne sont plus une anecdote : ce que trente-six prises scriptées ne voient pas, une conversation le voit, et le dépôt n'a pas de commande qui l'oblige. **Effet mesuré, sans réenregistrer une cassette** : v2 4 → 3 griefs, `v1-etape12` 7 → 6, `machine.v1` 51 → 10 — mais ce dernier chiffre porte sur 30 prises sur 36, et il **ne dit pas** que les 22 `ecart_non_dit` disparus étaient des faux positifs. Voir §5 étape 15, verdict suspendu |
 | ~~**`NOMBRE` lit une résolution collée à une fréquence comme un seul nombre**~~ | **Fermée à l'étape 17** | `NOMBRE` valait `\d+(?:[ESPACES]\d{3})*(?:[.,]\d+)?` : l'espace y était un séparateur de milliers sans condition. « en 1920x1080 180 Hz » était donc lu **1 080 180 Hz**, une valeur qu'aucun produit ne déclare, et la règle 5 levait un `valeur_non_fournie` sur une phrase **exacte** — un **faux positif du validateur**, pas une faute du modèle, et il était apparu parce que la section 14 de v2 pousse à écrire un produit par ligne. **Le motif livré** : `(?<!\d)(?:\d{1,3}(?:[ESPACES]\d{3})+|\d+)(?:[.,]\d+)?`. ⚠️ **Il porte une garde que la rédaction de cette ligne n'avait pas, et sans elle le correctif ne corrigeait rien** — c'est la trouvaille de l'étape 17, et elle est de la même famille que le défaut qu'elle répare. L'alternance seule avait été **validée sur les six formes nues** (`1 299,99`, `9333`, `1920x1080 180 Hz`, `417.14`, `1080 180`, `144`), et elle y est juste : `MOTIF_NOMBRE` se lit par `finditer` depuis le début du texte et ne redémarre jamais au milieu d'un chiffre. **Les quatre motifs composés, eux, exigent une unité ou un symbole derrière** : quand la lecture échoue au `1` de `1080`, le moteur réessaie plus loin et retombe **à l'intérieur** du nombre, où `\d{1,3}` accepte `080` — le validateur réclamait alors `80 180 Hz` au lieu de `1 080 180 Hz`. Mesuré avant de commiter : un faux positif **déplacé**, pas supprimé, et une cassette périmée pour rien. `(?<!\d)` interdit à un nombre de commencer au milieu d'une suite de chiffres. ⚠️ **La rédaction évidente `\d{1,3}(?:[ESPACES]\d{3})*` reste fausse** et cassait plus qu'elle ne répare : sur `9333` elle lit `933` puis `3`. **Livré sans réenregistrer une seule cassette** — c'est le pari de l'étape 17, et il tient parce que l'arbitrage A de l'étape 12 fait relire la prose par le validateur **courant** à chaque rejeu. Effet mesuré : v2 passe de **6 griefs sur 81 tours à 4 sur 79**, `valeur_non_fournie` de 3 à 1 ; `machine.v1` et `v1-etape12` ne bougent **d'aucun chiffre**. Une seule cassette diverge — `v2/categorie_efface_budget.3`, absorbée par `DIVERGENCES_ATTENDUES` |
 | **L'extraction de la machine est atomique, et une extraction manquée ne se rattrape pas dans le tour** | **Moyenne — propre à la machine, non corrigée volontairement** | Observé sur `sur_specifie.3` : l'appel d'extraction pose `panel_type` en `bloquant`, la couche outils refuse (§3.4quater — un champ de rôle `score` ne peut pas l'être), et **l'appel étant atomique, la taille, la fréquence et le budget sont perdus avec lui**. L'agent lit le refus dans son `tool_result` et rappelle l'outil en `important` — c'est dans sa cassette. La machine ne peut pas : `enregistrer_criteres` n'est **pas une action** de `decider()`. Même famille par omission sur `categorie_efface_budget.2`, où l'extraction n'émet aucun `tool_use` au second tour : la prose annonce au client que son budget ne s'applique plus tandis que l'état l'ignore. C'est le mécanisme derrière « l'agent encaisse naturellement les virages » (§3.6), **observé** plutôt qu'affirmé, et il est plus profond que le tour de parole. ⚠️ *Correctif écarté et daté* : laisser `decider()` redéclencher une extraction ajoute un appel modèle, casse le plancher de 2,00 et change le coût au milieu de la comparaison. Candidat pour une `systeme.machine.v2` que l'étape 15 ne fait pas |
 | **« Ne pas chercher tant que le budget manque » n'est écrite dans aucun prompt** | **Éteinte à l'étape 15** — la règle est désormais écrite quelque part | L'agent la tient par l'**affordance** de `question_suivante`, qui remonte `BesoinDeBudget` en tête, et jamais par une instruction. `Attente.AUCUNE_RECHERCHE_SANS_BUDGET` la mesure depuis l'étape 12 sans que personne ait remarqué qu'**aucune section du prompt ne la portait** — la relecture section par section du jalon 3 l'a établi. `decider()` l'écrit pour la première fois, en une garde. Une garantie tenue **par chance de conception** d'un côté, **par construction** de l'autre. ⚠️ **Écrire la seconde orchestration était la seule façon de s'en apercevoir**, et c'est l'argument le plus fort en faveur d'avoir fait l'étape |
@@ -4560,7 +4712,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Une provenance lue dans un message `user` rendrait le validateur auto-annulant** | **Fermée à l'étape 13, et c'est le piège le plus coûteux de l'étape** | Le message de reprise de l'étape 9 est un bloc de rôle `user` **de la même forme qu'un tour client** — un seul bloc `text`, sans `tool_result` — et il **cite les extraits refusés**, puisque c'est sa fonction. Une provenance « les nombres des messages utilisateur » y prendrait donc les nombres que le validateur vient de refuser et les rendrait citables au tour suivant : le validateur s'annulerait lui-même. **Mesuré, pas déduit** : sur les quarante cassettes du dépôt, 18 griefs sur 19 disparaissaient. C'est la rédaction naïve de l'alternative écartée au jalon 1 de l'étape 13, et elle est **invisible à la lecture** — rien dans le code ne distingue une reprise d'un tour client. Atténuation : `tests/validateur/test_faux_positifs.py::test_la_reprise_ne_fournit_jamais_un_fait` construit une conversation où le seul porteur d'un nombre est une reprise, et exige qu'il reste refusé. Il échoue si quelqu'un réintroduit la provenance |
 | **Une valeur de mouvement refusé est écrite par le modèle, pas par le moteur** | Faible — **ouverte volontairement à l'étape 13**, et bornée | `ContexteFourni.valeurs_refusees` admet les valeurs qu'un mouvement refusé demandait, pour que le modèle puisse obéir à la section 9 du prompt (« dites au client ce qui a été refusé ») sans être puni pour cela. ⚠️ **La provenance est un refus produit par le moteur ; la valeur, elle, sort des arguments d'appel du modèle** — qui peut donc se fabriquer un nombre citable en le faisant refuser exprès. Ce qu'il en obtient est ce qu'un entier nu lui donne déjà, et rien de plus : ces valeurs ne sont admises que dans une phrase qui **ne nomme aucun produit**, discipline de `valeurs_de_distribution`. Les pièges 13 et 14 le constatent — `Le [produit] est à 50 $` et `Le [produit] est à 999 Hz` restent refusés. **Elles ne vont surtout pas dans `agregats`** : la règle 5 consulte les agrégats sans condition, et un `refresh_rate` refusé à 999 y deviendrait citable comme spec de produit |
 | **Un entier nu, sans unité et sans `$`, n'est vérifié par rien — sauf dans un intervalle** | Moyenne — c'est le trou connu et **assumé** du validateur, désormais réduit | La règle 5 ne mord que sur un nombre suivi d'une unité connue, la règle 2 que sur un montant en dollars. « 32 candidats » ou « il en reste douze » ne sont donc contrôlés par personne. L'exemption est délibérée : sans elle, « je vous propose trois modèles » lèverait un grief, et **un validateur qui crie sur du français correct finit par être débranché**. **Une exception depuis le correctif de l'étape 9** : dans « entre A et B *unité* », la borne basse hérite de l'unité de la borne haute et cesse d'être un entier nu. Elle vient d'un cas de terrain — le modèle a écrit « entre 65 et 400 dollars environ » là où la borne fournie valait 64,98 $, et 65 est un **arrondi**, c'est-à-dire l'affirmation approximative sur le catalogue que l'étape 7 avait refusé de faire produire à `probe_catalog`. Une seule forme est traitée parce qu'une seule a été observée ; « de A à B » ou « autour de A » seraient de la théorie. Fermeture complète possible et non retenue : exiger qu'un entier nu appartienne aux agrégats fournis, ce qui rendrait « trois modèles » et « les deux premiers » invalides |
-| **Le découpage en phrases est une heuristique, pas une analyse syntaxique** | Faible à moyenne — elle porte la règle 2, qui est la plus fine du lot | `extraction.SEPARATEURS_DE_PHRASE` coupe sur `.`, `!`, `?` et le saut de ligne, avec une exception non négociable : un point **entre deux chiffres** n'est pas une fin de phrase, sans quoi « 417.14 $ » se lirait « 417 » puis « 14 $ ». La contrepartie est qu'« etc. » ou « M. Dupont » coupent une phrase en deux. Le sens de l'erreur est le bon : le contexte de phrase devient trop **étroit**, jamais trop large — une règle peut donc rater une attribution de prix, elle n'en invente pas. Atténuation de conception : la décision vit dans **un seul endroit**, nommé, pour être remplaçable par un vrai découpage le jour où il en faudra un |
+| **Le découpage en phrases est une heuristique, pas une analyse syntaxique** | Faible à moyenne — elle porte la règle 2, qui est la plus fine du lot | `extraction.SEPARATEURS_DE_PHRASE` coupe sur `.`, `!`, `?` et le saut de ligne, avec une exception non négociable : un point **entre deux chiffres** n'est pas une fin de phrase, sans quoi « 417.14 $ » se lirait « 417 » puis « 14 $ ». La contrepartie est qu'« etc. » ou « M. Dupont » coupent une phrase en deux. Le sens de l'erreur est le bon : le contexte de phrase devient trop **étroit**, jamais trop large — une règle peut donc rater une attribution de prix, elle n'en invente pas. ⚠️ **Cette phrase était incomplète, et l'étape 18 l'a montré** : une étroitesse ne se contente pas toujours de rater. Quand **deux** règles lisent le même découpage et que l'une réclame un chiffre que l'autre refuse, l'étroitesse **fabrique une contrainte impossible à satisfaire** — le texte est alors refusé quoi que le modèle écrive. Ce n'est plus un faux négatif, c'est un chemin du produit qui se ferme ; voir la ligne dédiée ci-dessus. Le sens de l'erreur reste le bon **prise règle par règle** ; il ne l'est plus quand on les compose. Atténuation de conception : la décision vit dans **un seul endroit**, nommé, pour être remplaçable par un vrai découpage le jour où il en faudra un |
 | **La détection d'un nom de produit réécrit est floue** | Faible, mais c'est la seule règle du validateur qui peut se tromper **contre** le modèle | La règle 3 ne peut pas se contenter d'une égalité : elle doit constater qu'un nom apparaît **de travers**, ce qui est le cas de la francisation que §3.4ter interdit (« l'Odyssée de Samsung »). Elle retire d'abord du texte les noms cités verbatim, puis cherche dans ce qui reste une ressemblance de jetons (`difflib`, seuil 0,8 par jeton et 0,6 sur le nom), avec deux garde-fous : la marque seule ne suffit jamais à accuser, et une liste de mots français courants (« modèle », « écran », « gamme »…) est exclue du rapprochement. **Ces trois nombres sont des seuils, pas une théorie.** Un catalogue dont un produit s'appellerait « Modèle X » les mettrait en défaut. Atténuation : `tests/validateur/test_faux_positifs.py` existe pour ça, et il est aussi bloquant que `test_pieges.py` |
 | ~~**La question d'`ask_clarification` n'est pas validée**~~ | **Éteint** par le correctif de l'étape 9 | La question était un **argument d'appel**, pas un bloc `text` : elle traversait le répartiteur et partait au client sans qu'aucune règle ne la lise — sur le chemin le plus fréquent d'une conversation, qui contient beaucoup plus de questions que de recommandations. Elle est désormais relue dans `boucle.py` par les **mêmes** cinq règles, contre le **même** instantané de contexte que le texte, avec le **même** budget de régénération. La ligne est barrée plutôt qu'effacée : c'est le seul trou que l'étape 9 avait signalé elle-même et refermé sans qu'on le lui demande |
 | **Une déconnexion client perd le tour en entier, et l'appel API avec** | Faible — c'est un choix, pas un défaut | Starlette cesse d'itérer, le générateur reçoit un `GeneratorExit`, et `session.tour()` n'atteint jamais son `commit()` : rien n'est persisté, **pas même le message du client**, alors que l'appel à Anthropic a été payé. C'est exactement la sémantique d'un redémarrage en milieu de tour, et c'est l'atomicité de `session.py` prise au mot — « sans rien perdre » signifie « sans rien écrire de faux ». Il n'y a **aucune reprise de flux** : un client qui recharge renvoie son message. Ce qui est traité, en revanche, c'est la propreté — un `finally` qui `rollback()` puis `close()`, sans quoi la connexion revient au pool en transaction avortée et fait échouer la requête *suivante* avec une erreur qui ne désigne pas la vraie cause. L'éviter demanderait le drainage par file d'attente que l'arbitrage C de l'étape 10 écarte |

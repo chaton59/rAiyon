@@ -10,10 +10,12 @@ import json
 import pytest
 from contexte_de_test import (
     AOPEN,
+    ASUS,
     GIGABYTE,
     LG,
     SAMSUNG,
     charge_recherche,
+    contexte_a_deux_hors_budget,
     contexte_apres_sondage,
     contexte_complet,
     messages_du_scenario,
@@ -169,6 +171,66 @@ def test_regle_3_ne_confond_pas_deux_produits_de_la_meme_marque(contexte):
 def test_regle_4_ne_mord_que_sur_les_produits_de_la_zone_de_tolerance(contexte):
     assert regle_ecart_au_budget(f"Le {SAMSUNG.nom} à 249.99 $.", contexte) == ()
     assert regle_ecart_au_budget(f"Le {LG.nom} à 417.14 $.", contexte)
+
+
+# --------------------------------------------------------------------------- #
+# Les règles 2 et 4 ensemble — le défaut de l'étape 18
+#
+# Deux règles pouvaient être **conjointement insatisfaisables**. La règle 4 réclamait
+# l'écart dans la phrase qui nomme le produit ; la règle 2, dans une phrase sans produit,
+# ne connaissait pas les écarts et refusait le chiffre. Dès que le nom et l'écart
+# tombaient dans deux phrases — ce que la section 14 du prompt *encourage*, un produit par
+# ligne —, le message était refusé quoi que le modèle écrive. Trouvé en conversation
+# réelle, sur une comparaison de deux produits au-dessus du budget.
+#
+# Les trois tests ci-dessous bornent le desserrage : le cas de terrain passe, le critère
+# nº2 tient, et la vérification reste par identifiant.
+# --------------------------------------------------------------------------- #
+
+
+def test_le_nom_et_lecart_dans_deux_phrases_ne_levent_aucun_grief(contexte):
+    """**Le cas de terrain, reproduit tel quel.** C'est ce qui bloquait le produit.
+
+    Avant l'étape 18 : `ecart_non_dit` sur la première phrase (« dis de combien il
+    dépasse — 17.14 $ ») **et** `montant_non_fourni` sur la seconde (« aucun outil n'a
+    rendu ce montant »). Le texte était refusé deux fois, puis replié.
+    """
+    texte = f"Le {LG.nom} est à 417,14 $.\nIl dépasse votre budget de 17,14 $."
+
+    assert valider(texte, contexte).griefs == ()
+
+
+def test_un_produit_hors_budget_sans_son_ecart_nulle_part_reste_refuse(contexte):
+    """**Le critère nº2 tient.** Le desserrage n'est pas une exemption.
+
+    Le produit est nommé sur deux phrases, l'écart n'est écrit dans aucune : la règle 4
+    lève son grief, attaché à la **première** phrase qui nomme le produit.
+    """
+    texte = f"Le {LG.nom} est à 417,14 $.\nIl est très bien équipé pour ce prix."
+
+    griefs = regle_ecart_au_budget(texte, contexte)
+    assert [grief.code for grief in griefs] == [CodeGrief.ECART_NON_DIT]
+    assert griefs[0].extrait == f"Le {LG.nom} est à 417,14 $"
+
+
+def test_lecart_dun_produit_ne_couvre_pas_celui_dun_autre():
+    """**Le piège de la contamination**, et c'est lui qui borne le desserrage.
+
+    Élargir la recherche de l'écart à tout le message ne doit pas rendre les écarts
+    interchangeables : citer 17,14 $ pour le LG ne dit rien de l'Asus, qui dépasse de
+    29,99 $. La vérification reste **par identifiant** — sans cela, un seul écart
+    quelque part dans un message satisferait tous les produits hors budget qu'il nomme.
+    """
+    contexte = contexte_a_deux_hors_budget()
+    texte = (
+        f"Le {LG.nom} est à 417,14 $, soit 17,14 $ de plus que votre budget.\n"
+        f"Le {ASUS.nom} est à 429,99 $."
+    )
+
+    griefs = regle_ecart_au_budget(texte, contexte)
+    assert [grief.code for grief in griefs] == [CodeGrief.ECART_NON_DIT]
+    assert ASUS.nom in griefs[0].correction
+    assert "29.99 $" in griefs[0].correction
 
 
 def test_regle_5_range_les_valeurs_par_provenance_comme_la_regle_2(contexte):

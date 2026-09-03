@@ -90,6 +90,15 @@ AOPEN = ecran("0000000006", "AOPEN 27HC5R", "AOPEN", "108.00")
 """**Jamais rendu par une recherche.** Son prix est la borne basse de la fourchette :
 c'est le montant du piège nº6."""
 
+ASUS = ecran("0000000008", "Asus ROG Strix XG27AQ", "Asus", "429.99")
+"""**Un second produit de la zone de tolérance**, écart exact de 29,99 $.
+
+Il n'est **pas** dans le décor nominal : il n'existe que pour
+`contexte_a_deux_hors_budget()`, qui sert le test de contamination de l'étape 18. Un seul
+produit hors budget ne permet pas de vérifier que la règle 4 raisonne **par identifiant**
+— avec un seul écart en jeu, « l'écart est cité quelque part » et « l'écart de ce
+produit-là est cité » sont indistinguables."""
+
 RENDUS = (SAMSUNG, DELL, SCEPTRE)
 HORS_BUDGET = (LG,)
 SONDES = (AOPEN, AOC, SAMSUNG, DELL, GIGABYTE)
@@ -166,6 +175,23 @@ def contexte_apres_sondage() -> ContexteFourni:
 def contexte_complet() -> ContexteFourni:
     """La conversation entière : critères, sondage, recherche. Le décor des pièges."""
     return contexte_des_resultats([charge_enregistrement(), charge_sondage(), charge_recherche()])
+
+
+def contexte_a_deux_hors_budget() -> ContexteFourni:
+    """Le même décor, mais **deux** produits en zone de tolérance : LG (17,14 $) et Asus
+    (29,99 $).
+
+    Sert le test de contamination de l'étape 18 : citer l'écart de l'un ne doit pas
+    satisfaire l'autre. Avec un seul produit hors budget, la vérification par identifiant
+    et la vérification « un écart quelconque est cité » rendent le même verdict.
+    """
+    depot = DepotEnMemoire()
+    depot.produits = list(RENDUS)
+    depot.hors_budget = [LG, ASUS]
+    charge = en_tool_result(
+        rechercher_produits(etat_du_scenario(), depot, tour_client=1, tolerance=TOLERANCE)
+    )
+    return contexte_des_resultats([charge_enregistrement(), charge_sondage(), charge])
 
 
 def messages_du_scenario() -> list[dict[str, Any]]:
