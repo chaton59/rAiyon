@@ -32,7 +32,9 @@ eux, sont déjà tenus par du code et ne bougeront pas.
 import statistics
 from collections.abc import Sequence
 
+from raiyon.eval.cout import PROVENANCE, Cout
 from raiyon.eval.metriques import (
+    RESERVE_ITERATIONS,
     SEUIL_TOP3,
     SEUIL_TOURS,
     Attente,
@@ -65,8 +67,14 @@ VIOLE = "❌"
 SANS_OBJET = "—"
 
 
-def rendre(mesures: Mesures, *, reserves: Sequence[str] = ()) -> str:
+def rendre(mesures: Mesures, *, reserves: Sequence[str] = (), cout: Cout | None = None) -> str:
     """Le rapport entier. Une seule fonction publique : c'est un fichier, pas une API.
+
+    `cout` porte la **mesure nº7** — les appels au modèle par tour client. Il est séparé de
+    `mesures` parce que sa provenance l'est : voir `raiyon.eval.cout`. `None` veut dire que
+    ce rendu ne vient d'aucun jeu enregistré — c'est le cas des tests purs de ce module —
+    et la ligne nº7 n'est alors pas écrite. Sur le chemin de `make eval` il est toujours
+    renseigné : `mesurer_le_jeu()` le construit à chaque fois, publiable ou non.
 
     `reserves` porte ce que les chiffres ne disent pas d'eux-mêmes — une prise écartée,
     une base composée de deux enregistrements. **Elles vont en tête, avant les tableaux** :
@@ -89,8 +97,9 @@ def rendre(mesures: Mesures, *, reserves: Sequence[str] = ()) -> str:
         "",
         "## Ce que le modèle a tenté, et ce qui a fini en repli",
         "",
-        *_tableau_des_couches(mesures),
+        *_tableau_des_couches(mesures, cout),
         "",
+        *_notes_des_couches(cout),
         "### Rejets par origine et par code",
         "",
         *_tableau_des_rejets(mesures),
@@ -205,8 +214,12 @@ def _tableau_des_criteres(mesures: Mesures) -> list[str]:
     )
 
 
-def _tableau_des_couches(mesures: Mesures) -> list[str]:
-    """Les trois lignes sans seuil. Ce sont elles que l'étape 13 fera bouger."""
+def _tableau_des_couches(mesures: Mesures, cout: Cout | None = None) -> list[str]:
+    """Les trois lignes sans seuil. Ce sont elles que l'étape 13 fera bouger.
+
+    La mesure nº7 s'y ajoute en dernier et **porte sa provenance dans sa colonne de
+    droite** : c'est la seule ligne du tableau qui ne soit pas recalculée au rejeu.
+    """
     iterations = mesures.iterations
     return _tableau(
         ("Mesure", "Valeur", "Seuil"),
@@ -248,8 +261,33 @@ def _tableau_des_couches(mesures: Mesures) -> list[str]:
                 f"{mesures.prises_ou_loutil_a_signale_le_budget} sur {len(mesures.prises)}",
                 "publié — **observation, pas exigence**",
             ),
+            *(
+                ()
+                if cout is None
+                else (
+                    (
+                        "Appels au modèle par tour client (mesure nº7)",
+                        cout.en_ligne(),
+                        "publié — **figé à l'enregistrement**, voir la note ci-dessous",
+                    ),
+                )
+            ),
         ),
     )
+
+
+def _notes_des_couches(cout: Cout | None) -> list[str]:
+    """Les deux réserves que ce tableau ne porte pas dans ses colonnes.
+
+    La provenance de la mesure nº7, et le fait qu'`iterations` cesse d'être comparable dès
+    qu'on change d'orchestration. Toutes deux sont écrites **une seule fois** dans le
+    dépôt, à côté de ce qu'elles qualifient — `raiyon.eval.cout` et `raiyon.eval.metriques`.
+    """
+    return [
+        *((PROVENANCE, "") if cout is not None else ()),
+        RESERVE_ITERATIONS,
+        "",
+    ]
 
 
 def _tableau_des_rejets(mesures: Mesures) -> list[str]:

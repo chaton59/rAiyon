@@ -46,9 +46,11 @@ MODULES_PURS = (
     "raiyon.eval.rapport",
     "raiyon.eval.comparaison",
     "raiyon.eval.client",
+    "raiyon.eval.cout",
 )
 """Les quatre du §5, plus `client` — voir la docstring : c'est lui qui fait que `make eval`
-n'a pas besoin de clé."""
+n'a pas besoin de clé — et `cout`, ajouté à l'étape 15 : une dataclass et deux propriétés,
+qui n'importe rien d'autre que `dataclasses`."""
 
 MODULES_SDK = ("raiyon.eval.client_simule",)
 """Il *doit* importer `anthropic` : il joue le client par Haiku. L'y autoriser

@@ -124,6 +124,20 @@ SEUIL_TOP3 = 0.80
 """Critère nº4 : part des scénarios à attendu dont le produit de référence est dans le
 classement rendu."""
 
+RESERVE_ITERATIONS = (
+    "⚠️ **`Itérations` ne se compare pas d'une orchestration à l'autre.** Chez une machine "
+    "à états,\nc'est une **constante** décidée par le graphe, pas un résultat : sa variance "
+    "nulle est une\npropriété connue d'avance, et elle se lirait comme une stabilité gagnée "
+    "si personne ne\nl'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas "
+    "quand le chiffre sortira."
+)
+"""La réserve que `rapport.py` et `comparaison.py` publient à côté d'`iterations`.
+
+Écrite **une fois** et à côté de la mesure qu'elle qualifie, plutôt qu'en deux exemplaires
+dans les deux modules de rendu : une réserve qui existe en double finit par n'être corrigée
+qu'à un seul endroit — le dépôt a déjà payé ce motif deux fois (`erreurs.py`, puis
+`SYSTEME_PAR_DEFAUT` contre `Settings.prompt_systeme`)."""
+
 
 class Attente(StrEnum):
     """Une attente binaire d'un scénario, vérifiable **sur les seuls événements**.
@@ -317,6 +331,9 @@ class MesuresDunePrise:
 
     replis: tuple[MotifDeRepli, ...]
     iterations: tuple[int, ...]
+    """Les itérations de boucle de chaque tour. **Publiée sans seuil, et voir
+    `RESERVE_ITERATIONS`** : c'est une propriété de l'orchestration autant qu'un résultat,
+    et elle cesse d'être comparable dès qu'on change d'orchestration."""
 
     prose_de_domaine: tuple[tuple[int, tuple[str, ...]], ...]
     """La prose livrée sur les tours que le scénario déclare de domaine, par rang de tour.

@@ -23,6 +23,7 @@ def test_valeurs_par_defaut(monkeypatch):
     assert settings.budget_tolerance == 0.15
     assert settings.max_agent_iterations == 8
     assert settings.max_regenerations == 1
+    assert settings.orchestration == "agent"
     assert settings.log_level == "INFO"
     assert settings.app_env == "dev"
     assert settings.database_url.scheme == "postgresql+psycopg"
@@ -82,6 +83,27 @@ def test_budget_tolerance_hors_bornes_est_refuse(monkeypatch):
         get_settings()
 
     assert "budget_tolerance" in str(erreur.value)
+
+
+def test_lorchestration_accepte_ses_deux_valeurs_et_refuse_les_autres(monkeypatch):
+    """Étape 15, jalon 0, point A. **La variable existe et n'est pas encore consommée** :
+    aucune ligne de `session.tour()` ne la lit, parce qu'il n'existe qu'une orchestration
+    au moment où le champ est écrit. Elle donne sa source au champ `orchestration` de
+    l'en-tête de cassette et à la garde de `make eval-enregistrer`, rien de plus.
+
+    `Literal` plutôt qu'un motif comme `prompt_systeme` : les deux valeurs sont **closes**,
+    là où une version de prompt nomme un fichier dont la liste s'allonge.
+    """
+    monkeypatch.setenv("RAIYON_ORCHESTRATION", "machine")
+    assert get_settings().orchestration == "machine"
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("RAIYON_ORCHESTRATION", "graphe")
+
+    with pytest.raises(ValidationError) as erreur:
+        get_settings()
+
+    assert "orchestration" in str(erreur.value)
 
 
 def test_la_cle_ne_fuit_pas_dans_les_representations(monkeypatch):

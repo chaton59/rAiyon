@@ -146,6 +146,25 @@ class EnTete:
     Il existe parce que la campagne v1 de l'étape 13 s'est arrêtée au milieu, crédits
     épuisés, et que personne ne pouvait dire ce qu'elle avait consommé."""
 
+    orchestration: str | None = None
+    """Quelle orchestration a produit cette prise. **Facultatif, et il le reste.**
+
+    `None` sur les soixante-dix-neuf cassettes antérieures à l'étape 15, qui ont toutes
+    été enregistrées par la boucle d'agent. Le traitement est **exactement celui d'`usage`**
+    et pour la même raison : absent n'est pas une erreur, présent mais mal formé est
+    refusé, et `en_json()` omet la clé quand elle vaut `None`.
+
+    ⚠️ **`None` reste `None` ici, et ne devient jamais la chaîne `"agent"`.** C'est la
+    contrainte non négociable du champ, et elle n'est pas esthétique. `make eval-etape12`
+    existe pour échouer le jour où quelqu'un modifie l'archive v1 en place ; un défaut
+    matérialisé dans la dataclass serait **réécrit** au premier aller-retour de
+    sérialisation, et on aurait modifié l'archive en croyant la lire, sans que personne
+    l'ait décidé.
+
+    La lecture « une cassette sans `orchestration` est une cassette d'agent » est donc
+    faite **là où on s'en sert** — la garde d'enregistrement de `scripts/eval.py` —, avec
+    sa date et sa raison, jamais dans cette structure."""
+
 
 @dataclass(frozen=True, slots=True)
 class Prise:
@@ -297,6 +316,14 @@ def en_json(cassette: Cassette) -> str:
                     }
                 }
             ),
+            # Même motif conditionnel que `usage`, et pour la même raison : écrire
+            # `"orchestration": null` sur les cassettes antérieures à l'étape 15 les
+            # modifierait toutes pour une information qu'elles ne portent pas.
+            **(
+                {}
+                if cassette.entete.orchestration is None
+                else {"orchestration": cassette.entete.orchestration}
+            ),
         },
         "prises": [
             {
@@ -353,7 +380,27 @@ def _entete(brut: object) -> EnTete:
         outils_empreinte=str(brut["outils_empreinte"]),
         enregistree_le=str(brut["enregistree_le"]),
         usage=_usage(brut.get("usage")),
+        orchestration=_orchestration(brut.get("orchestration")),
     )
+
+
+def _orchestration(brut: object) -> str | None:
+    """L'orchestration qui a produit la prise, si elle a été enregistrée. **Absent n'est
+    pas une erreur.**
+
+    Même règle que `_usage()` : les cassettes d'avant l'étape 15 n'en portent pas, et les
+    périmer pour cela ferait dépendre leur validité d'une information qui ne décide ni du
+    rejeu, ni des métriques, ni de la péremption. Un champ **présent mais mal formé** est
+    refusé comme le reste.
+
+    ⚠️ **`None` n'est pas remplacé par un défaut ici**, et surtout pas par `"agent"` :
+    voir `EnTete.orchestration`. La valeur absente se lit à l'usage, pas à la lecture.
+    """
+    if brut is None:
+        return None
+    if not isinstance(brut, str):
+        raise CassetteInvalide(f"`orchestration` est présent mais n'est pas une chaîne : {brut!r}.")
+    return brut
 
 
 def _usage(brut: object) -> Usage | None:

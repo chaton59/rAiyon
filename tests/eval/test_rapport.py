@@ -15,7 +15,15 @@ from raiyon.agent.evenements import (
     Texte,
     TexteRejete,
 )
-from raiyon.eval.metriques import Attente, PriseJouee, TourJoue, agreger, mesurer
+from raiyon.eval.cout import Cout
+from raiyon.eval.metriques import (
+    RESERVE_ITERATIONS,
+    Attente,
+    PriseJouee,
+    TourJoue,
+    agreger,
+    mesurer,
+)
 from raiyon.eval.rapport import AVERTISSEMENT, rendre
 from raiyon.matching.criteres import Importance, Operateur
 from raiyon.matching.moteur import ResultatMatching
@@ -400,3 +408,49 @@ def test_le_gras_nest_pas_compte_parce_que_le_front_le_rend():
 
     assert "gras" not in {nom for nom, _ in FORMES_MARKDOWN}
     assert all(compte == 0 for _, compte in formes_markdown(("**très bien**",)))
+
+
+# --------------------------------------------------------------------------- #
+# La mesure nº7 et la réserve sur les itérations — étape 15, jalon 0
+# --------------------------------------------------------------------------- #
+
+
+def test_le_cout_par_tour_est_publie_avec_sa_provenance():
+    """⚠️ **C'est la seule ligne du rapport qui ne vienne pas du rejeu.** Sans la phrase de
+    provenance à côté, elle se lit comme les autres — c'est-à-dire comme un chiffre qui
+    bougera au prochain changement de moteur. Il ne bougera pas : il a été payé une fois."""
+    texte = rendre(
+        mesures_inventees(), cout=Cout(appels=191, prises=36, prises_sans_usage=0, tours=81)
+    )
+
+    assert "Appels au modèle par tour client (mesure nº7)" in texte
+    assert "2.36 appel/tour" in texte
+    assert "ne vient pas du rejeu" in texte
+
+
+def test_un_jeu_dont_une_prise_na_pas_dusage_ne_publie_aucun_chiffre():
+    """`v1-etape12` n'a pas une seule cassette portant `usage` : la ligne dit ce qui manque
+    et se tait sur le reste. Une moyenne sur le sous-ensemble comparerait des tailles
+    d'échantillon avec `v2`."""
+    texte = rendre(
+        mesures_inventees(), cout=Cout(appels=0, prises=18, prises_sans_usage=18, tours=52)
+    )
+
+    assert "non disponible — 18 prise(s) sur 18 sans `usage`" in texte
+    assert "appel/tour" not in texte
+
+
+def test_sans_jeu_la_ligne_nest_pas_ecrite_du_tout():
+    """Un rendu qui ne vient d'aucun jeu enregistré — les tests de ce module — n'invente
+    pas un coût nul. `mesurer_le_jeu()` en fournit toujours un sur le chemin de `make eval`."""
+    texte = rendre(mesures_inventees())
+
+    assert "mesure nº7" not in texte
+    assert "ne vient pas du rejeu" not in texte
+
+
+def test_la_reserve_sur_les_iterations_est_posee_avant_la_campagne():
+    """Chez une machine à états, `iterations` est une **constante** décidée par le graphe.
+    Sa variance nulle se lirait comme une stabilité gagnée si la réserve n'était pas là —
+    et une réserve ajoutée le jour où le chiffre sort n'aurait pas la même valeur."""
+    assert RESERVE_ITERATIONS in rendre(mesures_inventees())

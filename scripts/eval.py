@@ -70,6 +70,7 @@ from raiyon.eval.client_simule import (
     a_termine,
     sans_le_mot_de_fin,
 )
+from raiyon.eval.cout import Cout
 from raiyon.eval.executeur import Reglages, jouer, jouer_un_tour
 from raiyon.eval.metriques import Mesures, MesuresDunePrise, agreger, mesurer, prose_livree
 from raiyon.eval.rapport import rendre
@@ -292,6 +293,74 @@ class DivergenceAttendueAbsente(Exception):
     qui n'existe pas. **La liste affirme ; une liste qui n'affirme plus rien est morte.**"""
 
 
+class OrchestrationMelangee(Exception):
+    """Le jeu visé porte déjà des cassettes d'une **autre** orchestration.
+
+    Un jeu mélangé n'est pas réparable après coup : rien dans un rapport ne dirait que la
+    moitié de ses tours vient d'une machine à états et l'autre d'un agent."""
+
+
+ORCHESTRATION_IMPLICITE = "agent"
+"""Ce que vaut une cassette sans champ `orchestration`, **lu ici et nulle part ailleurs**.
+
+Les soixante-dix-neuf cassettes du dépôt au 3 septembre 2026 sont antérieures à l'étape 15
+et ont toutes été enregistrées par la boucle d'agent : la lecture est vraie, et elle est
+datée. Elle est faite **à l'usage**, jamais dans `EnTete` — un défaut matérialisé dans la
+dataclass serait réécrit au premier aller-retour de sérialisation, et on aurait modifié
+l'archive en croyant la lire (voir `EnTete.orchestration`)."""
+
+
+def verifier_lorchestration(repertoire: Path, nom_du_jeu: str, orchestration: str) -> None:
+    """Refuse d'enregistrer dans un jeu qui porte déjà une autre orchestration.
+
+    ### Ce que la garde protège
+
+    Les **réenregistrements** et les campagnes partielles (`SCENARIO=`), c'est-à-dire
+    exactement les endroits où la variable se rate. Le Makefile porte déjà l'avertissement
+    jumeau pour `RAIYON_PROMPT_SYSTEME` — « sans elle, une campagne v2 écrirait dans
+    `evals/cassettes/systeme.v1/` » — et c'est le même mode d'échec, à ceci près qu'il
+    produirait un jeu dont **aucun rapport ne dirait** qu'il est mélangé.
+
+    ### ⚠️ Ce qu'elle ne protège pas — la **première** campagne d'un jeu
+
+    Le répertoire est vide, il n'y a rien à comparer, la garde ne tire pas. Et c'est
+    l'enregistrement le plus cher du projet, donc le plus coûteux à repartir avec la
+    mauvaise variable.
+
+    Ce qui couvre ce cas-là est le **tir d'essai** du jalon 4 — douze appels sur
+    `hors_catalogue` seul, dont la porte de sortie vérifie que l'en-tête produit porte bien
+    `orchestration: machine`. Les deux mécanismes sont **complémentaires** : personne ne
+    doit croire cette garde plus large qu'elle n'est et sauter le tir d'essai en s'appuyant
+    dessus.
+    """
+    presentes: dict[str, list[str]] = {}
+    for chemin in sorted(repertoire.glob("*.json")):
+        entete = depuis_json(chemin.read_text(encoding="utf-8")).entete
+        valeur = entete.orchestration or ORCHESTRATION_IMPLICITE
+        presentes.setdefault(valeur, []).append(chemin.name)
+
+    etrangeres = {valeur: noms for valeur, noms in presentes.items() if valeur != orchestration}
+    if not etrangeres:
+        return
+
+    detail = "\n".join(
+        f"  - {valeur} : {len(noms)} cassette(s) — {', '.join(noms[:3])}"
+        + (", …" if len(noms) > 3 else "")
+        for valeur, noms in sorted(etrangeres.items())
+    )
+    raise OrchestrationMelangee(
+        f"le jeu {nom_du_jeu} porte déjà des cassettes d'une autre orchestration que "
+        f"{orchestration!r} :\n"
+        f"{detail}\n\n"
+        "Un jeu qui mélange deux orchestrations ne se répare pas après coup : aucun "
+        "rapport ne dirait\nd'où vient chacun de ses tours.\n\n"
+        f"Enregistrer sous l'orchestration du jeu :\n"
+        f"    RAIYON_ORCHESTRATION={sorted(etrangeres)[0]} make eval-enregistrer\n"
+        f"ou viser un autre jeu :\n"
+        f"    RAIYON_ORCHESTRATION={orchestration} make eval-enregistrer JEU=<autre nom>"
+    )
+
+
 def main() -> int:
     analyseur = argparse.ArgumentParser(description=__doc__)
     sous = analyseur.add_subparsers(dest="mode", required=True)
@@ -352,6 +421,7 @@ def main() -> int:
         ScenarioInconnu,
         CassetteAbsente,
         DivergenceAttendueAbsente,
+        OrchestrationMelangee,
     ) as erreur:
         print(f"\n⛔ {erreur}\n", file=sys.stderr)
         return 1
@@ -448,13 +518,18 @@ def mesurer_le_jeu(
     reglages: Reglages,
     prompt: SystemeEnVigueur,
     empreinte_outils: str,
-) -> Mesures:
-    """Rejoue les prises d'un jeu et rend l'agrégat. **Aucune écriture.**
+) -> tuple[Mesures, Cout]:
+    """Rejoue les prises d'un jeu et rend l'agrégat **et son coût**. Aucune écriture.
 
     Extrait de `_rejouer` pour que `comparer` puisse en faire tourner deux dans le même
     processus : sans cela, la comparaison des trois jalons se recomposerait à la main, à
     partir de deux fichiers markdown, ce qui est exactement le genre de geste qu'une
     campagne à trente-six prises ne mérite pas.
+
+    ⚠️ **Le coût sort à côté de l'agrégat, pas dedans** — voir `raiyon.eval.cout` : tout ce
+    que porte `Mesures` est recalculé à ce rejeu, le coût est lu dans l'en-tête et figé à
+    l'enregistrement. Il n'y a aucune plomberie à inventer pour le collecter : la boucle
+    ci-dessous a déjà l'en-tête sous la main, puisqu'elle lit chaque cassette.
     """
     print(f"jeu {jeu.nom} — prompt {prompt.version} ({prompt.empreinte}), {len(prises)} prise(s)")
     if jeu.compose:
@@ -462,6 +537,8 @@ def mesurer_le_jeu(
     fabrique = get_sessionmaker()
     mesures: list[MesuresDunePrise] = []
     divergences_vues: set[tuple[str, str, int]] = set()
+    appels = 0
+    sans_usage = 0
 
     for scenario, prise in prises:
         chemin = jeu.chemin(scenario.nom, prise)
@@ -506,10 +583,23 @@ def mesurer_le_jeu(
                 f"{len(cassette.prises)} — la conversation rejouée est plus courte."
             )
         mesures.append(mesurer(jouee))
+        # Le coût se compte **ici**, après le rejeu réussi, et non sur les fichiers du
+        # répertoire : une prise écartée pour divergence attendue ne compte ni ses appels
+        # ni ses tours. Numérateur et dénominateur décrivent ainsi le même tirage.
+        if cassette.entete.usage is None:
+            sans_usage += 1
+        else:
+            appels += cassette.entete.usage.appels
         print(f"  · {scenario.nom}.{prise}")
 
     _verifier_les_divergences_attendues(jeu, prises, divergences_vues)
-    return agreger(mesures)
+    agregat = agreger(mesures)
+    return agregat, Cout(
+        appels=appels,
+        prises=len(mesures),
+        prises_sans_usage=sans_usage,
+        tours=agregat.tours,
+    )
 
 
 def reserves_du_jeu(jeu: Jeu, prises: Sequence[tuple[Scenario, int]]) -> tuple[str, ...]:
@@ -670,8 +760,8 @@ def _rejouer(nom: str | None = None, jeu_nomme: str | None = None) -> int:
             )
         )
 
-    agregat = mesurer_le_jeu(jeu, prises, reglages, prompt, empreinte_outils)
-    texte = rendre(agregat, reserves=reserves_du_jeu(jeu, prises))
+    agregat, cout = mesurer_le_jeu(jeu, prises, reglages, prompt, empreinte_outils)
+    texte = rendre(agregat, reserves=reserves_du_jeu(jeu, prises), cout=cout)
     if nom is not None:
         print(f"\n(rapport partiel — {jeu.rapport.relative_to(RACINE)} n'est pas réécrit)\n")
     elif partiel := _prises_manquantes(jeu, prises):
@@ -707,13 +797,17 @@ def _enregistrer(nom: str | None, jeu_nomme: str | None = None) -> int:
     scenarios = SCENARIOS if nom is None else (par_nom(nom),)
     reglages, prompt, empreinte_outils = _reglages()
     jeu = jeu_en_vigueur(jeu_nomme, prompt.version)
+    orchestration = get_settings().orchestration
+    # ⚠️ **Avant le premier appel API**, et non après : la garde existe pour éviter de
+    # payer une campagne qui atterrirait dans un jeu mélangé.
+    verifier_lorchestration(jeu.cassettes, jeu.nom, orchestration)
     reel = ClientAnthropic()
     fabrique = get_sessionmaker()
     date = dt.date.today().isoformat()
     jeu.cassettes.mkdir(parents=True, exist_ok=True)
     print(
         f"jeu {jeu.nom} → {jeu.cassettes.relative_to(RACINE)} — "
-        f"prompt {prompt.version} ({prompt.empreinte})"
+        f"prompt {prompt.version} ({prompt.empreinte}), orchestration {orchestration}"
     )
 
     total = USAGE_NUL
@@ -742,6 +836,7 @@ def _enregistrer(nom: str | None, jeu_nomme: str | None = None) -> int:
                 prompt_empreinte=prompt.empreinte,
                 outils_empreinte=empreinte_outils,
                 enregistree_le=date,
+                orchestration=orchestration,
             )
         )
         chemin = jeu.chemin(scenario.nom, prise)
@@ -787,6 +882,7 @@ def _comparer(avant: str, apres: str, question: str) -> int:
     """
     jeux = [_jeu_nomme(avant), _jeu_nomme(apres)]
     agregats = []
+    couts: list[Cout] = []
     reserves: list[str] = []
     for jeu in jeux:
         prises = prises_du_jeu(jeu)
@@ -798,7 +894,9 @@ def _comparer(avant: str, apres: str, question: str) -> int:
             )
         prompt = systeme_du_jeu(jeu)
         reglages, _, empreinte_outils = _reglages_pour(prompt)
-        agregats.append(mesurer_le_jeu(jeu, prises, reglages, prompt, empreinte_outils))
+        agregat, cout = mesurer_le_jeu(jeu, prises, reglages, prompt, empreinte_outils)
+        agregats.append(agregat)
+        couts.append(cout)
 
     # Chaque jeu est rejoué **en entier**, puis réduit à l'intersection. L'ordre compte :
     # la réserve d'échantillon se chiffre sur la référence complète — « les prises
@@ -818,6 +916,8 @@ def _comparer(avant: str, apres: str, question: str) -> int:
         question=question,
         couverture=couverture,
         reserves=tuple(reserves),
+        cout_avant=couts[0],
+        cout_apres=couts[1],
     )
     chemin = RAPPORTS / f"comparaison.{jeux[0].nom}-{jeux[1].nom}.md"
     chemin.parent.mkdir(parents=True, exist_ok=True)

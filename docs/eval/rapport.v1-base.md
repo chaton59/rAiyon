@@ -45,6 +45,16 @@
 | Questions posées avant la première valeur | médiane 0.0 sur 23 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
 | Règles du validateur jamais déclenchées | 4 sur 6 : `id_inconnu`, `prix_etranger_au_produit`, `nom_reecrit`, `valeur_non_fournie` | publié — voir `tests/validateur/test_pieges.py` |
 | Prises où `suggest_next_question` a signalé le budget manquant | 3 sur 31 | publié — **observation, pas exigence** |
+| Appels au modèle par tour client (mesure nº7) | non disponible — 28 prise(s) sur 31 sans `usage` | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+
+⚠️ **La mesure nº7 ne vient pas du rejeu.** C'est la seule ligne de ce fichier qui soit lue
+dans l'en-tête des cassettes plutôt que recalculée : elle est **figée à l'enregistrement** et ne
+bougera pas quand le moteur, le scoring ou le validateur changeront. Les autres chiffres, si.
+
+⚠️ **`Itérations` ne se compare pas d'une orchestration à l'autre.** Chez une machine à états,
+c'est une **constante** décidée par le graphe, pas un résultat : sa variance nulle est une
+propriété connue d'avance, et elle se lirait comme une stabilité gagnée si personne ne
+l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas quand le chiffre sortira.
 
 ### Rejets par origine et par code
 

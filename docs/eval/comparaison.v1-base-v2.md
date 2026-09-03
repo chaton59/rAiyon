@@ -60,6 +60,29 @@ des tailles d'échantillon.
 | Itérations | 60.33 | 57.50 | -2.83 | ± 14.00 | dans le bruit | stable |
 | Tours avant la première valeur (nº3) | 14.00 | 12.67 | -1.33 | ± 9.00 | dans le bruit | stable |
 
+⚠️ **`Itérations` ne se compare pas d'une orchestration à l'autre.** Chez une machine à états,
+c'est une **constante** décidée par le graphe, pas un résultat : sa variance nulle est une
+propriété connue d'avance, et elle se lirait comme une stabilité gagnée si personne ne
+l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas quand le chiffre sortira.
+
+## Le coût d'enregistrement
+
+| Mesure | v1-base | v2 | Écart |
+|---|---|---|---|
+| Appels au modèle par tour client (nº7) | non disponible — 28 prise(s) sur 31 sans `usage` | 191 appel(s) sur 81 tour(s) — 2.36 appel/tour | non calculable — voir les deux cellules |
+
+⚠️ **La mesure nº7 ne vient pas du rejeu.** C'est la seule ligne de ce fichier qui soit lue
+dans l'en-tête des cassettes plutôt que recalculée : elle est **figée à l'enregistrement** et ne
+bougera pas quand le moteur, le scoring ou le validateur changeront. Les autres chiffres, si.
+
+⚠️ **Cette ligne ne porte pas de verdict**, contrairement à toutes celles du tableau
+précédent. La dispersion qui les départage est celle des prises d'un rejeu ; ce coût-ci
+a été payé une fois, à l'enregistrement, et n'en a aucune. L'écart lui-même n'est pas calculé ici.
+
+⚠️ **Elle décrit chaque jeu entier**, et non l'intersection sur laquelle portent les
+tableaux ci-dessus : le coût se lit dans les en-têtes de cassettes, qui ne se réduisent
+pas aux scénarios communs.
+
 ## Les critères, des deux côtés
 
 | Critère | v1-base | v2 |

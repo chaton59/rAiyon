@@ -979,6 +979,30 @@ Mesurés par le harnais d'éval, publiés en tableau dans le README.
 Les critères 1, 2, 5 et 6 sont binaires et bloquants. Les 3 et 4 sont des
 métriques de qualité que l'on suit et que l'on cherche à améliorer.
 
+### La mesure nº7 — le coût par tour. **Ce n'est pas un critère d'acceptation.**
+
+Ajoutée au jalon 0 de l'étape 15 : la somme des appels au modèle enregistrés dans
+l'en-tête des cassettes d'un jeu, divisée par ses tours client (`Mesures.tours`). Sur la
+campagne v2 : **191 appels pour 81 tours, soit 2,36 appel par tour**.
+
+Elle n'a **pas de seuil**, et n'en aura pas. Elle ne dit pas qu'une orchestration est
+bonne ; elle dit ce qu'elle coûte. C'est une propriété réelle qu'aucun des six critères
+ne capture, et c'est précisément ce qui la rend utile pour comparer un agent à une machine
+à états — mais un seuil en ferait une cible, et la façon la moins chère de tenir une cible
+de coût est de moins appeler le modèle, ce qui n'est pas un progrès.
+
+⚠️ **Elle n'a pas la même provenance que les six autres.** Tout ce que mesure le harnais
+est **recalculé à chaque rejeu** par le vrai moteur (arbitrage A de l'étape 12) ; ce
+chiffre-là est **figé à l'enregistrement** et ne bougera plus. Le rapport et la
+comparaison l'écrivent à côté du nombre, et il vit dans son propre module — voir
+`raiyon/eval/cout.py`.
+
+Publiée **tout ou rien** : si une seule prise du jeu ne porte pas d'`usage`, aucun chiffre
+n'est publié et la ligne dit combien en manquent. Les dix-neuf cassettes de l'étape 12 et
+les vingt et une de la campagne v1 interrompue sont antérieures au champ ; une moyenne
+calculée sur les trois prises restantes de `v1-base` et comparée aux trente-six de `v2`
+comparerait des tailles d'échantillon.
+
 ---
 
 ## 5. Plan d'exécution
@@ -3706,12 +3730,81 @@ C'est la seule vérification qui compte pour un portfolio.
 
 ---
 
-### Étape 15 — Extensions, si l'envie est là
+### Étape 15 — La variante machine à états ⏳ *en cours*
+
+Une **deuxième orchestration**, mise en concurrence avec l'agent sur les mêmes scénarios,
+les mêmes cassettes-sœurs et le même tableau de métriques. Elle ne remplace pas l'agent :
+les deux restent lançables et mesurables après l'étape.
+
+#### Ce qui rend l'étape possible — une propriété **rétrospective**, pas une intention
+
+Le harnais d'éval est agnostique à l'orchestration, et **personne ne l'a conçu pour ça.**
+`raiyon/eval/executeur.py` ne connaît que la signature de `session.tour()` —
+`Generator[Evenement, None, IssueDuTour]` — et tout ce que `metriques.py` mesure se dérive
+de deux choses : la suite d'`Evenement` et les `messages` persistés. **Aucune mesure ne lit
+`boucle.py`.**
+
+La propriété vient de ce que trois consommateurs indépendants — la console de l'étape 8, le
+fil SSE de l'étape 10, l'exécuteur d'éval de l'étape 12 — ont été écrits contre un **même
+générateur**, chacun pour sa propre raison. Aucun des trois n'a été écrit en pensant à une
+seconde orchestration.
+
+⚠️ **On s'en aperçoit à l'étape 15 ; on ne l'avait pas prévu.** La distinction n'est pas de
+la modestie de façade : ce dépôt a déjà relu plusieurs de ses choix comme s'ils avaient été
+prémédités, et c'est exactement ce qu'il ne faut pas ajouter. Une contrainte tenue par
+discipline sur trois étapes a produit un effet qu'on découvre après coup — c'est une bonne
+nouvelle, et elle se raconte comme telle.
+
+#### Jalon 0 — l'instrument, et aucun modèle n'est appelé ✅
+
+Le harnais est modifié **avant** que quoi que ce soit d'autre bouge, et la neutralité de la
+modification est vérifiée sur les trois rapports committés. Motif repris du jalon 0 de
+l'étape 13, parce qu'il a fonctionné.
+
+- `RAIYON_ORCHESTRATION` (`agent` | `machine`, défaut `agent`) dans `config.py`, **déclarée
+  et pas encore consommée** : `session.tour()` ne bascule sur rien, il n'existe qu'une
+  orchestration. Elle donne sa source à l'en-tête de cassette et à la garde ci-dessous ;
+  c'est écrit dans le commentaire du champ, sans quoi un relecteur y verrait un branchement
+  oublié.
+- `EnTete.orchestration`, optionnel, **traité exactement comme `usage`** : absent n'est pas
+  une erreur, présent mais mal formé est refusé, et `en_json()` omet la clé quand elle vaut
+  `None`. ⚠️ **`None` ne devient jamais `"agent"` dans la dataclass** — un défaut
+  matérialisé là serait réécrit au premier aller-retour de sérialisation, et `make
+  eval-etape12` constaterait une archive modifiée que personne n'a décidé de modifier. La
+  lecture « une cassette sans champ vient d'un agent » est vraie et datée ; elle est faite
+  **à l'usage**, dans `scripts/eval.py`.
+- Une **garde de contamination** à l'enregistrement : `enregistrer` refuse d'écrire dans un
+  jeu qui porte déjà une autre orchestration, et le message donne la commande à taper.
+  ⚠️ Elle ne couvre **pas** la première campagne d'un jeu — répertoire vide, rien à
+  comparer — et c'est justement l'enregistrement le plus cher. Ce qui couvre ce cas est le
+  tir d'essai du jalon 4 ; les deux mécanismes sont complémentaires.
+- La **mesure nº7** (§4) et la réserve sur `iterations` : chez une machine à états, le
+  nombre d'itérations est une **constante** décidée par le graphe, pas un résultat. Sa
+  variance nulle se lirait comme une stabilité gagnée. La réserve est posée **avant** la
+  campagne, pas quand le chiffre sortira.
+- Confirmé sans rien écrire : `systeme.machine.v1` satisfait le motif de
+  `Settings.prompt_systeme`, et `jeu_en_vigueur` en dérive le jeu `machine.v1`, les
+  cassettes `evals/cassettes/systeme.machine.v1/` et le rapport
+  `docs/eval/rapport.machine.v1.md`. **L'axe d'identité des cassettes reste la version de
+  prompt**, la machine se désigne par la sienne, et aucune ligne de `scripts/eval.py` ne
+  change.
+
+**Porte de sortie franchie :** `make check` vert à 926, les trois rapports et les deux
+comparaisons rejoués **sans `ANTHROPIC_API_KEY`** — c'est la propriété que `eval/client.py`
+achète, et l'`unset` la vérifie au lieu de la supposer. **Zéro fichier touché sous
+`evals/cassettes/`**, et les cinq documents d'éval modifiés **par pur ajout, sans une seule
+suppression** : aucun chiffre existant n'a bougé, ce que le jalon existait pour prouver.
+
+#### Reste à faire
+
+- Jalons 1 et 2 — la machine à états elle-même, puis son branchement.
+- Jalon 3 — la dérivation de `systeme.machine.v1.md` et la note de double application.
+- Jalon 4 — tir d'essai, campagne, comparaison `v2` contre `machine.v1`.
+
+#### Hors de cette étape
 
 - Recherche hybride avec `pgvector`, en respectant la règle « départager, jamais
   justifier ».
-- Variante machine à états, comparée à l'agent sur les mêmes scénarios et le même
-  tableau de métriques. Ce serait le contenu le plus intéressant du projet.
 
 ---
 

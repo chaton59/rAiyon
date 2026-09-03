@@ -122,6 +122,24 @@ class Settings(BaseSettings):
         default=PROMPT_SYSTEME_PAR_DEFAUT, pattern=r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
     )
 
+    # Orchestration en vigueur — étape 15. `agent` est la boucle d'outils de l'étape 8
+    # (§3.6) ; `machine` désignera la variante machine à états, mise en concurrence avec
+    # elle sur les mêmes scénarios et le même tableau de métriques.
+    #
+    # ⚠️ **Le jalon 0 de l'étape 15 ajoute la variable et ne la consomme pas encore.**
+    # `session.tour()` ne bascule sur rien, et c'est normal : il n'existe qu'une
+    # orchestration au moment où ce champ est écrit. Il existe pour deux raisons, toutes
+    # deux extérieures à la boucle — donner une source au champ `orchestration` de
+    # l'en-tête de cassette, et éviter que le jalon qui écrira l'orchestrateur ait à
+    # toucher `config.py` en même temps qu'il écrit du code d'exécution.
+    #
+    # Sans cette phrase, un relecteur qui cherche le `if` correspondant conclurait à un
+    # branchement oublié.
+    #
+    # `Literal` plutôt qu'un motif : les deux valeurs sont **closes**, contrairement à
+    # `prompt_systeme` qui nomme un fichier dont la liste s'allonge.
+    orchestration: Literal["agent", "machine"] = "agent"
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     app_env: Literal["dev", "test", "prod"] = "dev"
 

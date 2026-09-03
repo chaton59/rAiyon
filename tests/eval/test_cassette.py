@@ -394,3 +394,57 @@ def test_lusage_ne_perime_pas_une_cassette():
         prompt_empreinte="aaaaaaaaaaaa",
         outils_empreinte="bbbbbbbbbbbb",
     )
+
+
+# --------------------------------------------------------------------------- #
+# L'orchestration — étape 15, jalon 0, point B
+# --------------------------------------------------------------------------- #
+
+
+def test_lorchestration_fait_laller_retour_quand_elle_est_renseignee():
+    """Le champ suit le précédent d'`usage` : écrit s'il vaut quelque chose, relu tel quel."""
+    cassette = Cassette(entete=entete(orchestration="machine"), prises=())
+
+    assert depuis_json(en_json(cassette)).entete.orchestration == "machine"
+
+
+def test_une_cassette_sans_orchestration_reste_a_none_et_nest_pas_ecrite():
+    """⚠️ **La contrainte non négociable du champ, et elle a une raison écrite.**
+
+    `make eval-etape12` existe pour échouer le jour où quelqu'un modifie l'archive v1 en
+    place. Si `None` se matérialisait en `"agent"` dans la dataclass, le premier
+    aller-retour de sérialisation **réécrirait** les dix-neuf cassettes de l'étape 12 — on
+    aurait modifié l'archive en croyant la lire, sans que personne l'ait décidé.
+
+    La lecture « une cassette sans champ est une cassette d'agent » est vraie, mais elle se
+    fait **à l'usage** (`ORCHESTRATION_IMPLICITE`, dans `scripts/eval.py`), jamais ici.
+    """
+    cassette = Cassette(entete=entete(), prises=())
+    texte = en_json(cassette)
+
+    assert "orchestration" not in texte, "un champ absent ne s'écrit pas à `null`"
+    assert depuis_json(texte).entete.orchestration is None
+
+
+def test_une_orchestration_presente_mais_mal_formee_est_refusee():
+    """Absent n'est pas une erreur ; **mal formé en est une** — la règle du format."""
+    charge = json.loads(en_json(Cassette(entete=entete(), prises=())))
+    charge["entete"]["orchestration"] = {"nom": "machine"}
+
+    with pytest.raises(CassetteInvalide) as erreur:
+        depuis_json(json.dumps(charge))
+
+    assert "orchestration" in str(erreur.value)
+
+
+def test_lorchestration_ne_perime_pas_une_cassette():
+    """Elle n'est pas une quatrième empreinte : ce qui périme une cassette est ce qui
+    décide de la réponse du modèle — le prompt, le schéma d'outils. Une machine à états
+    rejouée contre les cassettes d'un agent divergerait sur l'**empreinte de requête**, et
+    c'est le contrôle qui doit le dire, avec le tour concerné."""
+    verifier(
+        Cassette(entete=entete(orchestration="machine"), prises=()),
+        prompt_version="systeme.v1",
+        prompt_empreinte="aaaaaaaaaaaa",
+        outils_empreinte="bbbbbbbbbbbb",
+    )

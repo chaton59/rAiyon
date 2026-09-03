@@ -46,7 +46,8 @@ import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from raiyon.eval.metriques import Mesures, MesuresDunePrise, agreger
+from raiyon.eval.cout import PROVENANCE, Cout
+from raiyon.eval.metriques import RESERVE_ITERATIONS, Mesures, MesuresDunePrise, agreger
 
 SIGNAL = "au-delà"
 BRUIT = "dans le bruit"
@@ -342,6 +343,8 @@ def rendre(
     question: str,
     couverture: Couverture | None = None,
     reserves: Sequence[str] = (),
+    cout_avant: Cout | None = None,
+    cout_apres: Cout | None = None,
 ) -> str:
     """La comparaison entière, en markdown. Stable octet pour octet, comme le rapport.
 
@@ -349,6 +352,10 @@ def rendre(
     dérive du modèle », « l'effet de la cible 1 ». Elle est **écrite dans le fichier**
     parce que trois comparaisons presque identiques cohabiteront dans `docs/eval/`, et que
     celle qui ne dit pas ce qu'elle mesure sera lue comme celle d'à côté.
+
+    Les deux coûts portent la **mesure nº7**, hors du tableau des écarts et sans verdict —
+    voir `_le_cout()`. `None` des deux côtés veut dire que ce rendu ne vient d'aucun jeu
+    enregistré, et la section n'est alors pas écrite.
     """
     lignes = [
         f"# Comparaison {nom_avant} → {nom_apres}",
@@ -385,6 +392,9 @@ def rendre(
             ],
         ),
         "",
+        RESERVE_ITERATIONS,
+        "",
+        *_le_cout(cout_avant, cout_apres, nom_avant, nom_apres),
         "## Les critères, des deux côtés",
         "",
         *_tableau(
@@ -436,6 +446,69 @@ def rendre(
         "se lisent en ouvrant les rapports, pas en lisant ce tableau.",
     ]
     return "\n".join(lignes).rstrip("\n") + "\n"
+
+
+def _le_cout(
+    avant: Cout | None,
+    apres: Cout | None,
+    nom_avant: str,
+    nom_apres: str,
+) -> list[str]:
+    """La mesure nº7, **hors du tableau des écarts et sans verdict**.
+
+    Hors du tableau parce que la colonne « Verdict » y est calculée depuis la dispersion
+    des prises, et qu'un coût **figé à l'enregistrement** n'a pas de dispersion : il a été
+    payé une fois, il ne sera pas retiré. Un « au-delà du bruit » calculé dessus serait un
+    verdict sur une grandeur qui n'a pas de bruit — c'est-à-dire faux, et faux avec l'air
+    d'un résultat.
+
+    L'écart n'est publié que si les **deux** jeux portent un coût publiable. Sinon les deux
+    cellules disent ce qui manque, et la colonne d'écart reste vide : une différence entre
+    un chiffre complet et un chiffre partiel comparerait deux tailles d'échantillon.
+
+    ⚠️ **Et il décrit chaque jeu entier, pas l'intersection comparée au-dessus.** Les
+    tableaux précédents sont réduits aux scénarios communs (voir `couvrir()`), le coût ne
+    l'est pas : il se lit dans des en-têtes de cassettes, et rien dans `Mesures` ne porte
+    les appels prise par prise pour les y réduire. La note le dit dans le fichier, parce
+    qu'un lecteur suppose sinon la même population partout — et sur `v1-etape12` contre
+    `v1-partielle`, trois scénarios séparent les deux.
+    """
+    if avant is None or apres is None:
+        return []
+    par_tour_avant, par_tour_apres = avant.par_tour, apres.par_tour
+    calculable = par_tour_avant is not None and par_tour_apres is not None
+    ecart = (
+        f"{par_tour_apres - par_tour_avant:+.2f} appel/tour"
+        if par_tour_avant is not None and par_tour_apres is not None
+        else "non calculable — voir les deux cellules"
+    )
+    return [
+        "## Le coût d'enregistrement",
+        "",
+        *_tableau(
+            ("Mesure", f"{nom_avant}", f"{nom_apres}", "Écart"),
+            [
+                (
+                    "Appels au modèle par tour client (nº7)",
+                    avant.en_ligne(),
+                    apres.en_ligne(),
+                    ecart,
+                )
+            ],
+        ),
+        "",
+        PROVENANCE,
+        "",
+        "⚠️ **Cette ligne ne porte pas de verdict**, contrairement à toutes celles du tableau",
+        "précédent. La dispersion qui les départage est celle des prises d'un rejeu ; ce coût-ci",
+        "a été payé une fois, à l'enregistrement, et n'en a aucune."
+        + ("" if calculable else " L'écart lui-même n'est pas calculé ici."),
+        "",
+        "⚠️ **Elle décrit chaque jeu entier**, et non l'intersection sur laquelle portent les",
+        "tableaux ci-dessus : le coût se lit dans les en-têtes de cassettes, qui ne se réduisent",
+        "pas aux scénarios communs.",
+        "",
+    ]
 
 
 def _reserves(reserves: Sequence[str]) -> list[str]:

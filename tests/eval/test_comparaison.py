@@ -24,7 +24,8 @@ from raiyon.eval.comparaison import (
     scenarios_a_une_prise,
     valeur_par_passe,
 )
-from raiyon.eval.metriques import PriseJouee, TourJoue, agreger, mesurer
+from raiyon.eval.cout import Cout
+from raiyon.eval.metriques import RESERVE_ITERATIONS, PriseJouee, TourJoue, agreger, mesurer
 from raiyon.validateur.regles import CodeGrief, Grief
 from raiyon.validateur.validateur import OrigineRejet
 
@@ -374,3 +375,60 @@ def test_une_moyenne_par_scenario_ne_laisse_pas_un_scenario_peser_plus_que_les_a
     six = campagne(*[("a", numero, 3) for numero in range(1, 7)], ("b", 1, 0))
 
     assert valeur_par_passe(trois, REJETS) == valeur_par_passe(six, REJETS) == 3.0
+
+
+# --------------------------------------------------------------------------- #
+# Le coût d'enregistrement — étape 15, jalon 0, point D
+# --------------------------------------------------------------------------- #
+
+
+def test_le_cout_se_compare_mais_ne_recoit_aucun_verdict():
+    """⚠️ **La raison est dans la grandeur elle-même.** La colonne « Verdict » du tableau
+    des écarts se calcule depuis la dispersion des prises d'un rejeu ; un coût figé à
+    l'enregistrement n'en a aucune — il a été payé une fois, il ne sera pas retiré. Un
+    « au-delà du bruit » calculé dessus serait faux avec l'air d'un résultat."""
+    mesures = campagne(("a", 1, 1), ("a", 2, 1))
+    texte = rendre(
+        mesures,
+        mesures,
+        nom_avant="v1",
+        nom_apres="v2",
+        question="?",
+        cout_avant=Cout(appels=150, prises=36, prises_sans_usage=0, tours=100),
+        cout_apres=Cout(appels=191, prises=36, prises_sans_usage=0, tours=102),
+    )
+
+    assert "## Le coût d'enregistrement" in texte
+    assert "+0.37 appel/tour" in texte
+    assert "ne porte pas de verdict" in texte
+
+    coeur = texte.split("## Le coût d'enregistrement")[1].split("## Les critères")[0]
+    assert SIGNAL not in coeur and BRUIT not in coeur
+
+
+def test_un_cote_sans_usage_supprime_lecart_et_le_dit_des_deux_cotes():
+    """`v1-base` porte 3 prises avec `usage` sur 31, `v2` les 36 siennes. Publier un écart
+    entre les deux comparerait des tailles d'échantillon."""
+    mesures = campagne(("a", 1, 1), ("a", 2, 1))
+    texte = rendre(
+        mesures,
+        mesures,
+        nom_avant="v1-base",
+        nom_apres="v2",
+        question="?",
+        cout_avant=Cout(appels=18, prises=31, prises_sans_usage=28, tours=95),
+        cout_apres=Cout(appels=191, prises=36, prises_sans_usage=0, tours=102),
+    )
+
+    assert "non disponible — 28 prise(s) sur 31 sans `usage`" in texte
+    assert "non calculable" in texte
+
+
+def test_la_reserve_sur_les_iterations_accompagne_le_tableau_des_ecarts():
+    """`Itérations` est l'un des six compteurs comparés, et c'est celui qui cessera d'être
+    comparable dès que l'étape 15 mettra deux orchestrations côte à côte."""
+    mesures = campagne(("a", 1, 1), ("a", 2, 1))
+
+    assert RESERVE_ITERATIONS in rendre(
+        mesures, mesures, nom_avant="v1", nom_apres="v2", question="?"
+    )
