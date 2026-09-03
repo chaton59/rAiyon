@@ -16,6 +16,7 @@ from raiyon.validateur.extraction import (
     identifiants,
     jetons,
     montants,
+    nombres,
     phrases,
     ressemble,
     sans_les_noms,
@@ -85,6 +86,57 @@ def test_un_texte_qui_nest_pas_un_nombre_rend_none():
 def test_la_forme_canonique_ecrit_un_meme_nombre_dune_seule_facon(valeur, attendu):
     """`Decimal.normalize()` seul rendrait `2E+1` pour 20 — l'index deviendrait faux."""
     assert canonique(Decimal(valeur)) == attendu
+
+
+# --- Les six formes du correctif de l'étape 17 ------------------------------ #
+#
+# `NOMBRE` traitait l'espace comme un séparateur de milliers sans regarder ce qui
+# précédait : « 1920x1080 180 Hz » se lisait **1 080 180 Hz**, et la règle 5 levait un
+# `valeur_non_fournie` sur une phrase exacte. Ces six formes ont servi à valider la
+# rédaction du correctif avant qu'elle soit écrite au §7 ; elles sont ici pour la rendre
+# opposable. Les quatre premières sont la non-régression, les deux suivantes le défaut.
+#
+# ⚠️ **Ces six-là ne suffisent pas, et c'est ce que l'étape 17 a découvert** : elles
+# lisent le motif **nu**, où le défaut se répare avec la seule alternance. Le septième
+# test est dans la section « Valeurs unitaires » — il lit un motif **composé**, et c'est
+# le seul qui aurait attrapé le faux positif.
+
+
+def test_un_millier_separe_par_une_espace_reste_un_seul_nombre():
+    r"""`1 299,99` est un prix, pas `1` suivi de `299,99`. C'est ce que le `*` achetait,
+    et ce que la rédaction évidente `\d{1,3}(?:[ESPACES]\d{3})*` aurait perdu."""
+    assert nombres("1 299,99") == (Decimal("1299.99"),)
+
+
+def test_un_entier_de_quatre_chiffres_reste_entier():
+    r"""`9333` est une valeur du catalogue. Sous `\d{1,3}(?:…)*` elle se lirait `933`
+    puis `3` — deux nombres qu'aucune prose n'a écrits."""
+    assert nombres("9333") == (Decimal("9333"),)
+
+
+def test_un_decimal_ne_se_coupe_pas_sur_son_point():
+    assert nombres("417.14") == (Decimal("417.14"),)
+
+
+def test_un_entier_court_se_lit_seul():
+    assert nombres("144") == (Decimal("144"),)
+
+
+def test_une_resolution_collee_a_une_frequence_fait_trois_nombres():
+    """**Le défaut corrigé.** Deux des six griefs de la campagne v2 venaient de là
+    (`categorie_efface_budget.3`) : le validateur réclamait `1 080 180 Hz` au catalogue."""
+    assert nombres("en 1920x1080 180 Hz") == (
+        Decimal("1920"),
+        Decimal("1080"),
+        Decimal("180"),
+    )
+
+
+def test_deux_nombres_de_quatre_chiffres_cote_a_cote_restent_deux():
+    r"""La forme nue du défaut, sans la résolution autour : un séparateur de milliers ne
+    suit jamais un groupe de quatre chiffres. Sous `\d{1,3}(?:…)*` on lirait `108` puis
+    `0 180`."""
+    assert nombres("1080 180") == (Decimal("1080"), Decimal("180"))
 
 
 # --------------------------------------------------------------------------- #
@@ -158,6 +210,19 @@ def test_un_nombre_suivi_dune_unite_est_lu_avec_son_unite():
 def test_une_unite_collee_a_un_mot_nest_pas_une_unite():
     """`12 Gold` n'est pas une capacité. La borne de droite refuse une lettre."""
     assert valeurs_unitaires("l'édition 12 Gold") == ()
+
+
+def test_une_resolution_suivie_dune_frequence_ne_donne_quune_valeur_unitaire():
+    r"""**Le faux positif de la campagne v2, pris là où il mordait vraiment.**
+
+    ⚠️ Le test jumeau sur `nombres()` ne suffit pas, et c'est la découverte de l'étape 17 :
+    le motif nu se lit d'un bout à l'autre du texte et ne redémarre jamais au milieu d'un
+    chiffre, alors que `MOTIF_UNITE` **exige une unité derrière**. Quand la lecture échoue
+    au `1` de `1080`, le moteur réessaie plus loin et retombe dans le nombre — sans la
+    garde `(?<!\d)`, l'alternance seule lisait `080 180 Hz`, soit le même grief sur une
+    autre valeur inventée."""
+    lues = valeurs_unitaires("en 1920x1080 180 Hz")
+    assert [(valeur.valeur, valeur.unite) for valeur in lues] == [(Decimal("180"), "Hz")]
 
 
 def test_les_abreviations_anglaises_ne_sont_pas_des_unites():

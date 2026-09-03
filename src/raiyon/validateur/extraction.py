@@ -71,8 +71,31 @@ indétectable à l'œil. C'est aussi ce que `ruff` dit en refusant les espaces a
 
 _ESPACES_A_RETIRER = str.maketrans("", "", ESPACES)
 
-NOMBRE = rf"\d+(?:[{ESPACES}]\d{{3}})*(?:[.,]\d+)?"
-"""Un nombre tel qu'un modèle l'écrit : `144`, `417.14`, `417,14`, `1 299,99`."""
+NOMBRE = rf"(?<!\d)(?:\d{{1,3}}(?:[{ESPACES}]\d{{3}})+|\d+)(?:[.,]\d+)?"
+r"""Un nombre tel qu'un modèle l'écrit : `144`, `417.14`, `417,14`, `1 299,99`.
+
+⚠️ **Une alternance, et pas un `*`** — corrigé à l'étape 17, mesuré à l'étape 13. Le
+principe : **un séparateur de milliers ne suit jamais un groupe de quatre chiffres**. La
+branche gauche lit la forme *séparée* (`1 299`, et il en faut au moins un, d'où le `+`),
+la branche droite la forme *nue* (`144`, `9333`). La rédaction évidente
+`\d{1,3}(?:[ESPACES]\d{3})*` casserait plus qu'elle ne répare : sur `9333` elle lit
+`933` puis `3`, sur `1080 180` elle lit `108` puis `0 180`.
+
+Ce qu'elle répare : « en 1920x1080 180 Hz » était lu comme **1 080 180 Hz**, une valeur
+qu'aucun produit ne déclare, et la règle 5 levait un `valeur_non_fournie` sur une phrase
+**exacte**. Les deux groupes de l'alternance sont **non capturants** : les quatre motifs
+qui composent `NOMBRE` gardent la numérotation de groupes qu'ils avaient.
+
+⚠️ **`(?<!\d)` n'est pas une précaution, c'est la moitié du correctif** — et elle manquait
+à la rédaction du §7, qui avait été validée sur les six formes **nues**. Le motif nu se lit
+par `finditer` depuis le début du texte : il ne redémarre jamais au milieu d'un chiffre, et
+l'alternance suffit à y séparer `1080` de `180`. **Les motifs composés, eux, exigent une
+unité derrière** : quand `1080 180 Hz` échoue à la position du `1`, le moteur réessaie plus
+loin et retombe **à l'intérieur** de `1080`, où `\d{1,3}` accepte `080` — la règle 5
+réclamait alors `80 180 Hz` au lieu de `1 080 180 Hz`. Un faux positif déplacé, pas
+supprimé. Mesuré à l'étape 17 sur `categorie_efface_budget.3` avant de commiter quoi que ce
+soit. La garde interdit à un nombre de **commencer au milieu d'une suite de chiffres**, et
+c'est ce qui rend l'alternance vraie partout où elle est composée."""
 
 MOTIF_NOMBRE = re.compile(NOMBRE)
 """`NOMBRE` compilé, **sans unité ni symbole devant ou derrière**.

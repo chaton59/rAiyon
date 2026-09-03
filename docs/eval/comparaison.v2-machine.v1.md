@@ -16,6 +16,9 @@
 >   est retirée. Le saut de ligne reste, la règle 2 garde son contexte étroit.
 >   **Si le taux de rejet bouge malgré cela, c'est de ce côté qu'il faut regarder d'abord** — et
 >   l'appendice A dira si les phrases refusées se sont élargies.
+> - **v2/categorie_efface_budget.3 est écartée de ce rapport** — divergence attendue au rejeu.
+>   le correctif de `NOMBRE` de l'étape 17 fait tomber les **deux** griefs du tour 1 — les seuls de cette prise. « en 1920x1080 180 Hz » et « en 2560x1440 165 Hz » étaient lus comme 1 080 180 Hz et 1 440 165 Hz, deux valeurs qu'aucun produit ne déclare, et la règle 5 levait un `valeur_non_fournie` sur une phrase exacte. Le tour n'est donc plus refusé du tout : aucune reprise n'est empilée avant régénération, et le 4e appel de la cassette — qui **était** la régénération — devient le premier appel du tour 2, avec une liste de messages entièrement différente. D'où la divergence d'empreinte à cette prise. Le modèle aurait reçu l'historique d'une conversation où sa première réponse a été acceptée : sa réponse enregistrée, écrite sous une reprise qui n'existe plus, n'est pas celle qu'il aurait donnée. ⚠️ **Seule cassette touchée des quatre jeux du dépôt** — vérifié avant la campagne en rejouant les quatre motifs d'extraction, ancien contre nouveau, sur la prose de chaque prise enregistrée.
+>   Les tours et les griefs de cette prise ne sont donc comptés nulle part ci-dessous.
 > - **Sept prédictions posées le 3 septembre 2026, avant la campagne de la machine à états.**
 >   ⚠️ **Trois d'entre elles ont été révisées — par le tir d'essai du jalon 4, jamais par la
 >   campagne.** Une prédiction corrigée avant la mesure est honnête ; corrigée après, elle ne
@@ -59,7 +62,7 @@
 >   les six critères, **sauf le coût**. C'est un verdict **valide**, accepté d'avance, et il ne
 >   clôt pas l'étape — les mesures nº7 et nº8 la closent.
 
-**Couverture.** Les deux jeux portent les mêmes 11 scénarios — 36 prises contre 36. La comparaison est complète.
+**Couverture.** Les deux jeux portent les mêmes 11 scénarios — 35 prises contre 36. La comparaison est complète.
 
 Les valeurs comparées sont, par scénario, la **moyenne sur ses prises**, sommée
 sur les scénarios : ce qu'une passe complète produit en moyenne. Un total comparerait
@@ -84,11 +87,11 @@ des tailles d'échantillon.
 
 | Mesure | v2 | machine.v1 | Écart | Dispersion | Verdict | Sens cherché |
 |---|---|---|---|---|---|---|
-| Rejets du validateur | 2.00 | 17.00 | +15.00 | ± 12.00 | au-delà | baisse |
+| Rejets du validateur | 1.33 | 17.00 | +15.67 | ± 11.00 | au-delà | baisse |
 | Tours repliés | 0.00 | 2.67 | +2.67 | ± 11.00 | dans le bruit | baisse |
 | Chiffres sur les tours de domaine | 7.67 | 11.50 | +3.83 | ± 16.00 | dans le bruit | stable |
 | Markdown non rendu par le front | 0.00 | 4.00 | +4.00 | ± 11.00 | dans le bruit | baisse |
-| Itérations | 57.50 | 52.67 | -4.83 | ± 13.00 | dans le bruit | stable |
+| Itérations | 57.17 | 52.67 | -4.50 | ± 13.00 | dans le bruit | stable |
 | Tours avant la première valeur (nº3) | 12.67 | 13.50 | +0.83 | ± 8.00 | dans le bruit | stable |
 
 ⚠️ **`Itérations` ne se compare pas d'une orchestration à l'autre.** Chez une machine à états,
@@ -100,9 +103,9 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 
 | Mesure | v2 | machine.v1 | Écart |
 |---|---|---|---|
-| Appels au modèle par tour client (nº7) | 191 appel(s) sur 81 tour(s) — 2.36 appel/tour | 176 appel(s) sur 81 tour(s) — 2.17 appel/tour | -0.19 appel/tour |
-| Jetons d'entrée facturés (nº7) | 367 832 facturés (358 088 hors cache + 9 744 de cache écrit) ; 1 851 360 lus du cache, à un autre tarif | 663 347 facturés (657 010 hors cache + 6 337 de cache écrit) ; 1 108 975 lus du cache, à un autre tarif | +295 515 jetons — facteur 1,80 |
-| Jetons de sortie (nº7) | 46 285 jetons | 65 958 jetons | +19 673 jetons — facteur 1,43 |
+| Appels au modèle par tour client (nº7) | 185 appel(s) sur 79 tour(s) — 2.34 appel/tour | 176 appel(s) sur 81 tour(s) — 2.17 appel/tour | -0.17 appel/tour |
+| Jetons d'entrée facturés (nº7) | 349 903 facturés (340 159 hors cache + 9 744 de cache écrit) ; 1 792 896 lus du cache, à un autre tarif | 663 347 facturés (657 010 hors cache + 6 337 de cache écrit) ; 1 108 975 lus du cache, à un autre tarif | +313 444 jetons — facteur 1,90 |
+| Jetons de sortie (nº7) | 44 743 jetons | 65 958 jetons | +21 215 jetons — facteur 1,47 |
 
 ⚠️ **La mesure nº7 ne vient pas du rejeu.** Ce sont les seules lignes de ce fichier qui soient lues
 dans l'en-tête des cassettes plutôt que recalculées : elles sont **figées à l'enregistrement** et ne
@@ -132,7 +135,7 @@ pas aux scénarios communs.
 | nº3 — tours avant valeur (médiane) | 1.0 | 1.0 |
 | nº4 — attendu en top 3 | 12/12 | 11/12 |
 | nº6 — zéro résultat traité | 12/12 | 14/14 |
-| Prises sans aucune valeur livrée | 10/36 | 7/36 |
+| Prises sans aucune valeur livrée | 10/35 | 7/36 |
 
 ⚠️ **La métrique nº3 est un garde-fou, pas une cible.** Elle compte les tours client
 avant la première valeur : son minimum atteignable est **1**, et il est déjà atteint.
@@ -152,7 +155,7 @@ il aurait raison.
 | `ecart_non_dit` | 0.00 | 8.00 | +8.00 | 0 → 24 |
 | `montant_non_fourni` | 0.67 | 6.33 | +5.67 | 2 → 19 |
 | `prix_etranger_au_produit` | 0.33 | 0.00 | -0.33 | 1 → 0 |
-| `valeur_non_fournie` | 1.00 | 2.67 | +1.67 | 3 → 8 |
+| `valeur_non_fournie` | 0.33 | 2.67 | +2.33 | 1 → 8 |
 
 ⚠️ **Un code qui cesse de tirer n'est pas en soi une bonne nouvelle.** Si la forme
 correspondante a disparu des appendices A des deux rapports, c'est le prompt ; si le

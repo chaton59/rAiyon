@@ -25,8 +25,11 @@
 >   est retirée. Le saut de ligne reste, la règle 2 garde son contexte étroit.
 >   **Si le taux de rejet bouge malgré cela, c'est de ce côté qu'il faut regarder d'abord** — et
 >   l'appendice A dira si les phrases refusées se sont élargies.
+> - **v2/categorie_efface_budget.3 est écartée de ce rapport** — divergence attendue au rejeu.
+>   le correctif de `NOMBRE` de l'étape 17 fait tomber les **deux** griefs du tour 1 — les seuls de cette prise. « en 1920x1080 180 Hz » et « en 2560x1440 165 Hz » étaient lus comme 1 080 180 Hz et 1 440 165 Hz, deux valeurs qu'aucun produit ne déclare, et la règle 5 levait un `valeur_non_fournie` sur une phrase exacte. Le tour n'est donc plus refusé du tout : aucune reprise n'est empilée avant régénération, et le 4e appel de la cassette — qui **était** la régénération — devient le premier appel du tour 2, avec une liste de messages entièrement différente. D'où la divergence d'empreinte à cette prise. Le modèle aurait reçu l'historique d'une conversation où sa première réponse a été acceptée : sa réponse enregistrée, écrite sous une reprise qui n'existe plus, n'est pas celle qu'il aurait donnée. ⚠️ **Seule cassette touchée des quatre jeux du dépôt** — vérifié avant la campagne en rejouant les quatre motifs d'extraction, ancien contre nouveau, sur la prose de chaque prise enregistrée.
+>   Les tours et les griefs de cette prise ne sont donc comptés nulle part ci-dessous.
 
-**Couverture.** Les deux jeux portent les mêmes 11 scénarios — 31 prises contre 36. La comparaison est complète.
+**Couverture.** Les deux jeux portent les mêmes 11 scénarios — 31 prises contre 35. La comparaison est complète.
 
 Les valeurs comparées sont, par scénario, la **moyenne sur ses prises**, sommée
 sur les scénarios : ce qu'une passe complète produit en moyenne. Un total comparerait
@@ -53,11 +56,11 @@ des tailles d'échantillon.
 
 | Mesure | v1-base | v2 | Écart | Dispersion | Verdict | Sens cherché |
 |---|---|---|---|---|---|---|
-| Rejets du validateur | 3.00 | 2.00 | -1.00 | ± 14.00 | dans le bruit | baisse |
+| Rejets du validateur | 3.00 | 1.33 | -1.67 | ± 14.00 | dans le bruit | baisse |
 | Tours repliés | 0.33 | 0.00 | -0.33 | ± 11.00 | dans le bruit | baisse |
 | Chiffres sur les tours de domaine | 3.67 | 7.67 | +4.00 | ± 19.00 | dans le bruit | stable |
 | Markdown non rendu par le front | 51.00 | 0.00 | -51.00 | ± 43.00 | au-delà | baisse |
-| Itérations | 60.33 | 57.50 | -2.83 | ± 14.00 | dans le bruit | stable |
+| Itérations | 60.33 | 57.17 | -3.17 | ± 14.00 | dans le bruit | stable |
 | Tours avant la première valeur (nº3) | 14.00 | 12.67 | -1.33 | ± 9.00 | dans le bruit | stable |
 
 ⚠️ **`Itérations` ne se compare pas d'une orchestration à l'autre.** Chez une machine à états,
@@ -69,9 +72,9 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 
 | Mesure | v1-base | v2 | Écart |
 |---|---|---|---|
-| Appels au modèle par tour client (nº7) | non disponible — 28 prise(s) sur 31 sans `usage` | 191 appel(s) sur 81 tour(s) — 2.36 appel/tour | non calculable — voir les deux cellules |
-| Jetons d'entrée facturés (nº7) | non disponible — 28 prise(s) sur 31 sans `usage` | 367 832 facturés (358 088 hors cache + 9 744 de cache écrit) ; 1 851 360 lus du cache, à un autre tarif | non calculable — voir les deux cellules |
-| Jetons de sortie (nº7) | non disponible — 28 prise(s) sur 31 sans `usage` | 46 285 jetons | non calculable — voir les deux cellules |
+| Appels au modèle par tour client (nº7) | non disponible — 28 prise(s) sur 31 sans `usage` | 185 appel(s) sur 79 tour(s) — 2.34 appel/tour | non calculable — voir les deux cellules |
+| Jetons d'entrée facturés (nº7) | non disponible — 28 prise(s) sur 31 sans `usage` | 349 903 facturés (340 159 hors cache + 9 744 de cache écrit) ; 1 792 896 lus du cache, à un autre tarif | non calculable — voir les deux cellules |
+| Jetons de sortie (nº7) | non disponible — 28 prise(s) sur 31 sans `usage` | 44 743 jetons | non calculable — voir les deux cellules |
 
 ⚠️ **La mesure nº7 ne vient pas du rejeu.** Ce sont les seules lignes de ce fichier qui soient lues
 dans l'en-tête des cassettes plutôt que recalculées : elles sont **figées à l'enregistrement** et ne
@@ -101,7 +104,7 @@ pas aux scénarios communs.
 | nº3 — tours avant valeur (médiane) | 2.0 | 1.0 |
 | nº4 — attendu en top 3 | 12/12 | 12/12 |
 | nº6 — zéro résultat traité | 12/12 | 12/12 |
-| Prises sans aucune valeur livrée | 8/31 | 10/36 |
+| Prises sans aucune valeur livrée | 8/31 | 10/35 |
 
 ⚠️ **La métrique nº3 est un garde-fou, pas une cible.** Elle compte les tours client
 avant la première valeur : son minimum atteignable est **1**, et il est déjà atteint.
@@ -121,7 +124,7 @@ il aurait raison.
 | `ecart_non_dit` | 0.33 | 0.00 | -0.33 | 1 → 0 |
 | `montant_non_fourni` | 2.67 | 0.67 | -2.00 | 8 → 2 |
 | `prix_etranger_au_produit` | 0.00 | 0.33 | +0.33 | 0 → 1 |
-| `valeur_non_fournie` | 0.00 | 1.00 | +1.00 | 0 → 3 |
+| `valeur_non_fournie` | 0.00 | 0.33 | +0.33 | 0 → 1 |
 
 ⚠️ **Un code qui cesse de tirer n'est pas en soi une bonne nouvelle.** Si la forme
 correspondante a disparu des appendices A des deux rapports, c'est le prompt ; si le

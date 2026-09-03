@@ -93,6 +93,21 @@ DIVERGENCES_ATTENDUES: dict[tuple[str, str, int], str] = {
         "plus reconstituable. Le modèle aurait reçu une autre reprise : sa réponse "
         "enregistrée n'est pas celle qu'il aurait donnée."
     ),
+    ("v2", "categorie_efface_budget", 3): (
+        "le correctif de `NOMBRE` de l'étape 17 fait tomber les **deux** griefs du tour 1 "
+        "— les seuls de cette prise. « en 1920x1080 180 Hz » et « en 2560x1440 165 Hz » "
+        "étaient lus comme 1 080 180 Hz et 1 440 165 Hz, deux valeurs qu'aucun produit ne "
+        "déclare, et la règle 5 levait un `valeur_non_fournie` sur une phrase exacte. Le "
+        "tour n'est donc plus refusé du tout : aucune reprise n'est empilée avant "
+        "régénération, et le 4e appel de la cassette — qui **était** la régénération — "
+        "devient le premier appel du tour 2, avec une liste de messages entièrement "
+        "différente. D'où la divergence d'empreinte à cette prise. Le modèle aurait reçu "
+        "l'historique d'une conversation où sa première réponse a été acceptée : sa "
+        "réponse enregistrée, écrite sous une reprise qui n'existe plus, n'est pas celle "
+        "qu'il aurait donnée. ⚠️ **Seule cassette touchée des quatre jeux du dépôt** — "
+        "vérifié avant la campagne en rejouant les quatre motifs d'extraction, ancien "
+        "contre nouveau, sur la prose de chaque prise enregistrée."
+    ),
 }
 """Les cassettes dont on **sait** qu'elles divergent, et pourquoi. **Une assertion, pas un skip.**
 

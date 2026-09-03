@@ -3626,6 +3626,9 @@ intervalle de confiance.
 au même titre qu'un prompt, et le faire dans la même version qu'un changement de prompt
 rendrait l'effet **inattribuable** — ce que la dette dit elle-même vouloir éviter. Elle
 entre au §7 comme ligne ouverte.
+⚠️ **Ce report est le dernier.** À l'étape 17, la dette a été **décidée non fermée**, avec
+son chiffre — ~366 appels, davantage que l'étape 15 entière —, et retirée de tout ce que le
+dépôt s'engage à traiter. Voir §7 et l'étape 17.
 
 **§5 étape 13 demandait quelque chose d'inapplicable, et il vaut mieux l'écrire.** « Viser
 en priorité la métrique nº3 » ne peut pas se faire : depuis le correctif de l'étape 12,
@@ -4388,6 +4391,11 @@ de regarder.
   changement : **possibles**, et elles coûtent deux campagnes séparées (~380 appels) pour
   tenir la promesse d'attribution, ou une seule (~190) en y renonçant explicitement. C'est un
   arbitrage de budget, il se prend avant et pas pendant ;
+  ⚠️ **Ce paragraphe a été écrit avant l'étape 17 et il est faux sur les deux points.** Le
+  correctif de `NOMBRE` a coûté **zéro appel** — voir l'étape 17 —, et la dette nº1 a été
+  **décidée non fermée**, avec son chiffre, plutôt que reportée une troisième fois. Ces
+  deux lignes restent ici parce qu'elles disent ce qu'on croyait à la fin de l'étape 16 ;
+  elles n'engagent plus rien. Voir §7 ;
 - une `systeme.machine.v2`, si l'extraction atomique vaut qu'on y revienne ;
 - la recherche hybride `pgvector` (§3.5), qui reste hors périmètre du produit livrable ;
 - ⚠️ **`make eval-comparer` ne survit pas à une apostrophe dans `Q`** — la recette passe
@@ -4396,6 +4404,109 @@ de regarder.
   `uv run python scripts/eval.py comparer`, à code identique. Défaut de la cible `make`,
   frère de celui du `\` de continuation trouvé à l'étape 15 ; non corrigé ici, parce qu'une
   étape dont la preuve est « rien d'autre n'a bougé » ne corrige rien d'autre.
+
+---
+
+### Étape 17 — Le correctif de `NOMBRE`, et une dette reclassée ✅
+
+**Zéro appel API, zéro cassette réenregistrée.** L'étape tenait sur un pari écrit avant
+d'être vérifié, et le pari a tenu.
+
+#### Le motif du parcours : une promesse écrite avant l'outil qui la dispense
+
+`NOMBRE` avait été différé à l'étape 13 avec ce motif : *« c'est un changement de
+validateur, il modifie des listes de griefs, donc des reprises, donc des empreintes de
+requête — il périmerait des cassettes. À livrer avec la prochaine campagne, jamais entre
+deux. »*
+
+**Ce motif a été écrit avant que le mécanisme qui le dispense existe.**
+`DIVERGENCES_ATTENDUES` a été construit au jalon 1 de la **même** étape 13, pour exactement
+ce cas, et il servait déjà à ça : le correctif de `valeurs_refusees` avait fait diverger
+`v1-etape12/desserrage_refuse.1`, et la liste **assertée** l'absorbait depuis. Le reste est
+gratuit par construction — l'arbitrage A de l'étape 12 fait relire la prose par le
+validateur **courant** à chaque rejeu, donc un correctif de validateur se mesure sans
+qu'une seule cassette soit réenregistrée. C'est la propriété que le README vend, et
+personne ne l'avait rapprochée du report.
+
+⚠️ **C'est le même motif que la trouvaille de l'étape 15 sur l'agnosticisme du harnais**,
+et c'est la deuxième occurrence, donc un motif et plus une anecdote :
+
+| Étape | Ce qui existait | Ce qu'on continuait de croire |
+|---|---|---|
+| 15 | Le harnais est agnostique à l'orchestration depuis l'étape 12 | « Une seconde orchestration demanderait un second harnais » |
+| 17 | `DIVERGENCES_ATTENDUES` absorbe une divergence de validateur depuis l'étape 13 | « Un correctif de validateur doit attendre la prochaine campagne » |
+
+La forme commune : **un coût est réévalué une fois, puis reconduit sans être relu**, pendant
+que le dépôt fabrique à côté l'outil qui l'annule. Ce n'est pas un défaut de conception,
+c'est un défaut de **relecture des reports** — et il se corrige en datant les décisions, ce
+que fait la ligne dette nº1 de §7.
+
+#### Le correctif, et la moitié qui manquait à sa rédaction
+
+Le motif livré est `(?<!\d)(?:\d{1,3}(?:[ESPACES]\d{3})+|\d+)(?:[.,]\d+)?`. §7 en portait
+l'alternance depuis l'étape 13, **validée sur les six formes nues** ; elle n'a pas suffi, et
+la raison est instructive.
+
+`MOTIF_NOMBRE` se lit par `finditer` depuis le début du texte : il ne redémarre jamais au
+milieu d'un chiffre, et l'alternance y sépare correctement `1080` de `180`. **Les quatre
+motifs composés — montant, unité, les deux intervalles — exigent une unité ou un symbole
+derrière.** Quand la lecture échoue à la position du `1` de `1080`, le moteur réessaie plus
+loin et retombe **à l'intérieur** du nombre, où `\d{1,3}` accepte volontiers `080` : le
+validateur réclamait alors `80 180 Hz` au catalogue au lieu de `1 080 180 Hz`. **Un faux
+positif déplacé, pas supprimé** — et le prix aurait été une cassette périmée pour rien.
+
+Mesuré **avant** de commiter, en rejouant les quatre motifs, ancien contre nouveau, sur la
+prose de chaque prise des quatre jeux. `(?<!\d)` interdit à un nombre de commencer au milieu
+d'une suite de chiffres, et c'est ce qui rend l'alternance vraie partout où elle est
+composée. ⚠️ **La leçon n'est pas « il manquait une garde »** : c'est qu'une rédaction de
+motif validée sur le motif **nu** ne dit rien de ses **compositions**, et que §7 avait écrit
+« vérifié sur les six formes » en croyant avoir tout vérifié. Sept tests le tiennent
+désormais — six sur les formes nues, **un sur `MOTIF_UNITE`**, qui est celui qui aurait
+attrapé le défaut.
+
+#### Ce que la mesure a donné
+
+| Jeu | Griefs avant | Griefs après | Cassettes divergentes |
+|---|---|---|---|
+| `v2` | 6 sur 81 tours (0,07/tour) | **4 sur 79 tours (0,05/tour)** | **1** — `categorie_efface_budget.3` |
+| `machine.v1` | 17 par passe | **17 par passe — aucun chiffre ne bouge** | **0** |
+| `v1-etape12` | inchangé | **inchangé** | 0 nouvelle (la divergence de l'étape 13 demeure) |
+
+`valeur_non_fournie` passe de 3 à 1 sur v2. ⚠️ **Les deux griefs tombés ne se lisent pas
+dans le rapport, et il faut le dire** : la prise qui les portait est **écartée** du compte
+(divergence attendue), donc le rapport perd 2 tours en même temps que 2 griefs. Ce que le
+correctif a réellement supprimé se lit dans l'appendice A du commit précédent, pas dans la
+soustraction des totaux.
+
+**La règle d'arrêt** — « si plus de deux cassettes de `machine.v1` divergent, on ne commite
+rien » — était écrite d'avance pour ne pas être négociée devant le résultat. Elle n'a pas eu
+à servir : le point de vigilance (les 17 rejets par passe de la machine, dominés par
+`ecart_non_dit`) était bien un risque faible, et il valait mieux le mesurer que le supposer.
+
+#### Ce que l'étape ferme, et ce qu'elle décide
+
+- **`NOMBRE`** : fermé, §7. Livré **sans réenregistrer une cassette** — c'est le pari, et
+  c'est la propriété du harnais qui le rend possible.
+- **La dette nº1 de l'étape 8** : **décidée non fermée**, §7, avec son chiffre — ~366 appels
+  (~190 v2 + ~176 `machine.v1`), soit plus que l'étape 15 entière, pour un effet que la
+  dette elle-même déclare imprévisible. Le report l'avait rendue deux fois plus chère : un
+  jeu à l'étape 13, deux aujourd'hui, sans que le défaut se soit aggravé. **Retirée du
+  README**, parce qu'un engagement qu'on a décidé de ne pas tenir et qu'on continue
+  d'afficher est pire que pas d'engagement du tout.
+- **Le quoting de `make eval-comparer`** : `--question "$(Q)"`. Deuxième défaut de quoting du
+  `Makefile` en deux étapes, après le `\` de continuation des lignes `@#`. La limite se
+  **déplace** vers le guillemet double, elle ne disparaît pas, et la recette le dit en
+  commentaire plutôt que de laisser croire que c'est réglé.
+
+#### Reste après l'étape
+
+- `orchestration/blocs.py` importe encore `agent.evenements` et `agent.prompts` — reste de
+  nommage, pas de couplage (ligne §7 fermée à l'étape 16) ;
+- une `systeme.machine.v2`, si l'extraction atomique vaut qu'on y revienne ;
+- la recherche hybride `pgvector` (§3.5), hors périmètre du produit livrable.
+
+**Et la dette nº1 n'est plus dans cette liste.** C'est la différence entre une décision et
+un renvoi.
 
 ---
 
@@ -4436,13 +4547,13 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | ~~**Le prompt v1 n'est mesuré par rien avant l'étape 12**~~ | **Éteint** à l'étape 12 — harnais d'éval branché, seize prises rejouées, rapport committé. La ligne est barrée plutôt qu'effacée : c'est le dernier risque **Élevé** du projet, et il a décidé de l'ordre des étapes 12 et 13 | Les sections 4 (« une fourchette n'est jamais un prix »), 6 (« la question suggérée est une suggestion ») et 9 (« dire le refus plutôt que le contourner ») étaient des **atténuations déclarées, pas vérifiées**. **Ce que le harnais mesure réellement, et il faut le dire précisément :** la section 4 est mesurée — `regle_montants` et `regle_valeurs_unitaires` la constatent phrase par phrase, et le taux de rejet par code dit combien de fois le modèle a essayé (7 `montant_non_fourni` et 3 `valeur_non_fournie` sur 35 tours à la première exécution). La section 9 est mesurée **à moitié** : `Attente.CRITERE_TENU` constate qu'un desserrage refusé n'a pas fini par passer, mais rien ne constate que l'agent l'a **dit** au client — voir la ligne dédiée ci-dessous. La section 6 n'est **pas** mesurée, et le harnais l'a appris à ses dépens : une attente écrite sur l'appel à `suggest_next_question` mesurait quel outil l'agent avait choisi, pas ce que le produit avait fait. Restent donc des intentions bien rédigées : la conduite du dialogue au sens large, que seul `make eval-live` donne à lire |
 | ~~**Le faux client teste la boucle, pas le modèle**~~ | **À MOITIÉ fermée à l'étape 15** — et la moitié compte. **Fermée du côté de la machine** : `decider()` est pure, et **17 tests de conduite du dialogue** tournent dans `make check` sans base, sans conteneur et sans clé — un défaut de conduite de la machine ne passe plus. ⚠️ **Ouverte du côté de l'agent**, où elle l'était et le reste : il n'y a toujours aucune fonction de décision à assertionner, et c'est le prix de §3.6 que l'amendement de cette section confirme. La ligne est donc barrée à moitié, pas éteinte. ⚠️ **La réserve voyage avec le chiffre** : ces tests vérifient que la machine conduit le dialogue **comme on l'a écrit** ; ils ne vérifient pas que la conduite est bonne, ni que le modèle qui rédige derrière respecte quoi que ce soit. Le texte d'origine reste ci-contre parce qu'il décrit exactement ce qui vaut encore pour l'agent | `tests/agent/` couvre l'enchaînement, le réenchaînement de l'état, la terminalité, l'appairage des `tool_result` et la garde d'itérations — tout ce qui ne dépend pas de ce que le modèle répond. **Un défaut de conduite du dialogue passe donc entièrement à travers `make check`** : un agent qui interrogerait le client six fois de suite, ou qui citerait un prix jamais fourni, ferait une suite verte. C'est la contrepartie assumée de l'arbitrage 2, et elle ne se referme qu'avec les cassettes et le client simulé de l'étape 12 |
 | ~~**Le texte sortant n'est validé par rien jusqu'à l'étape 9**~~ | **Éteint** à l'étape 9 — validateur programmatique branché, texte bufferisé, une régénération puis repli sur template. La ligne est barrée plutôt qu'effacée : c'est le risque qui a décidé de l'ordre du plan | §2 reposait **uniquement sur le prompt système** : un prix recopié de travers, un `id` approximatif ou une spec déduite d'un sondage partaient au client. C'est pour cette raison que l'étape 9 est passée avant l'étape 10 — mettre une API et un front devant un texte non validé aurait multiplié la surface avant de fermer le trou. **Le trou est fermé au niveau du mécanisme, pas de la couverture** : les trois lignes qui suivent disent ce que le validateur ne voit pas |
-| **`NOMBRE` lit une résolution collée à une fréquence comme un seul nombre** | **Moyenne — mesurée à l'étape 13, correctif écrit et différé** | `NOMBRE` vaut `\d+(?:[ESPACES]\d{3})*(?:[.,]\d+)?` : l'espace y est un séparateur de milliers. « en 1920x1080 180 Hz » est donc lu comme **1 080 180 Hz**, une valeur qu'aucun produit ne déclare, et la règle 5 lève un `valeur_non_fournie` sur une phrase **exacte**. Deux des six griefs de la campagne v2 viennent de là (`categorie_efface_budget.3`). ⚠️ C'est un **faux positif du validateur**, pas une faute du modèle — et il est apparu parce que la section 14 de v2 pousse à écrire un produit par ligne, donc la résolution et la fréquence côte à côte. **Le correctif, précisément** : un séparateur de milliers ne suit jamais un groupe de quatre chiffres, donc le motif devient `(?:\d{1,3}(?:[ESPACES]\d{3})+\|\d+)(?:[.,]\d+)?` — une alternance entre la forme **séparée** et la forme **nue**. ⚠️ **La rédaction évidente `\d{1,3}(?:[ESPACES]\d{3})*` est fausse** et cassait plus qu'elle ne répare : sur `9333` elle lit `933` puis `3`, sur `1080 180` elle lit `108` puis `0 180`. L'alternance est ce qui garde `1 299,99` **et** `9333` intacts tout en séparant `1080` de `180`. Vérifié sur les six formes avant d'être écrit ici. **Différé, et pour la raison du jalon 1** : c'est un changement de validateur, il modifie des listes de griefs, donc des reprises, donc des empreintes de requête — il périmerait des cassettes. À livrer avec la prochaine campagne, jamais entre deux |
+| ~~**`NOMBRE` lit une résolution collée à une fréquence comme un seul nombre**~~ | **Fermée à l'étape 17** | `NOMBRE` valait `\d+(?:[ESPACES]\d{3})*(?:[.,]\d+)?` : l'espace y était un séparateur de milliers sans condition. « en 1920x1080 180 Hz » était donc lu **1 080 180 Hz**, une valeur qu'aucun produit ne déclare, et la règle 5 levait un `valeur_non_fournie` sur une phrase **exacte** — un **faux positif du validateur**, pas une faute du modèle, et il était apparu parce que la section 14 de v2 pousse à écrire un produit par ligne. **Le motif livré** : `(?<!\d)(?:\d{1,3}(?:[ESPACES]\d{3})+|\d+)(?:[.,]\d+)?`. ⚠️ **Il porte une garde que la rédaction de cette ligne n'avait pas, et sans elle le correctif ne corrigeait rien** — c'est la trouvaille de l'étape 17, et elle est de la même famille que le défaut qu'elle répare. L'alternance seule avait été **validée sur les six formes nues** (`1 299,99`, `9333`, `1920x1080 180 Hz`, `417.14`, `1080 180`, `144`), et elle y est juste : `MOTIF_NOMBRE` se lit par `finditer` depuis le début du texte et ne redémarre jamais au milieu d'un chiffre. **Les quatre motifs composés, eux, exigent une unité ou un symbole derrière** : quand la lecture échoue au `1` de `1080`, le moteur réessaie plus loin et retombe **à l'intérieur** du nombre, où `\d{1,3}` accepte `080` — le validateur réclamait alors `80 180 Hz` au lieu de `1 080 180 Hz`. Mesuré avant de commiter : un faux positif **déplacé**, pas supprimé, et une cassette périmée pour rien. `(?<!\d)` interdit à un nombre de commencer au milieu d'une suite de chiffres. ⚠️ **La rédaction évidente `\d{1,3}(?:[ESPACES]\d{3})*` reste fausse** et cassait plus qu'elle ne répare : sur `9333` elle lit `933` puis `3`. **Livré sans réenregistrer une seule cassette** — c'est le pari de l'étape 17, et il tient parce que l'arbitrage A de l'étape 12 fait relire la prose par le validateur **courant** à chaque rejeu. Effet mesuré : v2 passe de **6 griefs sur 81 tours à 4 sur 79**, `valeur_non_fournie` de 3 à 1 ; `machine.v1` et `v1-etape12` ne bougent **d'aucun chiffre**. Une seule cassette diverge — `v2/categorie_efface_budget.3`, absorbée par `DIVERGENCES_ATTENDUES` |
 | **L'extraction de la machine est atomique, et une extraction manquée ne se rattrape pas dans le tour** | **Moyenne — propre à la machine, non corrigée volontairement** | Observé sur `sur_specifie.3` : l'appel d'extraction pose `panel_type` en `bloquant`, la couche outils refuse (§3.4quater — un champ de rôle `score` ne peut pas l'être), et **l'appel étant atomique, la taille, la fréquence et le budget sont perdus avec lui**. L'agent lit le refus dans son `tool_result` et rappelle l'outil en `important` — c'est dans sa cassette. La machine ne peut pas : `enregistrer_criteres` n'est **pas une action** de `decider()`. Même famille par omission sur `categorie_efface_budget.2`, où l'extraction n'émet aucun `tool_use` au second tour : la prose annonce au client que son budget ne s'applique plus tandis que l'état l'ignore. C'est le mécanisme derrière « l'agent encaisse naturellement les virages » (§3.6), **observé** plutôt qu'affirmé, et il est plus profond que le tour de parole. ⚠️ *Correctif écarté et daté* : laisser `decider()` redéclencher une extraction ajoute un appel modèle, casse le plancher de 2,00 et change le coût au milieu de la comparaison. Candidat pour une `systeme.machine.v2` que l'étape 15 ne fait pas |
 | **« Ne pas chercher tant que le budget manque » n'est écrite dans aucun prompt** | **Éteinte à l'étape 15** — la règle est désormais écrite quelque part | L'agent la tient par l'**affordance** de `question_suivante`, qui remonte `BesoinDeBudget` en tête, et jamais par une instruction. `Attente.AUCUNE_RECHERCHE_SANS_BUDGET` la mesure depuis l'étape 12 sans que personne ait remarqué qu'**aucune section du prompt ne la portait** — la relecture section par section du jalon 3 l'a établi. `decider()` l'écrit pour la première fois, en une garde. Une garantie tenue **par chance de conception** d'un côté, **par construction** de l'autre. ⚠️ **Écrire la seconde orchestration était la seule façon de s'en apercevoir**, et c'est l'argument le plus fort en faveur d'avoir fait l'étape |
 | **`ecart_non_dit` n'était pas une règle dormante — elle n'avait jamais été sollicitée** | Faible, et c'est une **bonne** nouvelle | Le README déclarait trois codes sur six jamais déclenchés. La machine en fait tirer un **24 fois**, et le validateur les a tous refusés avant livraison : les critères nº1 et nº2 tiennent **des deux côtés**. Le filet est décoratif chez l'agent (2 rejets par passe) et **porteur** chez la machine (17). C'est §3.11 — « les garanties ne vivent pas dans l'orchestration, elles vivent dans les outils » — vérifié dans une direction que personne n'avait prévue : la garantie a tenu sous une orchestration pour laquelle elle n'avait pas été conçue. ⚠️ **Ce que cela dit des deux autres est ouvert, et doit rester écrit comme ouvert** : `id_inconnu` et `nom_reecrit` ne se déclenchent toujours sur aucune des deux orchestrations. Ils restent **non sollicités, pas démontrés morts** |
 | **`RAIYON_ORCHESTRATION` n'a plus d'effet au rejeu** | Faible — **changement de comportement d'une variable documentée**, donc il se dit | Depuis le correctif du jalon 5 : l'orchestration voyage **par valeur** dans `Reglages`, comme `systeme` le fait depuis l'étape 13, et elle se lit dans l'**en-tête de chaque cassette**. La raison est la même que pour le prompt : `make eval-comparer` rejoue **deux jeux dans un même processus**, et une variable d'environnement n'a qu'une valeur — les cassettes de la machine partaient dans la boucle de l'agent et divergeaient au premier tour. Rejouer une prise sous une autre orchestration que celle qui l'a enregistrée n'est pas un choix, c'est une erreur : la variable ne sert donc plus qu'à `make eval-enregistrer` et à `make chat`. **Le champ que le jalon 0 avait écrit sans le consommer est devenu la source de vérité** |
 | ~~**La machine importe six helpers privés de `boucle.py`**~~ | **Fermée à l'étape 16, jalon 1 — et le couplage réel était le double** | Le compte était faux : `machine/orchestrateur.py` importait **douze** noms de `boucle.py`, six privés et six publics, et le plus structurant des douze était public. Pire, `orchestration.py` — le module **neutre**, celui qui porte le `Protocol` — faisait `from raiyon.agent.boucle import IssueDuTour` : **le contrat commun aux deux orchestrations était défini à l'intérieur de l'une d'elles**, et la machine dépendait de l'agent pour son propre type de retour et ses constantes de rôle. Ne déplacer que les six privés aurait laissé le même couplage sous un nom public. Les douze sont donc sortis ensemble, dans le paquet `raiyon/orchestration/` — `contrat.py` pour les types, les rôles et les phrases, `blocs.py` pour les six helpers **rendus publics**, ce qu'ils auraient dû être dès qu'un second appelant est apparu. La ligne se ferme sur la preuve qu'elle réclamait elle-même : les **cinq** documents de `docs/eval/` se régénèrent à l'identique, pour les deux orchestrations à la fois, et `make check` rend exactement 1002. ⚠️ **Ce qui reste, et qui n'est pas la même dette** : `orchestration/blocs.py` importe encore `agent.evenements` (le vocabulaire de sortie, partagé) et `agent.prompts` (un chargeur de fichiers). Reste de nommage, pas reste de couplage — mais les déplacer demanderait de bouger deux modules de plus, ce que cette étape s'interdisait |
-| **La dette nº1 de l'étape 8 n'est pas résorbée** | Faible — **reportée deux fois, et la raison a changé** | `DESCRIPTION_SONDER` et `DESCRIPTION_PRECISION` portent des règles de dialogue que le prompt système redit — « une fourchette n'est jamais le prix d'un produit », « ne jamais demander sans donner quelque chose ». Deux rédactions d'une même règle finissent par en dire deux choses. Reportée à l'étape 8 parce qu'« on ne savait pas laquelle des deux portait l'effet » ; **reportée à l'étape 13 pour une autre raison, plus dure** : `schema_outils.py` est dans le préfixe mis en cache, le toucher périme les cassettes au même titre qu'un prompt, et le faire dans la même version qu'un changement de prompt rendrait l'effet inattribuable — exactement ce que la dette dit vouloir éviter. Elle se règle donc dans une version **à un seul changement**, où le prompt ne bouge pas |
+| **La dette nº1 de l'étape 8 — décision de ne pas la fermer, prise le 3 septembre 2026** | **Non fermée, et ce n'est plus un report** | `DESCRIPTION_SONDER` et `DESCRIPTION_PRECISION` portent des règles de dialogue que le prompt système redit — « une fourchette n'est jamais le prix d'un produit », « ne jamais demander sans donner quelque chose ». Deux rédactions d'une même règle finissent par en dire deux choses. **Le correctif est écrit et tient en une suppression** : les deux descriptions perdent leur règle, le prompt la garde. **Ce qui coûte, ce n'est pas le correctif, c'est la mesure.** `schema_outils.py` est dans le préfixe mis en cache, et `outils_empreinte` se calcule sur `schema_des_outils()` — **les cinq définitions, y compris pour la machine à états**, qui n'en expose qu'une (découvert au jalon 4 de l'étape 15). Toucher une description périme donc **les deux jeux**, pas seulement celui de l'agent. Coût de fermeture : **~366 appels** — ~190 pour v2, ~176 pour `machine.v1` — soit plus que l'étape 15 entière. ⚠️ **Et le report l'a rendue deux fois plus chère** : quand elle a été différée à l'étape 13 il y avait **un** jeu, il y en a **deux**, et rien n'a rendu le défaut plus grave dans l'intervalle. Enfin, la dette elle-même dit qu'« on ne savait pas laquelle des deux rédactions portait l'effet » : on paierait ~366 appels pour un effet que personne ne sait prédire. **Conclusion : dette connue, correctif écrit, coût de fermeture supérieur au coût du défaut, non fermée pour cette raison.** C'est une **décision datée, pas un renvoi** — et la différence est qu'un renvoi se reconduit tout seul, une décision se rouvre en la contredisant. Ce qui la rouvrirait : un changement de prompt système qui périme les deux jeux de toute façon, la dette y voyage alors gratuitement. Elle est retirée de tout ce que le dépôt s'engage à traiter, README compris |
 | **Le découpage v2/v3 n'a pas eu lieu** | Faible — **arbitrage budgétaire, écrit et daté** | L'étape 13 prévoyait `systeme.v2` (rédaction chiffrée seule) puis `systeme.v3` (domaine et markdown), pour attribuer chaque effet par isolation. Le plan coûtait ~500 appels ; les crédits en couvraient ~200. Les trois cibles sont donc parties ensemble, et **l'attribution vient de l'inspection des appendices, pas de l'isolation expérimentale** — plus faible, et suffisant ici parce que les cibles se lisent sur des artefacts différents. Les deux documents de `docs/prompts/` — la décision et sa révision — se lisent ensemble |
 | **Le prompt fuit peut-être ses propres exemples chiffrés** | **Ouverte** — hypothèse testable, pas un constat | `systeme.v1.md` illustre quatre de ses onze sections avec des chiffres : « il reste 32 écrans entre 180 et 395 dollars » (§4), « du 27 pouces » (§5), « je garde le 144 Hz » (§9), « celui-ci est à 120 Hz, pas 144 » (§11). Un rapprochement, et **il ne prouve rien** : la phrase refusée de `budget_serre.1` est « redescendre à **120 Hz** », et 120 est le seul chiffre de §11. Ce peut être une coïncidence — 120 est aussi le cran plausible sous 144, et le modèle le connaît sans le prompt. ⚠️ **Ce qui est sûr, c'est que la question n'a jamais été posée**, et qu'un prompt qui enseigne par l'exemple donne au modèle des chiffres qu'aucun outil n'a rendus. Non traité à l'étape 13 : retirer ces exemples modifierait des sections **existantes**, et v2 est une addition pure — deux sections qui bougent, c'est une attribution perdue. **Candidat pour une v3 à un seul changement**, où l'effet serait attribuable. La v2 elle-même n'ajoute aucun chiffre inventé : son §13 a été réécrit pour enseigner le geste (« dites la répartition que le sondage vient de rendre ») au lieu de montrer une réponse chiffrée en bloc de citation, qui est la forme qui appelle le plus l'imitation |
 | **Le validateur périme une cassette, et l'arbitrage C ne l'avait pas nommé** | **Moyenne — découverte à l'étape 13, et démontrée par un blocage réel** | L'arbitrage C de l'étape 12 nomme trois choses qui périment une cassette : le prompt système, le schéma d'outils, le modèle. **Le validateur est la quatrième.** Le mécanisme : quand un texte est refusé, la reprise est empilée dans `messages` avant la régénération (arbitrage D de l'étape 9) — elle fait donc partie de l'empreinte de requête du tour suivant. Un changement de validateur qui modifie la **liste des griefs** d'un tour régénéré change la reprise, donc l'empreinte, donc la cassette ne se rejoue plus. Constaté au jalon 1 de l'étape 13 : le correctif de `valeurs_refusees` fait tomber 2 des 4 griefs de `v1-etape12/desserrage_refuse.1`, et cette cassette a cessé d'être rejouable. **Une sur quarante** — la portée est étroite, mais elle n'est pas nulle et elle n'était écrite nulle part. ⚠️ **La divergence est le comportement correct** : sous le nouveau validateur, le modèle aurait reçu une autre reprise, et sa réponse enregistrée n'est pas celle qu'il aurait donnée. C'est l'arbitrage A qui fonctionne. *Alternative écartée — une empreinte de validateur dans l'en-tête de cassette*, qui rendrait la péremption automatique comme pour les trois autres : il faudrait hacher du **code source**, et un commentaire reformulé périmerait les quarante cassettes du dépôt. Une péremption qui se déclenche pour rien est une péremption qu'on finit par contourner. Atténuation retenue : `DIVERGENCES_ATTENDUES` (`scripts/eval.py`), une liste **assertée** et tenue à la main — une divergence non listée échoue, une cassette listée qui cesse de diverger échoue, une ligne qui nomme une cassette absente échoue. Ce n'est pas une tolérance, et la différence est ce qui empêche qu'une vraie régression du moteur y soit un jour excusée |

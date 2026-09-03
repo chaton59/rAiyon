@@ -57,14 +57,18 @@ des rapports décrit quoi.
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation | ✅ |
-| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1,0 tour sur 26 prises | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1,0 tour sur 25 prises | ✅ |
 | 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 12/12 prises à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | `tests/matching/` tourne dans `make check` | ✅ |
 | 6 | Cas zéro résultat traité proprement | binaire | 12/12 traités | ✅ |
 
-*Sur 36 prises, 11 scénarios, 81 tours client, prompt `systeme.v2`.
+*Sur 35 prises, 11 scénarios, 79 tours client, prompt `systeme.v2`.
 `make eval` sort en code non nul si l'un des critères bloquants — 1, 2 et 6 — est violé,
 ou si une attente de scénario n'est pas tenue.
+Une 36ᵉ prise est **écartée du compte**, et le rapport le dit en tête : le correctif de
+`NOMBRE` livré à l'étape 17 lève le faux positif qu'elle portait, donc sa réponse
+enregistrée n'est plus celle que le modèle aurait donnée. Elle est annoncée plutôt que
+mesurée quand même — voir [Le harnais](#le-harnais).
 Quatre autres rapports coexistent dans `docs/eval/` : lequel décrit quoi est dans
 `docs/eval/LISEZMOI.md`.*
 
@@ -82,11 +86,11 @@ plus intéressantes :
 | Couche | Campagne `systeme.v2` — `docs/eval/rapport.v2.md` |
 |---|---|
 | Ce qui est **livré** | 0 grief, 0 violation budget — les deux critères ci-dessus |
-| Ce que le modèle a **tenté** | **6 griefs refusés sur 81 tours**, soit 0,07 par tour : 3 `valeur_non_fournie`, 2 `montant_non_fourni`, 1 `prix_etranger_au_produit` |
-| Ce qui a fini en **repli** | **0 tour sur 81** — aucune réponse dégradée servie au client |
+| Ce que le modèle a **tenté** | **4 griefs refusés sur 79 tours**, soit 0,05 par tour : 2 `montant_non_fourni`, 1 `prix_etranger_au_produit`, 1 `valeur_non_fournie` |
+| Ce qui a fini en **repli** | **0 tour sur 79** — aucune réponse dégradée servie au client |
 
 ⚠️ **Le taux de rejet ne se lit pas seul.** Il valait 0,13 par tour sur le prompt v1 et
-0,07 sur v2, mais l'écart reste **en deçà de la dispersion mesurée** : sur trois prises par
+0,05 sur v2, mais l'écart reste **en deçà de la dispersion mesurée** : sur trois prises par
 scénario, l'étendue prise-à-prise vaut plusieurs fois cet écart. Ce que la comparaison
 démontre vraiment est ailleurs — le markdown que le front n'affiche pas tombe de 51
 occurrences à **0**, seul écart au-delà du bruit, et l'appendice de domaine montre un
@@ -135,10 +139,10 @@ soustraction pure, vérifiée par un test).
 | Critères nº1, nº2, nº6 | tenus | tenus |
 | Critère nº3 — délai avant valeur (médiane) | 1,0 tour | 1,0 tour |
 | Critère nº4 — attendu en top 3 | 12/12 — 100 % | 11/12 — 92 % |
-| Taux de rejet du validateur | 6 sur 81 tours — 0,07/tour | **51 sur 81 tours — 0,63/tour** |
-| Taux de repli | 0 sur 81 — 0 % | 8 sur 81 — 10 % |
-| Mesure nº7 — appels par tour | 2,36 | **2,17** |
-| Mesure nº7 — entrée facturée | 367 832 jetons | **663 347 jetons** |
+| Taux de rejet du validateur | 4 sur 79 tours — 0,05/tour | **51 sur 81 tours — 0,63/tour** |
+| Taux de repli | 0 sur 79 — 0 % | 8 sur 81 — 10 % |
+| Mesure nº7 — appels par tour | 2,34 | **2,17** |
+| Mesure nº7 — entrée facturée | 349 903 jetons | **663 347 jetons** |
 | Mesure nº8 — conduite testée hors ligne | **0** | **17** |
 
 *Tout vient de `docs/eval/rapport.v2.md` et `docs/eval/rapport.machine.v1.md`, jetons
@@ -146,7 +150,7 @@ compris depuis l'étape 16 : la mesure nº7 les publie, et l'écart des deux cam
 `docs/eval/comparaison.v2-machine.v1.md`.*
 
 **Un seul écart dépasse la dispersion, et c'est la machine qui le perd** : le taux de rejet,
-+15,00 par passe pour une étendue de ± 12,00, dominé par `ecart_non_dit` (0 → 24). Les cinq
++15,67 par passe pour une étendue de ± 11,00, dominé par `ecart_non_dit` (0 → 24). Les cinq
 autres mesures sont **dans le bruit** — `docs/eval/comparaison.v2-machine.v1.md`.
 
 > **Où gagne chacune.** La machine gagne la **testabilité de sa décision** et rend explicite
@@ -221,14 +225,15 @@ voient donc dans les métriques **sans rien réenregistrer**. La contrepartie es
 rejeu a besoin de Postgres et du seed, et que `make eval` reste une commande à part de
 `make check`.
 
-**Ce que coûte une campagne.** Les 36 prises de chaque jeu, sommées sur le champ `usage`
-de leurs en-têtes. Ces compteurs sont **publiés par la mesure nº7** depuis l'étape 16 — ce
-tableau reprend ce que portent `docs/eval/rapport.v2.md` et
+**Ce que coûte une campagne.** Les prises **mesurées** de chaque jeu — 35 pour l'agent,
+36 pour la machine —, sommées sur le champ `usage` de leurs en-têtes. Ces compteurs sont
+**publiés par la mesure nº7** depuis l'étape 16 — ce tableau reprend ce que portent
+`docs/eval/rapport.v2.md` et
 `docs/eval/rapport.machine.v1.md`, il ne le calcule plus à côté d'eux :
 
 | Campagne | Appels | Jetons entrants | Entrée facturée | Sortants |
 | --- | --- | --- | --- | --- |
-| agent, `systeme.v2` | **191** | 358 088 | 367 832 | 46 285 |
+| agent, `systeme.v2` | **185** | 340 159 | 349 903 | 44 743 |
 | machine à états, `systeme.machine.v1` | **176** | 657 010 | **663 347** | 65 958 |
 
 ⚠️ **Moins d'appels et presque le double d'entrée facturée.** La machine fait exactement
@@ -735,15 +740,10 @@ trois composants dont la somme dépasse ce qu'il avait annoncé —
 
 Les dettes qu'un relecteur trouverait de toute façon.
 
-- **Les descriptions de deux outils redisent des règles que le prompt système porte
-  déjà** — `PROJET.md` §7.
 - **Les trois cibles de `systeme.v2` sont parties ensemble** : leur effet est attribué par
   inspection des appendices, pas par isolation expérimentale — `PROJET.md` §7.
 - **Le prompt système illustre quatre de ses onze sections avec des chiffres**, et rien ne
   vérifie que le modèle ne les reprend pas — `PROJET.md` §7.
-- **`NOMBRE` traite l'espace comme un séparateur de milliers**, donc « 1920x1080 180 Hz »
-  se lit comme un seul nombre et lève un faux positif — correctif écrit et différé,
-  `PROJET.md` §7.
 - **`flux.js` et `etat.js` sont le seul code du projet qu'aucun test ne vérifie**, et un
   parseur qui oublierait sa queue se verrait comme une carte produit manquante une fois
   sur dix, en démonstration seulement —
@@ -755,6 +755,20 @@ Les dettes qu'un relecteur trouverait de toute façon.
 
 Cette liste n'est pas exhaustive et ne prétend pas l'être : [`PROJET.md`](PROJET.md) §7 en
 porte une trentaine, toutes écrites.
+
+### Une dette connue qu'on a décidé de ne pas fermer
+
+**Les descriptions de deux outils redisent des règles que le prompt système porte déjà.**
+Le correctif tient en une suppression. Ce n'est pas lui qui coûte, c'est la mesure :
+`schema_outils.py` entre dans l'empreinte des deux jeux d'éval, donc toucher une
+description oblige à réenregistrer **les deux campagnes** — ~366 appels au modèle, plus que
+l'étape 15 entière — pour un effet que la dette elle-même déclare imprévisible.
+
+**Dette connue, correctif écrit, coût de fermeture supérieur au coût du défaut, non fermée
+pour cette raison** — décidée le 3 septembre 2026, détail en [`PROJET.md`](PROJET.md) §7.
+Elle ne figure pas dans la liste ci-dessus, et c'est délibéré : une décision datée n'est pas
+un chantier ouvert, et un engagement qu'on a choisi de ne pas tenir n'a rien à faire dans
+une liste de promesses. Ce qui la rouvrirait est écrit avec elle.
 
 ## Comment ce dépôt se lit
 

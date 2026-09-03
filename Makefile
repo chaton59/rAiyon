@@ -112,10 +112,18 @@ eval-comparer: ## Deux jeux côte à côte — make eval-comparer AVANT=v1 APRES
 	@#
 	@# La dispersion vient du jeu AVANT — c'est l'étalon de bruit du monde d'avant, et
 	@# chaque écart porte son verdict : au-delà d'elle, ou dans le bruit.
-	@test -n '$(AVANT)' -a -n '$(APRES)' -a -n '$(Q)' || { \
+	@#
+	@# ⚠️ Q est entre guillemets **doubles**, pas simples. En simples, l'apostrophe de
+	@# `Q="l'effet du correctif"` fermait la chaîne et la recette cassait — deuxième
+	@# défaut de quoting de ce fichier après le `\` des lignes `@#`, corrigé à l'étape 17.
+	@# **Limite résiduelle, écrite plutôt que tue** : la question ne peut pas contenir de
+	@# guillemet double, ni de `$$`, ni de backtick — le shell les interprète encore.
+	@# C'est un déplacement de la limite, pas sa suppression ; une apostrophe est
+	@# incomparablement plus fréquente qu'un guillemet double dans une question en français.
+	@test -n "$(AVANT)" -a -n "$(APRES)" -a -n "$(Q)" || { \
 		echo 'ERREUR : make eval-comparer AVANT=v1 APRES=v2 Q="ce que la comparaison cherche"'; \
 		exit 1; }
-	uv run python scripts/eval.py comparer $(AVANT) $(APRES) --question '$(Q)'
+	uv run python scripts/eval.py comparer $(AVANT) $(APRES) --question "$(Q)"
 
 eval-enregistrer: ## (Ré)enregistre les cassettes du jeu en vigueur — consomme la clé et des jetons
 	@# ⚠️ Les commandes d'exemple ci-dessous tiennent sur **une seule ligne**, même longues.

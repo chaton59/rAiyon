@@ -25,6 +25,9 @@
 >   est retirée. Le saut de ligne reste, la règle 2 garde son contexte étroit.
 >   **Si le taux de rejet bouge malgré cela, c'est de ce côté qu'il faut regarder d'abord** — et
 >   l'appendice A dira si les phrases refusées se sont élargies.
+> - **v2/categorie_efface_budget.3 est écartée de ce rapport** — divergence attendue au rejeu.
+>   le correctif de `NOMBRE` de l'étape 17 fait tomber les **deux** griefs du tour 1 — les seuls de cette prise. « en 1920x1080 180 Hz » et « en 2560x1440 165 Hz » étaient lus comme 1 080 180 Hz et 1 440 165 Hz, deux valeurs qu'aucun produit ne déclare, et la règle 5 levait un `valeur_non_fournie` sur une phrase exacte. Le tour n'est donc plus refusé du tout : aucune reprise n'est empilée avant régénération, et le 4e appel de la cassette — qui **était** la régénération — devient le premier appel du tour 2, avec une liste de messages entièrement différente. D'où la divergence d'empreinte à cette prise. Le modèle aurait reçu l'historique d'une conversation où sa première réponse a été acceptée : sa réponse enregistrée, écrite sous une reprise qui n'existe plus, n'est pas celle qu'il aurait donnée. ⚠️ **Seule cassette touchée des quatre jeux du dépôt** — vérifié avant la campagne en rejouant les quatre motifs d'extraction, ancien contre nouveau, sur la prose de chaque prise enregistrée.
+>   Les tours et les griefs de cette prise ne sont donc comptés nulle part ci-dessous.
 
 ## Critères d'acceptation
 
@@ -32,7 +35,7 @@
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief(s) | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation(s) | ✅ |
-| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 26 prise(s) | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 25 prise(s) | ✅ |
 | 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 12/12 prise(s) à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | hors de ce rapport — `make check` | — |
 | 6 | Cas zéro résultat traité proprement | binaire | 12/12 traité(s) | ✅ |
@@ -41,16 +44,16 @@
 
 | Mesure | Valeur | Seuil |
 |---|---|---|
-| Taux de rejet du validateur | 6 grief(s) sur 81 tour(s) — 0.07/tour | publié |
-| Taux de repli | 0 tour(s) sur 81 — 0 % | publié |
+| Taux de rejet du validateur | 4 grief(s) sur 79 tour(s) — 0.05/tour | publié |
+| Taux de repli | 0 tour(s) sur 79 — 0 % | publié |
 | Itérations par tour | 1 à 5 (médiane 2.0) | publié |
-| Prises sans aucune valeur livrée | 10 sur 36 | publié |
-| Questions posées avant la première valeur | médiane 0.0 sur 26 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
+| Prises sans aucune valeur livrée | 10 sur 35 | publié |
+| Questions posées avant la première valeur | médiane 0.0 sur 25 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
 | Règles du validateur jamais déclenchées | 3 sur 6 : `id_inconnu`, `nom_reecrit`, `ecart_non_dit` | publié — voir `tests/validateur/test_pieges.py` |
-| Prises où `suggest_next_question` a signalé le budget manquant | 1 sur 36 | publié — **observation, pas exigence** |
-| Appels au modèle par tour client (mesure nº7) | 191 appel(s) sur 81 tour(s) — 2.36 appel/tour | publié — **figé à l'enregistrement**, voir la note ci-dessous |
-| Jetons d'entrée facturés (mesure nº7) | 367 832 facturés (358 088 hors cache + 9 744 de cache écrit) ; 1 851 360 lus du cache, à un autre tarif | publié — **figé à l'enregistrement**, voir la note ci-dessous |
-| Jetons de sortie (mesure nº7) | 46 285 jetons | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Prises où `suggest_next_question` a signalé le budget manquant | 1 sur 35 | publié — **observation, pas exigence** |
+| Appels au modèle par tour client (mesure nº7) | 185 appel(s) sur 79 tour(s) — 2.34 appel/tour | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons d'entrée facturés (mesure nº7) | 349 903 facturés (340 159 hors cache + 9 744 de cache écrit) ; 1 792 896 lus du cache, à un autre tarif | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons de sortie (mesure nº7) | 44 743 jetons | publié — **figé à l'enregistrement**, voir la note ci-dessous |
 
 ⚠️ **La mesure nº7 ne vient pas du rejeu.** Ce sont les seules lignes de ce fichier qui soient lues
 dans l'en-tête des cassettes plutôt que recalculées : elles sont **figées à l'enregistrement** et ne
@@ -74,7 +77,7 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 |---|---|---|
 | texte | montant_non_fourni | 2 |
 | texte | prix_etranger_au_produit | 1 |
-| texte | valeur_non_fournie | 3 |
+| texte | valeur_non_fournie | 1 |
 
 ### Replis par motif
 
@@ -95,7 +98,6 @@ Aucun repli sur cette exécution.
 | budget_serre | 3 | 2 | 1 | 0 | oui | 0 | 0 | 1 à 3 (médiane 2.0) | ✅ |
 | categorie_efface_budget | 1 | 2 | 1 | 0 | — | 0 | 0 | 2 à 3 (médiane 2.5) | ✅ |
 | categorie_efface_budget | 2 | 2 | 1 | 0 | — | 0 | 0 | 2 à 3 (médiane 2.5) | ✅ |
-| categorie_efface_budget | 3 | 2 | 1 | 0 | — | 2 | 0 | 2 à 4 (médiane 3.0) | ✅ |
 | changement_davis | 1 | 2 | 2 | 0 | oui | 0 | 0 | 3 | ✅ |
 | changement_davis | 2 | 2 | 2 | 0 | oui | 0 | 0 | 3 | ✅ |
 | changement_davis | 3 | 2 | 2 | 0 | oui | 0 | 0 | 3 | ✅ |
@@ -137,7 +139,7 @@ un signal.
 | besoin_flou | 3 | 2 à 3 | — |
 | budget_absent | 3 | 2 | 3/3 |
 | budget_serre | 3 | 1 | 3/3 |
-| categorie_efface_budget | 3 | 1 | — |
+| categorie_efface_budget | 2 | 1 | — |
 | changement_davis | 3 | 2 | 3/3 |
 | comparaison | 3 | 1 | 3/3 |
 | desserrage_refuse | 3 | 2 (+1 sans valeur livrée) | — |
@@ -159,8 +161,6 @@ laquelle de ces formes a disparu.
 
 | Scénario | Prise | Tour | Origine | Code | Extrait | Phrase refusée |
 |---|---|---|---|---|---|---|
-| categorie_efface_budget | 3 | 1 | texte | `valeur_non_fournie` | 1080 180 Hz | Si le budget peut légèrement bouger, j'ai aussi repéré le MSI G27C4 E3 à 258,00 $ (8,00 $ au-dessus de votre plafond) en 1920x1080 180 Hz, et le Samsung Odyssey G55A à 259,00 $ (9,00 $ au-dessus) en 2560x1440 165 Hz |
-| categorie_efface_budget | 3 | 1 | texte | `valeur_non_fournie` | 1440 165 Hz | Si le budget peut légèrement bouger, j'ai aussi repéré le MSI G27C4 E3 à 258,00 $ (8,00 $ au-dessus de votre plafond) en 1920x1080 180 Hz, et le Samsung Odyssey G55A à 259,00 $ (9,00 $ au-dessus) en 2560x1440 165 Hz |
 | comparaison | 1 | 2 | texte | `montant_non_fourni` | 15 $ | Les deux restent en dalle IPS et à 27 pouces, donc le choix se joue surtout sur cet écart de fréquence, pour environ 15 $ de plus sur le LG |
 | desserrage_refuse | 1 | 2 | texte | `prix_etranger_au_produit` | 47 dollars | Si vous cherchez la meilleure définition pour le prix, le MSI MAG 274CQF en QHD avec un temps de réponse très rapide est le mieux équipé des trois, pour 47 dollars de plus que l'ASRock |
 | desserrage_refuse | 3 | 2 | texte | `valeur_non_fournie` | 24 pouces | Voulez-vous que je descende à 144 Hz, ou plutôt que j'accepte 24 pouces |
