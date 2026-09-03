@@ -1003,6 +1003,37 @@ les vingt et une de la campagne v1 interrompue sont antérieures au champ ; une 
 calculée sur les trois prises restantes de `v1-base` et comparée aux trente-six de `v2`
 comparerait des tailles d'échantillon.
 
+### La mesure nº8 — les tests de conduite du dialogue. **Ce n'est pas non plus un critère.**
+
+Ajoutée au jalon 1 de l'étape 15, et c'est la seule mesure de l'étape qui **ne coûte aucun
+appel, ne dépend d'aucun tirage, et sépare avec certitude** : combien de tests de conduite
+du dialogue tournent dans `make check` chez l'une et chez l'autre orchestration.
+
+| Orchestration | Tests de conduite dans `make check` |
+|---|---|
+| Agent (étape 8) | **0** |
+| Machine à états (étape 15) | **16 tests de conduite du dialogue** |
+
+Le zéro n'est pas une mesure refaite pour l'occasion : il est écrit au §7 depuis l'étape 8,
+ligne « le faux client teste la boucle, pas le modèle » — *un défaut de conduite du dialogue
+passe entièrement à travers `make check` ; un agent qui interrogerait le client six fois de
+suite ferait une suite verte.*
+
+Le seize est **dérivé de la suite**, jamais recopié : `tests/machine/test_mesure_8.py`
+compte les tests de `tests/machine/test_conduite.py` qui citent la règle qu'ils vérifient,
+et relit ce document et le `README.md` contre ce compte. Un test de conduite ajouté sans
+mise à jour des documents fait échouer `make check`.
+
+> ⚠️ **Ce que ces tests ne prouvent pas.** Ils vérifient que la machine conduit le dialogue
+> **comme on l'a écrit**. Ils ne vérifient **pas que la conduite est bonne**, ni que le modèle qui
+> rédige derrière respecte quoi que ce soit. La machine rend testable **sa propre décision**, pas
+> la conversation. Sans cette réserve, « 16 contre 0 » serait le double standard que l'étape 13
+> s'est reproché sur la métrique nº3.
+
+C'est §3.6 qui rend la mesure possible, et il l'avait annoncée en creux : « la testabilité
+par tests unitaires rapides disparaît en grande partie — il n'y a plus de fonction de
+décision pure à assertionner ». `raiyon/machine/decision.py` est cette fonction.
+
 ---
 
 ## 5. Plan d'exécution
@@ -3795,9 +3826,47 @@ achète, et l'`unset` la vérifie au lieu de la supposer. **Zéro fichier touch�
 `evals/cassettes/`**, et les cinq documents d'éval modifiés **par pur ajout, sans une seule
 suppression** : aucun chiffre existant n'a bougé, ce que le jalon existait pour prouver.
 
+#### Jalon 1 — `decider()`, et la mesure nº8 ✅
+
+> **Le modèle extrait, le code décide.**
+
+`raiyon/machine/decision.py` : une fonction **pure**, qui ne reçoit **jamais de prose**.
+Elle voit un `EtatSession` et le `ResultatOutil` de l'action précédente du même tour, et
+rend une action d'une union fermée de cinq — `Sonder`, `Suggerer`, `Rechercher`,
+`DemanderPrecision`, `Rediger`. C'est la fonction que §3.6 avait déclarée perdue avec
+l'agent, et elle est **indépendante du résultat de la campagne** : elle resterait vraie si
+la campagne n'avait jamais lieu.
+
+- **La frontière achète tout le reste, et elle se perd d'un seul paramètre.** Si
+  `decider()` recevait le message du client, il lui faudrait un modèle pour le comprendre,
+  elle cesserait d'être pure, et la mesure nº8 s'évaporerait avec elle.
+- **`DemanderPrecision` ne porte pas de texte, seulement le champ visé.** Le code décide de
+  quoi on parle, le modèle écrit la phrase. L'option « la relance est un gabarit sans appel
+  modèle » a été écartée : une machine qui gagne le critère nº1 en cessant de parler a
+  changé de produit, et la campagne ne comparerait plus deux orchestrations mais deux
+  produits.
+- **Elle ne redécide aucun invariant de `raiyon.tools`** — jeton de parole, clamp, garde
+  « un tour, une catégorie », zone de tolérance. Deux rédactions d'une même règle sont la
+  maladie de la dette nº1 de l'étape 8.
+- **Deux appels modèle par tour** — extraction, puis rédaction **ou** question, jamais les
+  deux. La machine a donc un plancher mécanique de **2,00 appel par tour**, contre 2,36
+  mesuré sur `v2` (mesure nº7). Prédiction posée avant la campagne.
+- **Sous-produit** : `docs/prompts/etape-15.md` est la spécification du diff du jalon 3 —
+  quelles sections de `systeme.v2.md` passent dans le code, lesquelles restent, et
+  **trois désaccords motivés** avec la lecture préparatoire (§7 et §10 restent, §8 part
+  avec une perte nommée).
+
+**Ce que la machine fera moins bien, écrit avant la campagne :** `decider()` ne voit pas la
+prose, donc elle ne sait pas qu'on lui a posé une question de domaine. Au tour 2 de
+`question_de_domaine`, elle relance une recherche. C'est le coût des « virages hors-script »
+que §3.6 annonçait, et il est daté d'avant la mesure.
+
+**Porte de sortie franchie :** `make check` vert à 952 (+26), **sans base, sans conteneur, sans
+clé** — la suite entière du jalon tourne hors ligne, et c'est la propriété qu'on achète.
+
 #### Reste à faire
 
-- Jalons 1 et 2 — la machine à états elle-même, puis son branchement.
+- Jalon 2 — le branchement : l'orchestrateur, et où `session.tour()` bascule.
 - Jalon 3 — la dérivation de `systeme.machine.v1.md` et la note de double application.
 - Jalon 4 — tir d'essai, campagne, comparaison `v2` contre `machine.v1`.
 

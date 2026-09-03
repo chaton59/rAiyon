@@ -66,6 +66,46 @@ def modules_charges_par(module: str, racines: frozenset[str]) -> list[str]:
     return [nom for nom in resultat.stdout.strip().split(",") if nom]
 
 
+VERIFICATION_PAR_PREFIXE = """
+import sys
+import {module}
+prefixes = {prefixes!r}
+charges = sorted(
+    nom for nom in sys.modules
+    if any(nom == prefixe or nom.startswith(prefixe + ".") for prefixe in prefixes)
+)
+print(",".join(charges))
+"""
+
+
+def modules_charges_sous(module: str, prefixes: frozenset[str]) -> list[str]:
+    """Comme `modules_charges_par`, mais sur des **préfixes pointés** plutôt que des
+    paquets de premier niveau.
+
+    Ajouté à l'étape 15 pour une garantie que le mécanisme d'origine ne sait pas exprimer :
+    `raiyon.machine` doit ignorer `raiyon.agent`. Découper sur le premier segment rendrait
+    `raiyon`, qui est chargé par tout le monde et ne prouverait rien.
+
+    ⚠️ **Ce que cette variante ne peut pas promettre, et il faut le redire ici** : elle ne
+    dit rien de `raiyon.db`. `raiyon.machine.decision` est typé sur `EtatSession` et sur
+    `ResultatOutil`, donc sur `raiyon.matching.depot`, donc sur `raiyon.db.models` — comme
+    `raiyon.tools` et `raiyon.validateur` avant lui. La propriété qui compte reste
+    **« rien ne se connecte »**, et c'est le temps d'exécution de `make check` qui la
+    constate.
+    """
+    resultat = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            VERIFICATION_PAR_PREFIXE.format(module=module, prefixes=sorted(prefixes)),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [nom for nom in resultat.stdout.strip().split(",") if nom]
+
+
 def modules_anthropic_charges_par(module: str) -> list[str]:
     """Le cas historique, et de loin le plus important : le SDK Anthropic."""
     return modules_charges_par(module, frozenset({"anthropic"}))
