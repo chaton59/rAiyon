@@ -106,76 +106,13 @@ DIVERGENCE_MACHINE = (
     "⚠️ **Ces prises portent 22 des 24 `ecart_non_dit` de la campagne de la machine** — "
     "l'unique écart au-delà de la dispersion de l'étape 15. En sortant du rejeu, elles "
     "sortent aussi de toute mesure : le rapport ne dit **pas** que ces 22 étaient des "
-    "faux positifs, il dit qu'on ne peut plus les compter. `comparaison.1` portait les "
-    "2 autres et a tranché à l'étape 18 — elles ont disparu ; elle est sortie du rejeu à "
-    "l'étape 21 à son tour, et c'est donc un verdict acquis, plus un verdict rejouable. "
-    "Voir §5 étape 15, verdict suspendu, et §7."
+    "faux positifs, il dit qu'on ne peut plus les compter. Seule `comparaison.1`, qui "
+    "reste rejouable, tranche pour les 2 qu'elle portait — elles ont disparu. Voir §5 "
+    "étape 15, verdict suspendu, et §7."
 )
 """La raison des six prises de `machine.v1`. **Identique par construction** : c'est la
 même pathologie, dans le même scénario de comparaison hors budget, sur les deux mêmes
 produits. Six rédactions différentes suggéreraient six causes."""
-
-GARDE = (
-    "**La garde d'extraction de l'étape 21.** L'appel nº1 de ce tour a rendu un "
-    "`record_criteria` posant une catégorie **sans aucun critère** : la machine relance "
-    "désormais l'extraction une fois, ce qui insère un appel modèle et une consigne dans "
-    "`messages`. L'empreinte de la requête suivante change, la cassette ne se rejoue plus. "
-    "⚠️ **La divergence est le comportement correct** — c'est l'arbitrage A de l'étape 12 : "
-    "le modèle aurait reçu une conversation où on lui redemande de relire le message du "
-    "client, et sa réponse enregistrée n'est pas celle qu'il aurait donnée. "
-)
-"""Le mécanisme commun aux dix divergences de l'étape 21. Écrit une fois, comme `MECANISME`.
-
-⚠️ **Ce qui suit, en revanche, n'est pas commun**, et c'est le point : sur ces dix tours,
-**deux** perdent un critère que le client avait explicitement énoncé (recensement du point A
-de l'étape 21) et huit n'en perdaient aucun. Rien dans les arguments ne les distingue —
-`{categorie, budget_usd}` est la forme des deux —, et c'est précisément pourquoi la garde
-relance au lieu de trancher : lire le message du client est le travail du modèle."""
-
-GARDE_BUDGET_ET_USAGE = (
-    GARDE + "**Aucun critère n'était perdu ici** : au tour 2, le client dit « c'est "
-    "surtout pour jouer, et j'ai environ 250 dollars ». L'usage n'énonce aucun champ du "
-    "registre et le budget a sa propre colonne (§3.10) — l'extraction était juste, et la "
-    "garde paie un appel pour le confirmer. C'est le prix assumé de son imprécision."
-)
-
-GARDE_BUDGET_SEUL = (
-    GARDE + "**Aucun critère n'était perdu ici** : au tour 2, le client donne son plafond "
-    "et rien d'autre — « mon plafond est de 145 dollars ». Un budget n'est pas un critère "
-    "du registre, l'extraction était juste, et la garde paie un appel pour le confirmer."
-)
-
-GARDE_CATEGORIE_SEULE = (
-    GARDE + "**Aucun critère n'était perdu ici** : au tour 2, le client change de "
-    "catégorie et rien de plus — « en fait je vais commencer par le processeur ». Une "
-    "catégorie neuve sans critère est le chemin nominal de ce scénario, et la garde paie "
-    "un appel pour le confirmer."
-)
-
-GARDE_COMPARAISON = (
-    GARDE + "🔴 **Et ici un critère était bien perdu** — l'un des deux cas du recensement. "
-    "Au tour 1, le client demande « 27 pouces au minimum, 144 Hz au moins, 250 dollars "
-    "maximum, et plutôt une dalle IPS » ; l'extraction n'enregistre que la catégorie et le "
-    "budget. Les deux autres prises du même scénario, elles, enregistrent les trois "
-    "critères : le défaut est intermittent, et c'est ce que la garde vise. ⚠️ **Cette prise "
-    "était la dernière de `changement_davis`/`desserrage_refuse`/`comparaison` à rester "
-    "rejouable** après l'étape 18 — c'est elle qui avait tranché pour 2 des 24 "
-    "`ecart_non_dit`. Le verdict reste acquis ; il n'est plus reproductible par un rejeu."
-)
-
-GARDE_SUR_SPECIFIE = (
-    GARDE + "🔴 **Et ici un critère était bien perdu** — le second cas du recensement, et "
-    "c'est le tirage que l'étape 20 a reproduit en vivant. Au tour 1, l'extraction pose "
-    "`panel_type` en `bloquant`, la couche outils refuse (§3.4quater), et **l'appel étant "
-    "atomique la taille, la fréquence et le budget partent avec** : la session entre au "
-    "tour 2 sans aucun critère. Au tour 2, le client insiste — « le 500 Hz est vraiment ce "
-    "qui compte pour moi » — et l'extraction n'enregistre que la catégorie et le budget de "
-    "400 $. La recherche part alors sur 115 candidats au lieu de 37, et les deux attentes "
-    "non tenues de cette prise (`zero_resultat`, diagnostic `critere_trop_strict`) sont la "
-    "conséquence de ce seul tour. ⚠️ **Elle sort du rejeu sans que la garde ait été "
-    "mesurée** : que la relance aurait rattrapé les 500 Hz est plausible — les prises 1 et "
-    "2 les enregistrent — et n'est pas su."
-)
 
 DIVERGENCES_ATTENDUES: dict[tuple[str, str, int], str] = {
     ("v2", "categorie_efface_budget", 3): (
@@ -218,17 +155,6 @@ DIVERGENCES_ATTENDUES: dict[tuple[str, str, int], str] = {
     ("machine.v1", "desserrage_refuse", 1): DIVERGENCE_MACHINE,
     ("machine.v1", "desserrage_refuse", 2): DIVERGENCE_MACHINE,
     ("machine.v1", "desserrage_refuse", 3): DIVERGENCE_MACHINE,
-    # Étape 21 — la garde d'extraction. Dix prises, dont deux où un critère était perdu.
-    ("machine.v1", "besoin_flou", 1): GARDE_BUDGET_ET_USAGE,
-    ("machine.v1", "besoin_flou", 2): GARDE_BUDGET_ET_USAGE,
-    ("machine.v1", "besoin_flou", 3): GARDE_BUDGET_ET_USAGE,
-    ("machine.v1", "budget_absent", 1): GARDE_BUDGET_SEUL,
-    ("machine.v1", "budget_absent", 2): GARDE_BUDGET_SEUL,
-    ("machine.v1", "budget_absent", 3): GARDE_BUDGET_SEUL,
-    ("machine.v1", "categorie_efface_budget", 1): GARDE_CATEGORIE_SEULE,
-    ("machine.v1", "categorie_efface_budget", 3): GARDE_CATEGORIE_SEULE,
-    ("machine.v1", "comparaison", 1): GARDE_COMPARAISON,
-    ("machine.v1", "sur_specifie", 3): GARDE_SUR_SPECIFIE,
 }
 """Les cassettes dont on **sait** qu'elles divergent, et pourquoi. **Une assertion, pas un skip.**
 

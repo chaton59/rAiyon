@@ -115,9 +115,7 @@ Quatre choses que ce tableau ne dit pas, et qui sont écrites au §7 de `PROJET.
   sollicité. ⚠️ **Puis l'étape 18 a montré qu'une part de ces 24 était un faux positif** —
   deux règles du validateur pouvaient être conjointement insatisfaisables, et le modèle
   était refusé quoi qu'il écrive. Sur les 24, **2 sont démontrées fausses** (la prise qui
-  les portait, `comparaison.1`, était encore rejouable à l'étape 18 et n'en levait plus
-  aucune ; elle a quitté le rejeu à l'étape 21, ce qui rend ce verdict **acquis mais plus
-  reproductible**) et **22 sont hors de portée** : les
+  les portait reste rejouable et n'en lève plus aucune) et **22 sont hors de portée** : les
   prises qui les portaient divergent depuis le correctif et sortent du rejeu. **Un
   compteur qui monte n'est donc pas une preuve que la règle est juste**, et le rapport de
   la machine affiche aujourd'hui `ecart_non_dit` comme muet — avec la réserve qui dit
@@ -150,54 +148,35 @@ soustraction pure, vérifiée par un test).
 | Qui décide de l'outil suivant | le modèle | `raiyon/machine/decision.py`, **pure** |
 | Critères nº1, nº2, nº6 | tenus | tenus |
 | Critère nº3 — délai avant valeur (médiane) | 1,0 tour | 1,0 tour |
-| Critère nº4 — attendu en top 3 | 12/12 — 100 % | 5/5 — 100 % ⚠️ |
-| Taux de rejet du validateur | 3 sur 77 tours — 0,04/tour | 5 sur 46 tours — 0,11/tour ⚠️ |
-| Taux de repli | 0 sur 77 — 0 % | 1 sur 46 — 2 % ⚠️ |
-| Mesure nº7 — appels par tour | 2,32 | **2,04** |
-| Mesure nº7 — entrée facturée | 342 154 jetons | **362 702 jetons** |
+| Critère nº4 — attendu en top 3 | 12/12 — 100 % | 8/9 — 89 % |
+| Taux de rejet du validateur | 3 sur 77 tours — 0,04/tour | 10 sur 69 tours — 0,14/tour ⚠️ |
+| Taux de repli | 0 sur 77 — 0 % | 1 sur 69 — 1 % ⚠️ |
+| Mesure nº7 — appels par tour | 2,32 | **2,09** |
+| Mesure nº7 — entrée facturée | 342 154 jetons | **534 629 jetons** |
 | Mesure nº8 — conduite testée hors ligne | **0** | **17** |
 
 *Tout vient de `docs/eval/rapport.v2.md` et `docs/eval/rapport.machine.v1.md`, jetons
 compris depuis l'étape 16 : la mesure nº7 les publie, et l'écart des deux campagnes est dans
 `docs/eval/comparaison.v2-machine.v1.md`.*
 
-🔴 **Toute la colonne machine porte sur 20 prises sur 36, mesure nº7 comprise, et c'est le
-point le plus important de ce tableau.** Seule la nº8 y échappe — c'est un compte de tests,
-pas un rejeu. ⚠️ Y compris la nº7 : ses chiffres sont lus dans l'en-tête des cassettes plutôt
-que recalculés, mais ils ne sont **sommés que sur les prises mesurées** — une prise écartée
-ne compte ni ses appels ni ses jetons, pour que numérateur et dénominateur décrivent le même
-tirage. Deux amputations successives, de causes différentes et d'effet identique :
-
-* l'**étape 18** — un correctif de validateur fait diverger six prises, qui portaient **22
-  des 24 `ecart_non_dit`** de la campagne, c'est-à-dire l'unique écart au-delà de la
-  dispersion ;
-* l'**étape 21** — la **garde d'extraction** insère un appel modèle sur les tours où
-  l'extraction n'a rendu aucun critère, et dix prises de plus divergent. Les scénarios
-  `besoin_flou`, `budget_absent`, `changement_davis` et `desserrage_refuse` n'ont plus
-  **aucune** prise rejouable.
-
-⚠️ **Les deux colonnes ne se comparent donc plus ligne à ligne** : elles ne décrivent pas
-les mêmes scénarios. Le 100 % du critère nº4 se lit sur 5 prises et non 9, et il ne dit
-**pas** que la machine s'est améliorée — il dit que la prise qui échouait a quitté le rejeu.
-Un tableau qui se resserre vers le vert pendant que son échantillon rétrécit est exactement
-le piège que ce dépôt annonce ailleurs ; il est signalé ici plutôt que laissé à lire.
+⚠️ **Les deux lignes marquées ci-dessus portent sur 30 prises de la machine sur 36, et
+c'est le point le plus important de ce tableau.** Le correctif de validateur de l'étape 18
+fait diverger six prises de `machine.v1`, qui sortent du rejeu — et elles portaient **22 des
+24 `ecart_non_dit`** de la campagne, c'est-à-dire l'unique écart au-delà de la dispersion.
 
 **Jusqu'à l'étape 18, cette place portait un verdict** : « un seul écart dépasse la
 dispersion, et c'est la machine qui le perd — le taux de rejet, +15,67 par passe pour une
 étendue de ± 11,00, dominé par `ecart_non_dit` (0 → 24) ». Il n'est plus soutenable en
-l'état, et il n'est pas remplacé par son contraire. Ce qui est su : sur les 24, **2** ont été
-démontrées faux positifs à l'étape 18 — la prise qui les portait était alors rejouable et
-n'en levait plus aucune. Ce qui ne l'est pas : les **22** autres, dont les prises ne sont
-plus comptables. ⚠️ Cette prise, `comparaison.1`, est sortie du rejeu à l'étape 21 : le
-verdict sur les 2 reste **acquis**, il n'est plus **reproductible**.
+l'état, et il n'est pas remplacé par son contraire. Ce qui est su : sur les 24, **2** sont
+démontrées faux positifs — la prise qui les portait reste rejouable et n'en lève plus
+aucune. Ce qui ne l'est pas : les **22** autres, dont les prises ne sont plus comptables.
 
-`docs/eval/comparaison.v2-machine.v1.md` se réduit aujourd'hui aux **7 scénarios communs**
+`docs/eval/comparaison.v2-machine.v1.md` se réduit aujourd'hui aux **9 scénarios communs**
 et n'y voit **aucun écart au-delà de la dispersion**. ⚠️ Ce n'est pas un démenti : c'est la
 disparition de ce qui permettait de trancher. Trancher pour de bon demanderait de
-réenregistrer la campagne de la machine — ~176 appels, arbitrage non pris. Le même
-réenregistrement **mesurerait aussi la garde de l'étape 21**, dont le gain n'est aujourd'hui
-chiffré par rien : les deux questions se paient ensemble. `PROJET.md` §5 étape 15 porte le
-verdict **suspendu**, avec ce qu'il faudrait pour le rouvrir.
+réenregistrer la campagne de la machine sous le validateur corrigé — ~176 appels, arbitrage
+non pris. `PROJET.md` §5 étape 15 porte le verdict **suspendu**, avec ce qu'il faudrait pour
+le rouvrir.
 
 > **Où gagne chacune.** La machine gagne la **testabilité de sa décision** et rend explicite
 > un invariant que personne n'avait écrit — « ne pas chercher tant que le budget manque »
@@ -219,19 +198,19 @@ RAIYON_PROMPT_SYSTEME=systeme.machine.v1 make eval    # le rejeu — une seule s
 ```
 
 🔴 **Le rejeu du jeu de la machine sort en code non nul, et ce n'est pas une régression.**
-Une attente de scénario n'est pas tenue, et c'est un **résultat de la campagne de l'étape
-15**, publié comme tel :
+**Trois** attentes de scénario ne sont pas tenues, sur deux prises, et ce sont des
+**résultats de la campagne de l'étape 15** publiés comme tels :
 
 | Prise | Attente | Ce qui s'est passé |
 | --- | --- | --- |
 | `categorie_efface_budget.2` | `budget_efface` | au tour 2 — « en fait je vais commencer par le processeur » — l'extraction n'appelle **aucun** outil. La catégorie ne change donc jamais, et le budget n'est pas effacé. |
+| `sur_specifie.3` | `zero_resultat` | au tour 1, l'extraction pose `panel_type` en `bloquant` ; la couche outils refuse **tout l'appel**, et la taille, la fréquence et le budget partent avec. Au tour 2, seul le budget est enregistré : la recherche trouve des produits là où le besoin en interdisait. |
+| `sur_specifie.3` | diagnostic `critere_trop_strict` | même tour, même cause — sans les 500 Hz dans l'état, le moteur n'a plus rien de trop strict à diagnostiquer. |
 
-Le rapport est écrit **avant** la sortie en erreur : `docs/eval/rapport.machine.v1.md` se lit
-normalement. `make eval` sur le jeu de l'agent, lui, sort en **0**.
-
-⚠️ **Jusqu'à l'étape 21 il y en avait trois** — les deux autres étaient portées par
-`sur_specifie.3`, qui a quitté le rejeu. Elles n'ont pas été corrigées : elles ne sont plus
-comptées.
+Les trois sont des **résultats mesurés**, pas des régressions : ils décrivent l'extraction
+atomique de la machine, écrite au §7 de `PROJET.md`. Le rapport est écrit **avant** la sortie
+en erreur : `docs/eval/rapport.machine.v1.md` se lit normalement. `make eval` sur le jeu de
+l'agent, lui, sort en **0**.
 
 ⚠️ **`RAIYON_ORCHESTRATION` est sans effet au rejeu**, et c'est voulu : l'orchestration se
 lit dans l'**en-tête de chaque cassette**, parce que celle qui a enregistré une prise est la
@@ -289,27 +268,22 @@ rejeu a besoin de Postgres et du seed, et que `make eval` reste une commande à 
 `make check`.
 
 **Ce que coûte une campagne.** Les prises **mesurées** de chaque jeu — 34 pour l'agent,
-**20** pour la machine —, sommées sur le champ `usage` de leurs en-têtes. 🔴 Les deux
-colonnes ne portent **pas** sur le même nombre de prises, et l'écart s'est creusé à chaque
-étape qui en écarte une de plus : le total est ce qu'a coûté ce qui est **mesuré**, jamais
-ce qu'a coûté la campagne complète. **On ne peut donc pas diviser une colonne par l'autre.**
-Ces compteurs sont **publiés par la mesure nº7** depuis l'étape 16 — ce tableau reprend ce
-que portent `docs/eval/rapport.v2.md` et `docs/eval/rapport.machine.v1.md`, il ne le calcule
-plus à côté d'eux :
+30 pour la machine —, sommées sur le champ `usage` de leurs en-têtes. ⚠️ Les deux colonnes
+ne portent donc plus sur le même nombre de prises depuis l'étape 18 : le total est ce qu'a
+coûté ce qui est **mesuré**, pas ce qu'a coûté la campagne complète. Ces compteurs sont
+**publiés par la mesure nº7** depuis l'étape 16 — ce tableau reprend ce que portent
+`docs/eval/rapport.v2.md` et
+`docs/eval/rapport.machine.v1.md`, il ne le calcule plus à côté d'eux :
 
-| Campagne | Prises comptées | Appels | Jetons entrants | Entrée facturée | Sortants |
-| --- | --- | --- | --- | --- | --- |
-| agent, `systeme.v2` | 34 sur 36 | **179** | 332 410 | 342 154 | 42 679 |
-| machine à états, `systeme.machine.v1` | **20 sur 36** | **94** | 356 365 | **362 702** | 31 005 |
+| Campagne | Appels | Jetons entrants | Entrée facturée | Sortants |
+| --- | --- | --- | --- | --- |
+| agent, `systeme.v2` | **179** | 332 410 | 342 154 | 42 679 |
+| machine à états, `systeme.machine.v1` | **144** | 528 292 | **534 629** | 50 552 |
 
-⚠️ **Moins d'appels et davantage d'entrée facturée, sur deux fois moins de prises.** La
-machine fait exactement deux appels par tour, mais chacun renvoie la conversation entière, et
-celle-ci grossit plus vite — trois paires `tool_use`/`tool_result` par tour. Lire le compte
-d'appels seul dirait l'inverse de la vérité. ⚠️ **Le rapport était plus net quand la
-campagne machine comptait encore 30 prises** — état du dépôt entre les étapes 18 et 21 :
-**534 629 contre 342 154 jetons**, près du double, pour 144 appels contre 179. C'est ce
-chiffre-là qui porte la conclusion ; celui du tableau ci-dessus la confirme sur un
-échantillon deux fois plus petit, il ne le remplace pas.
+⚠️ **Moins d'appels et presque le double d'entrée facturée.** La machine fait exactement
+deux appels par tour, mais chacun renvoie la conversation entière, et celle-ci grossit plus
+vite — trois paires `tool_use`/`tool_result` par tour. Lire le compte d'appels seul dirait
+l'inverse de la vérité.
 
 C'est ce qui a fait rouvrir la mesure nº7 à l'étape 16 : elle avait été spécifiée sur les
 appels seuls, **avant** qu'on sache que le compte d'appels dirait l'inverse du coût. Les
@@ -840,15 +814,12 @@ Les dettes qu'un relecteur trouverait de toute façon.
   [Comment lire ce tableau](#comment-lire-ce-tableau-et-pourquoi-il-ne-dit-pas-ce-quil-a-lair-de-dire) et `PROJET.md` §7.
 - **Le critère nº1 ne détecte pas une règle manquante**, seulement un trou dans une règle
   existante — [Comment lire ce tableau](#comment-lire-ce-tableau-et-pourquoi-il-ne-dit-pas-ce-quil-a-lair-de-dire) et `PROJET.md` §7.
-- **La campagne de la machine n'est plus rejouable qu'aux deux tiers** — 20 prises sur 36,
-  et le verdict de l'étape 15 est **suspendu**, pas oublié :
+- **La campagne de la machine n'est rejouable qu'à 30 prises sur 36**, et le verdict de
+  l'étape 15 est **suspendu**, pas oublié :
   [Les deux orchestrations](#les-deux-orchestrations-et-où-chacune-gagne) et `PROJET.md` §5.
-- **La garde d'extraction de l'étape 21 n'a pas de gain mesuré** : le défaut qu'elle vise
-  est recensé — 2 tours sur 81 —, ce que la relance en rattrape ne l'est pas. Les deux
-  questions se paient dans le même réenregistrement — `PROJET.md` §7.
 - **L'extraction de la machine est atomique** : un `record_criteria` refusé pour un seul de
-  ses critères les perd **tous**, et la garde de l'étape 21 ne couvre pas ce cas-là —
-  `PROJET.md` §7.
+  ses critères les perd **tous**, et une extraction manquée ne se rattrape pas dans le tour.
+  Mesuré : **2 tours sur 81** perdent un critère explicitement énoncé — `PROJET.md` §7.
 
 Cette liste n'est pas exhaustive et ne prétend pas l'être : [`PROJET.md`](PROJET.md) §7 en
 porte une trentaine, toutes écrites.
@@ -867,14 +838,26 @@ Elle ne figure pas dans la liste ci-dessus, et c'est délibéré : une décision
 un chantier ouvert, et un engagement qu'on a choisi de ne pas tenir n'a rien à faire dans
 une liste de promesses. Ce qui la rouvrirait est écrit avec elle.
 
-**Une seconde, décidée le 4 septembre 2026 sur le même modèle : la consigne d'extraction de
-`systeme.machine.v1` ne sera pas resserrée.** C'est pourtant là que vit le défaut que la
-garde de l'étape 21 rattrape après coup — « enregistre tous les critères que le client
-énonce » manque au prompt de la machine. Le correctif tient en un paragraphe. Ce qui coûte
-est encore la mesure : le prompt vit dans les `messages`, donc dans l'empreinte de requête,
-et le toucher périme **les 36 cassettes de `machine.v1` d'un coup** — ~176 appels — pour un
-gain que rien ne peut chiffrer sans une campagne fraîche. Candidat déclaré pour une
-`systeme.machine.v2`, et ce qui la rouvrirait est écrit en [`PROJET.md`](PROJET.md) §7.
+**Une seconde, décidée les 4 et 5 septembre 2026 sur le même modèle : un critère
+explicitement énoncé n'est pas toujours enregistré, et rien ne sera fait dans cette version.**
+Mesuré sur les cassettes de la machine : **2 tours sur 81**, 13 tours douteux écartés du
+compte plutôt qu'ajoutés. Deux correctifs ont été envisagés, et les deux sont refusés avec
+leur prix :
+
+* **resserrer la consigne d'extraction du prompt** — le correctif tient en un paragraphe,
+  mais le prompt vit dans l'empreinte de requête et le toucher périme **les 36 cassettes de
+  `machine.v1` d'un coup**, ~176 appels, pour un gain que rien ne peut chiffrer sans une
+  campagne fraîche ;
+* **une garde qui relance l'extraction** quand elle rend une catégorie sans aucun critère —
+  **écrite, testée et mesurée à l'étape 21, puis retirée à l'étape 22**. Sa précision est de
+  **2 sur 10** : les arguments d'un vrai et d'un faux positif sont identiques, et deux
+  resserrements essayés ne les séparent pas. Elle coûtait **10 des 30 prises encore
+  rejouables**, dont celle qui tranchait 2 des 24 `ecart_non_dit` de l'étape 18.
+
+**C'est la seule décision de ce dépôt dont le prix a été mesuré au lieu d'être estimé** — le
+correctif a été construit en entier avant d'être refusé. Candidat déclaré pour une
+`systeme.machine.v2`, avec la campagne qui le mesurerait ; ce qui la rouvrirait est écrit en
+[`PROJET.md`](PROJET.md) §7.
 
 ## Comment ce dépôt se lit
 

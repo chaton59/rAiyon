@@ -55,24 +55,9 @@
 >   **7 — Le résultat d'ensemble le plus probable** : aucun écart au-delà de la dispersion sur
 >   les six critères, **sauf le coût**. C'est un verdict **valide**, accepté d'avance, et il ne
 >   clôt pas l'étape — les mesures nº7 et nº8 la closent.
-> - **3 prises sont écartées de ce rapport** — `machine.v1/besoin_flou.1`, `machine.v1/besoin_flou.2`, `machine.v1/besoin_flou.3` — divergence attendue au rejeu.
->   **La garde d'extraction de l'étape 21.** L'appel nº1 de ce tour a rendu un `record_criteria` posant une catégorie **sans aucun critère** : la machine relance désormais l'extraction une fois, ce qui insère un appel modèle et une consigne dans `messages`. L'empreinte de la requête suivante change, la cassette ne se rejoue plus. ⚠️ **La divergence est le comportement correct** — c'est l'arbitrage A de l'étape 12 : le modèle aurait reçu une conversation où on lui redemande de relire le message du client, et sa réponse enregistrée n'est pas celle qu'il aurait donnée. **Aucun critère n'était perdu ici** : au tour 2, le client dit « c'est surtout pour jouer, et j'ai environ 250 dollars ». L'usage n'énonce aucun champ du registre et le budget a sa propre colonne (§3.10) — l'extraction était juste, et la garde paie un appel pour le confirmer. C'est le prix assumé de son imprécision.
->   Les tours et les griefs de ces prises ne sont donc comptés nulle part ci-dessous.
-> - **3 prises sont écartées de ce rapport** — `machine.v1/budget_absent.1`, `machine.v1/budget_absent.2`, `machine.v1/budget_absent.3` — divergence attendue au rejeu.
->   **La garde d'extraction de l'étape 21.** L'appel nº1 de ce tour a rendu un `record_criteria` posant une catégorie **sans aucun critère** : la machine relance désormais l'extraction une fois, ce qui insère un appel modèle et une consigne dans `messages`. L'empreinte de la requête suivante change, la cassette ne se rejoue plus. ⚠️ **La divergence est le comportement correct** — c'est l'arbitrage A de l'étape 12 : le modèle aurait reçu une conversation où on lui redemande de relire le message du client, et sa réponse enregistrée n'est pas celle qu'il aurait donnée. **Aucun critère n'était perdu ici** : au tour 2, le client donne son plafond et rien d'autre — « mon plafond est de 145 dollars ». Un budget n'est pas un critère du registre, l'extraction était juste, et la garde paie un appel pour le confirmer.
->   Les tours et les griefs de ces prises ne sont donc comptés nulle part ci-dessous.
-> - **2 prises sont écartées de ce rapport** — `machine.v1/categorie_efface_budget.1`, `machine.v1/categorie_efface_budget.3` — divergence attendue au rejeu.
->   **La garde d'extraction de l'étape 21.** L'appel nº1 de ce tour a rendu un `record_criteria` posant une catégorie **sans aucun critère** : la machine relance désormais l'extraction une fois, ce qui insère un appel modèle et une consigne dans `messages`. L'empreinte de la requête suivante change, la cassette ne se rejoue plus. ⚠️ **La divergence est le comportement correct** — c'est l'arbitrage A de l'étape 12 : le modèle aurait reçu une conversation où on lui redemande de relire le message du client, et sa réponse enregistrée n'est pas celle qu'il aurait donnée. **Aucun critère n'était perdu ici** : au tour 2, le client change de catégorie et rien de plus — « en fait je vais commencer par le processeur ». Une catégorie neuve sans critère est le chemin nominal de ce scénario, et la garde paie un appel pour le confirmer.
->   Les tours et les griefs de ces prises ne sont donc comptés nulle part ci-dessous.
 > - **6 prises sont écartées de ce rapport** — `machine.v1/changement_davis.1`, `machine.v1/changement_davis.2`, `machine.v1/changement_davis.3`, `machine.v1/desserrage_refuse.1`, `machine.v1/desserrage_refuse.2`, `machine.v1/desserrage_refuse.3` — divergence attendue au rejeu.
->   **Le défaut de l'étape 18** : `regle_ecart_au_budget` exigeait l'écart dans la phrase qui nomme le produit, pendant que `regle_montants` refusait ce même écart dans une phrase sans produit — `hors_budget.values()` n'était pas dans les montants admis. Le nom sur une ligne, « il dépasse de X $ » sur la suivante, et les deux règles devenaient **conjointement insatisfaisables**. La section 14 du prompt, qui demande un produit par ligne, mène droit à ce découpage. Cette prise de `machine.v1` en porte la forme complète et répétée : `ecart_non_dit` sur les lignes qui nomment le LG 27GP750-B et l'Asus TUF Gaming VG279QM1A, **et** `montant_non_fourni` sur « 26,99 $ » et « 29,00 $ » — qui sont exactement leurs écarts au budget de 200 $, écrits une ligne plus bas. Le tour n'est plus refusé, la reprise disparaît, l'empreinte du tour suivant change. ⚠️ **Ces prises portent 22 des 24 `ecart_non_dit` de la campagne de la machine** — l'unique écart au-delà de la dispersion de l'étape 15. En sortant du rejeu, elles sortent aussi de toute mesure : le rapport ne dit **pas** que ces 22 étaient des faux positifs, il dit qu'on ne peut plus les compter. `comparaison.1` portait les 2 autres et a tranché à l'étape 18 — elles ont disparu ; elle est sortie du rejeu à l'étape 21 à son tour, et c'est donc un verdict acquis, plus un verdict rejouable. Voir §5 étape 15, verdict suspendu, et §7.
+>   **Le défaut de l'étape 18** : `regle_ecart_au_budget` exigeait l'écart dans la phrase qui nomme le produit, pendant que `regle_montants` refusait ce même écart dans une phrase sans produit — `hors_budget.values()` n'était pas dans les montants admis. Le nom sur une ligne, « il dépasse de X $ » sur la suivante, et les deux règles devenaient **conjointement insatisfaisables**. La section 14 du prompt, qui demande un produit par ligne, mène droit à ce découpage. Cette prise de `machine.v1` en porte la forme complète et répétée : `ecart_non_dit` sur les lignes qui nomment le LG 27GP750-B et l'Asus TUF Gaming VG279QM1A, **et** `montant_non_fourni` sur « 26,99 $ » et « 29,00 $ » — qui sont exactement leurs écarts au budget de 200 $, écrits une ligne plus bas. Le tour n'est plus refusé, la reprise disparaît, l'empreinte du tour suivant change. ⚠️ **Ces prises portent 22 des 24 `ecart_non_dit` de la campagne de la machine** — l'unique écart au-delà de la dispersion de l'étape 15. En sortant du rejeu, elles sortent aussi de toute mesure : le rapport ne dit **pas** que ces 22 étaient des faux positifs, il dit qu'on ne peut plus les compter. Seule `comparaison.1`, qui reste rejouable, tranche pour les 2 qu'elle portait — elles ont disparu. Voir §5 étape 15, verdict suspendu, et §7.
 >   Les tours et les griefs de ces prises ne sont donc comptés nulle part ci-dessous.
-> - **machine.v1/comparaison.1 est écartée de ce rapport** — divergence attendue au rejeu.
->   **La garde d'extraction de l'étape 21.** L'appel nº1 de ce tour a rendu un `record_criteria` posant une catégorie **sans aucun critère** : la machine relance désormais l'extraction une fois, ce qui insère un appel modèle et une consigne dans `messages`. L'empreinte de la requête suivante change, la cassette ne se rejoue plus. ⚠️ **La divergence est le comportement correct** — c'est l'arbitrage A de l'étape 12 : le modèle aurait reçu une conversation où on lui redemande de relire le message du client, et sa réponse enregistrée n'est pas celle qu'il aurait donnée. 🔴 **Et ici un critère était bien perdu** — l'un des deux cas du recensement. Au tour 1, le client demande « 27 pouces au minimum, 144 Hz au moins, 250 dollars maximum, et plutôt une dalle IPS » ; l'extraction n'enregistre que la catégorie et le budget. Les deux autres prises du même scénario, elles, enregistrent les trois critères : le défaut est intermittent, et c'est ce que la garde vise. ⚠️ **Cette prise était la dernière de `changement_davis`/`desserrage_refuse`/`comparaison` à rester rejouable** après l'étape 18 — c'est elle qui avait tranché pour 2 des 24 `ecart_non_dit`. Le verdict reste acquis ; il n'est plus reproductible par un rejeu.
->   Les tours et les griefs de cette prise ne sont donc comptés nulle part ci-dessous.
-> - **machine.v1/sur_specifie.3 est écartée de ce rapport** — divergence attendue au rejeu.
->   **La garde d'extraction de l'étape 21.** L'appel nº1 de ce tour a rendu un `record_criteria` posant une catégorie **sans aucun critère** : la machine relance désormais l'extraction une fois, ce qui insère un appel modèle et une consigne dans `messages`. L'empreinte de la requête suivante change, la cassette ne se rejoue plus. ⚠️ **La divergence est le comportement correct** — c'est l'arbitrage A de l'étape 12 : le modèle aurait reçu une conversation où on lui redemande de relire le message du client, et sa réponse enregistrée n'est pas celle qu'il aurait donnée. 🔴 **Et ici un critère était bien perdu** — le second cas du recensement, et c'est le tirage que l'étape 20 a reproduit en vivant. Au tour 1, l'extraction pose `panel_type` en `bloquant`, la couche outils refuse (§3.4quater), et **l'appel étant atomique la taille, la fréquence et le budget partent avec** : la session entre au tour 2 sans aucun critère. Au tour 2, le client insiste — « le 500 Hz est vraiment ce qui compte pour moi » — et l'extraction n'enregistre que la catégorie et le budget de 400 $. La recherche part alors sur 115 candidats au lieu de 37, et les deux attentes non tenues de cette prise (`zero_resultat`, diagnostic `critere_trop_strict`) sont la conséquence de ce seul tour. ⚠️ **Elle sort du rejeu sans que la garde ait été mesurée** : que la relance aurait rattrapé les 500 Hz est plausible — les prises 1 et 2 les enregistrent — et n'est pas su.
->   Les tours et les griefs de cette prise ne sont donc comptés nulle part ci-dessous.
 
 ## Critères d'acceptation
 
@@ -80,8 +65,8 @@
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief(s) | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation(s) | ✅ |
-| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 13 prise(s) | ✅ |
-| 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 5/5 prise(s) à réponse de référence | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 23 prise(s) | ✅ |
+| 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 89 % — 8/9 prise(s) à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | hors de ce rapport — `make check` | — |
 | 6 | Cas zéro résultat traité proprement | binaire | 8/8 traité(s) | ✅ |
 
@@ -89,16 +74,16 @@
 
 | Mesure | Valeur | Seuil |
 |---|---|---|
-| Taux de rejet du validateur | 5 grief(s) sur 46 tour(s) — 0.11/tour | publié |
-| Taux de repli | 1 tour(s) sur 46 — 2 % | publié |
+| Taux de rejet du validateur | 10 grief(s) sur 69 tour(s) — 0.14/tour | publié |
+| Taux de repli | 1 tour(s) sur 69 — 1 % | publié |
 | Itérations par tour | 2 à 3 (médiane 2.0) | publié |
-| Prises sans aucune valeur livrée | 7 sur 20 | publié |
-| Questions posées avant la première valeur | médiane 0.0 sur 13 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
+| Prises sans aucune valeur livrée | 7 sur 30 | publié |
+| Questions posées avant la première valeur | médiane 0.0 sur 23 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
 | Règles du validateur jamais déclenchées | 4 sur 6 : `id_inconnu`, `prix_etranger_au_produit`, `nom_reecrit`, `ecart_non_dit` | publié — voir `tests/validateur/test_pieges.py`. ⚠️ **Sur ce qui reste rejouable** : un code peut être muet ici parce que les prises qui le levaient sont écartées, et non parce qu'il a cessé de tirer |
-| Prises où `suggest_next_question` a signalé le budget manquant | 0 sur 20 | publié — **observation, pas exigence** |
-| Appels au modèle par tour client (mesure nº7) | 94 appel(s) sur 46 tour(s) — 2.04 appel/tour | publié — **figé à l'enregistrement**, voir la note ci-dessous |
-| Jetons d'entrée facturés (mesure nº7) | 362 702 facturés (356 365 hors cache + 6 337 de cache écrit) ; 589 341 lus du cache, à un autre tarif | publié — **figé à l'enregistrement**, voir la note ci-dessous |
-| Jetons de sortie (mesure nº7) | 31 005 jetons | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Prises où `suggest_next_question` a signalé le budget manquant | 5 sur 30 | publié — **observation, pas exigence** |
+| Appels au modèle par tour client (mesure nº7) | 144 appel(s) sur 69 tour(s) — 2.09 appel/tour | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons d'entrée facturés (mesure nº7) | 534 629 facturés (528 292 hors cache + 6 337 de cache écrit) ; 906 191 lus du cache, à un autre tarif | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons de sortie (mesure nº7) | 50 552 jetons | publié — **figé à l'enregistrement**, voir la note ci-dessous |
 
 ⚠️ **La mesure nº7 ne vient pas du rejeu.** Ce sont les seules lignes de ce fichier qui soient lues
 dans l'en-tête des cassettes plutôt que recalculées : elles sont **figées à l'enregistrement** et ne
@@ -120,8 +105,8 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 
 | Origine | Code de grief | Rejets |
 |---|---|---|
-| texte | montant_non_fourni | 1 |
-| texte | valeur_non_fournie | 4 |
+| texte | montant_non_fourni | 2 |
+| texte | valeur_non_fournie | 8 |
 
 ### Replis par motif
 
@@ -133,10 +118,19 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 
 | Scénario | Prise | Tours | Tours avant valeur | Questions avant valeur | Attendu top 3 | Rejets | Replis | Itér. | Conforme |
 |---|---|---|---|---|---|---|---|---|---|
+| besoin_flou | 1 | 3 | 2 | 0 | — | 1 | 0 | 2 à 3 (médiane 2.0) | ✅ |
+| besoin_flou | 2 | 3 | 2 | 0 | — | 0 | 0 | 2 | ✅ |
+| besoin_flou | 3 | 3 | 2 | 0 | — | 0 | 0 | 2 | ✅ |
+| budget_absent | 1 | 2 | 2 | 1 | oui | 0 | 0 | 2 | ✅ |
+| budget_absent | 2 | 2 | 2 | 1 | oui | 0 | 0 | 2 | ✅ |
+| budget_absent | 3 | 2 | 2 | 1 | oui | 0 | 0 | 2 | ✅ |
 | budget_serre | 1 | 2 | 1 | 0 | oui | 0 | 0 | 2 | ✅ |
 | budget_serre | 2 | 2 | 1 | 0 | oui | 0 | 0 | 2 | ✅ |
 | budget_serre | 3 | 2 | 1 | 0 | oui | 0 | 0 | 2 | ✅ |
+| categorie_efface_budget | 1 | 2 | 1 | 0 | — | 0 | 0 | 2 | ✅ |
 | categorie_efface_budget | 2 | 2 | 1 | 0 | — | 0 | 0 | 2 | ❌ |
+| categorie_efface_budget | 3 | 2 | 1 | 0 | — | 0 | 0 | 2 | ✅ |
+| comparaison | 1 | 2 | 1 | 0 | non | 0 | 0 | 2 | ✅ |
 | comparaison | 2 | 2 | 1 | 0 | oui | 0 | 0 | 2 | ✅ |
 | comparaison | 3 | 2 | 1 | 0 | oui | 0 | 0 | 2 | ✅ |
 | hors_catalogue | 1 | 2 | — | — | — | 0 | 0 | 2 | ✅ |
@@ -150,6 +144,7 @@ l'écrivait. Posée au jalon 0 de l'étape 15, **avant** la campagne — pas qua
 | question_de_domaine | 6 | 3 | 1 | 0 | — | 0 | 0 | 2 | ✅ |
 | sur_specifie | 1 | 2 | 1 | 0 | — | 2 | 1 | 2 à 3 (médiane 2.5) | ✅ |
 | sur_specifie | 2 | 2 | — | — | — | 3 | 0 | 2 à 3 (médiane 2.5) | ✅ |
+| sur_specifie | 3 | 2 | 2 | 0 | — | 4 | 0 | 3 | ❌ |
 | zero_budget_trop_bas | 1 | 2 | — | — | — | 0 | 0 | 2 | ✅ |
 | zero_budget_trop_bas | 2 | 2 | — | — | — | 0 | 0 | 2 | ✅ |
 | zero_budget_trop_bas | 3 | 2 | — | — | — | 0 | 0 | 2 | ✅ |
@@ -167,11 +162,14 @@ un signal.
 
 | Scénario | Prises | Tours avant valeur | Attendu top 3 |
 |---|---|---|---|
+| besoin_flou | 3 | 2 | — |
+| budget_absent | 3 | 2 | 3/3 |
 | budget_serre | 3 | 1 | 3/3 |
-| comparaison | 2 | 1 | 2/2 |
+| categorie_efface_budget | 3 | 1 | — |
+| comparaison | 3 | 1 | 2/3 |
 | hors_catalogue | 3 | — | — |
 | question_de_domaine | 6 | 1 | — |
-| sur_specifie | 2 | 1 (+1 sans valeur livrée) | — |
+| sur_specifie | 3 | 1 à 2 (+1 sans valeur livrée) | — |
 | zero_budget_trop_bas | 3 | — | — |
 
 ## Attentes binaires non tenues
@@ -179,6 +177,8 @@ un signal.
 | Scénario | Prise | Ce qui manque |
 |---|---|---|
 | categorie_efface_budget | 2 | attente `budget_efface` |
+| sur_specifie | 3 | attente `zero_resultat` |
+| sur_specifie | 3 | diagnostic attendu `critere_trop_strict` |
 
 ## Appendice A — les phrases refusées
 
@@ -189,11 +189,16 @@ laquelle de ces formes a disparu.
 
 | Scénario | Prise | Tour | Origine | Code | Extrait | Phrase refusée |
 |---|---|---|---|---|---|---|
+| besoin_flou | 1 | 2 | texte | `valeur_non_fournie` | 25 pouces | Et une taille d'écran en tête, plutôt du 24-25 pouces ou du 27 pouces (c'est la taille la plus représentée, avec 20 modèles) |
 | sur_specifie | 1 | 1 | texte | `valeur_non_fournie` | 500 Hz | Ensuite, et c'est plus embêtant : 500 Hz n'existe pas dans ce catalogue d'écrans |
 | sur_specifie | 1 | 1 | texte | `valeur_non_fournie` | 500 Hz | Ensuite, sur les 500 Hz que vous demandez : en sondant les fréquences de rafraîchissement disponibles dans ce catalogue, je ne vois rien qui s'en approche |
 | sur_specifie | 2 | 1 | texte | `montant_non_fourni` | 400 dollars | Les autres critères sont bien notés : 27 pouces minimum, 500 Hz minimum, et un budget de 400 dollars, tous bloquants |
 | sur_specifie | 2 | 1 | texte | `valeur_non_fournie` | 27 pouces | Les autres critères sont bien notés : 27 pouces minimum, 500 Hz minimum, et un budget de 400 dollars, tous bloquants |
 | sur_specifie | 2 | 1 | texte | `valeur_non_fournie` | 500 Hz | Les autres critères sont bien notés : 27 pouces minimum, 500 Hz minimum, et un budget de 400 dollars, tous bloquants |
+| sur_specifie | 3 | 1 | texte | `montant_non_fourni` | 400 dollars | J'ai bien noté vos critères : un écran d'au moins 27 pouces et 500 Hz, avec un budget maximum de 400 dollars |
+| sur_specifie | 3 | 1 | texte | `valeur_non_fournie` | 27 pouces | J'ai bien noté vos critères : un écran d'au moins 27 pouces et 500 Hz, avec un budget maximum de 400 dollars |
+| sur_specifie | 3 | 1 | texte | `valeur_non_fournie` | 500 Hz | J'ai bien noté vos critères : un écran d'au moins 27 pouces et 500 Hz, avec un budget maximum de 400 dollars |
+| sur_specifie | 3 | 2 | texte | `valeur_non_fournie` | 500 Hz | Je viens de vérifier la répartition des fréquences de rafraîchissement dans le catalogue des écrans, et je dois être honnête avec vous : aucun écran n'atteint 500 Hz |
 
 ## Appendice B — les tours de domaine, verbatim
 

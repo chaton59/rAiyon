@@ -24,7 +24,7 @@ telle quelle, et le markdown que le front n'affiche pas.
 | `rapport.v1-etape12.md` | Le tirage de l'**étape 12**, celui que §7 de `PROJET.md` cite | `systeme.v1` | 19, dont **1 écartée** |
 | `rapport.v1-base.md` | La **ligne de base** contre laquelle v2 est comparée | `systeme.v1` | 31, **trois enregistrements** |
 | `rapport.v2.md` | La campagne de l'**étape 13**, prompt en vigueur | `systeme.v2` | 36, dont **2 écartées** |
-| `rapport.machine.v1.md` | La campagne de l'**étape 15** : la variante **machine à états** | `systeme.machine.v1` | 36, dont **16 écartées** |
+| `rapport.machine.v1.md` | La campagne de l'**étape 15** : la variante **machine à états** | `systeme.machine.v1` | 36, dont **6 écartées** |
 
 ⚠️ **`rapport.v1-etape12.md` n'est pas une base de comparaison.** C'est une archive : le
 tirage que §7 et le correctif de l'étape 12 décrivent, conservé pour qu'ils citent quelque
@@ -44,14 +44,13 @@ est donc en partie auto-annulante**, et le sens de l'erreur est toujours le mêm
 l'annonce en tête, avec les prises concernées et la raison. Pour `rapport.machine.v1.md`,
 l'effet est majeur : voir `PROJET.md` §5 étape 15, verdict suspendu.
 
-🔴 **Et depuis l'étape 21, `rapport.machine.v1.md` ne porte plus que 20 prises sur 36.**
-Ce n'est plus un correctif de validateur qui l'ampute mais la **garde d'extraction** : elle
-insère un appel modèle sur les tours où l'extraction n'a rendu aucun critère, donc dix
-prises de plus divergent. **Le mécanisme est le même et la conclusion aussi** — ce qui reste
-est un sous-ensemble, pas une campagne. Les scénarios `besoin_flou`, `budget_absent`,
-`changement_davis` et `desserrage_refuse` n'y ont **plus aucune prise**. Rejouer ce rapport
-mesure encore le moteur, la couche outils et le validateur sur ce qui reste ; il ne mesure
-plus la campagne de l'étape 15.
+⚠️ **Et le mécanisme ne vient pas que du validateur.** À l'étape 21, une garde
+d'orchestration — écrite, mesurée, puis **retirée à l'étape 22** — aurait fait diverger dix
+prises de plus de `machine.v1`, ramenant ce rapport à 20 prises sur 36 et la comparaison à
+7 scénarios sur 11. **C'est ce prix-là qui l'a fait retirer** : voir `PROJET.md` §7. La
+leçon reste écrite parce qu'elle vaut au-delà de ce cas — **toute** correction de
+l'orchestration ou du validateur périme les prises qui portaient le défaut corrigé,
+c'est-à-dire exactement celles qui le mesuraient.
 
 ⚠️ **`rapport.machine.v1.md` ne change pas de prompt, il change d'orchestration.**
 `systeme.machine.v1.md` est `systeme.v2.md` **moins §5, §6 et §8** — une soustraction pure,
@@ -85,10 +84,9 @@ est l'orchestration. ⚠️ **Les onze scénarios ont été écrits pour l'agent
 avant que la machine soit envisagée : la suite n'est truquée dans aucun des deux sens, et
 c'est vrai que la machine y gagne ou qu'elle y perde.
 
-🔴 **Depuis l'étape 21, elle ne porte plus que sur 7 scénarios sur 11.** L'étape 18 en
-avait retiré deux — `changement_davis` et `desserrage_refuse`, qui portaient l'écart faisant
-le verdict de l'étape 15 —, l'étape 21 en retire deux de plus, `besoin_flou` et
-`budget_absent`. Le fichier le dit lui-même en tête — la réduction aux scénarios communs et
+🔴 **Depuis l'étape 18, elle ne porte plus que sur 9 scénarios sur 11.** `changement_davis`
+et `desserrage_refuse` ont quitté le rejeu du côté machine, et ils portaient l'écart qui
+faisait le verdict de l'étape 15. Le fichier le dit lui-même en tête — la réduction aux scénarios communs et
 l'avertissement « l'exclusion n'est pas neutre » sont **écrits par le harnais**, pas rédigés
 à la main. Lire `PROJET.md` §5 étape 15 avant d'en tirer une conclusion : le verdict y est
 **suspendu**, et le tableau ci-dessous ne le remplace pas.
@@ -138,11 +136,12 @@ RAIYON_PROMPT_SYSTEME=systeme.machine.v1 make eval   # ⚠️ sort en code 2, et
 make eval-comparer AVANT=v2 APRES=machine.v1 Q="ce que la comparaison cherche"
 ```
 
-🔴 **Le rejeu du jeu machine sort en code non nul, et ce n'est pas une régression.** Une
-attente de scénario n'est pas tenue — `categorie_efface_budget.2`, attente `budget_efface`,
-où l'extraction du tour 2 n'a appelé aucun outil, donc n'a jamais changé de catégorie. C'est
-un résultat de la campagne de l'étape 15, publié comme tel. Le rapport est écrit avant la
-sortie en erreur : il se lit normalement.
+🔴 **Le rejeu du jeu machine sort en code non nul, et ce n'est pas une régression.** Trois
+attentes de scénario ne sont pas tenues, sur deux prises — `categorie_efface_budget.2`
+(`budget_efface`) et `sur_specifie.3` (`zero_resultat` et le diagnostic attendu). Les deux
+décrivent l'**extraction atomique** de la machine, §7. Ce sont des résultats de la campagne
+de l'étape 15, publiés comme tels. Le rapport est écrit avant la sortie en erreur : il se lit
+normalement.
 
 ⚠️ **`RAIYON_ORCHESTRATION` est sans effet au rejeu, et c'est voulu** : l'orchestration se
 lit dans l'en-tête de **chaque cassette**, parce que celle qui a enregistré une prise est la
