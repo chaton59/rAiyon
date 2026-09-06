@@ -1,0 +1,50 @@
+{
+  "format": 1,
+  "entete": {
+    "scenario": "hors_catalogue",
+    "prise": 2,
+    "modele": "claude-sonnet-5",
+    "prompt_version": "systeme.v3",
+    "prompt_empreinte": "55292c7d4119",
+    "outils_empreinte": "c70b675e3e5b",
+    "enregistree_le": "2026-09-06",
+    "usage": {
+      "appels": 2,
+      "jetons_entree": 338,
+      "jetons_sortie": 229,
+      "cache_ecrit": 0,
+      "cache_lu": 26156
+    },
+    "orchestration": "agent"
+  },
+  "prises": [
+    {
+      "requete": "99bab6e2c363",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Bonjour. Malheureusement, je ne vends pas de perceuses ni d'outillage — mon rayon, c'est les composants et périphériques PC : processeurs, cartes graphiques, écrans, mémoire, stockage interne et casques.\n\nEst-ce que je peux vous aider sur l'un de ces produits ?",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "requete": "05c5a885946b",
+      "apercu": [
+        " 1 user text «Bonjour, je cherche une perceuse sans fil, budget 150 dollars.»",
+        " 2 assistant text «Bonjour. Malheureusement, je ne vends pas de perceuses ni d'outillage — mon rayo…»",
+        " 3 user text «Vraiment rien ? C'est pour percer du béton.»"
+      ],
+      "fin": "end_turn",
+      "blocs": [
+        {
+          "text": "Non, vraiment rien de ce côté — je suis spécialisé uniquement en composants et périphériques PC (processeur, carte graphique, écran, mémoire, stockage, casque), aucun outillage n'est au catalogue.\n\nSi un jour vous avez besoin de monter ou d'équiper un PC, en revanche, je suis là.",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

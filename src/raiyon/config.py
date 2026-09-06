@@ -18,9 +18,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PREFIXE_ENV = "RAIYON_"
 FICHIER_ENV = ".env"
 
-PROMPT_SYSTEME_PAR_DEFAUT = "systeme.v2"
+PROMPT_SYSTEME_PAR_DEFAUT = "systeme.v3"
 """La version de prompt servie quand rien n'est configuré. **Écrite ici et nulle part
 ailleurs.**
+
+⚠️ **`systeme.v3` depuis le 2026-09-06, et c'est un changement de DÉFAUT, pas une
+migration.** v2 et ses cassettes restent en place : les deux jeux coexistent dans
+`evals/cassettes/`, et la comparaison v2/v3 reste rejouable. La bascule n'a eu lieu
+qu'une fois la campagne v3 enregistrée — un défaut qui pointe sur un jeu inexistant ferait
+échouer `make eval` en cherchant `evals/cassettes/systeme.v3/`.
 
 Elle a d'abord été écrite deux fois — dans le champ ci-dessous et dans
 `prompts.SYSTEME_PAR_DEFAUT` — et le jalon 3 de l'étape 13 a déplacé la seconde en

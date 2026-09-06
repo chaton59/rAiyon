@@ -60,15 +60,24 @@ def test_le_prompt_systeme_en_vigueur_se_charge():
 
 
 def test_la_version_par_defaut_est_celle_qui_a_ete_arbitree(sans_cache_de_config):
-    """Le défaut ne bouge qu'après un arbitrage écrit. Il vaut `systeme.v2` depuis le
-    jalon 3 de l'étape 13 — voir la docstring de `SYSTEME_PAR_DEFAUT` et §5.
+    """Le défaut ne bouge qu'après un arbitrage écrit. Il vaut `systeme.v3` depuis
+    l'étape 32 — voir la docstring de `SYSTEME_PAR_DEFAUT` et §5.
 
     Le test épingle la valeur pour qu'une campagne suivante ne laisse pas le défaut
     derrière elle : enregistrer v3 sans déplacer le défaut ferait tourner la démonstration
-    et l'API sur v2 pendant que les rapports parlent de v3."""
+    et l'API sur v2 pendant que les rapports parlent de v3.
+
+    ⚠️ **Il a mordu exactement là où il devait**, à la bascule de l'étape 32 : c'est le
+    seul endroit du dépôt qui oblige à écrire l'arbitrage avant de changer le défaut, et
+    il a échoué avant que quoi que ce soit d'autre ne bouge. Le mettre à jour **fait partie
+    de l'arbitrage** — ce n'est pas une réparation de test.
+
+    L'ordre de la bascule est le sien : la campagne v3 **d'abord**, le défaut **ensuite**.
+    Un défaut qui pointe sur un jeu de cassettes inexistant ferait échouer `make eval` en
+    cherchant un répertoire vide."""
     sans_cache_de_config.delenv("RAIYON_PROMPT_SYSTEME", raising=False)
 
-    assert version_systeme() == SYSTEME_PAR_DEFAUT == "systeme.v2"
+    assert version_systeme() == SYSTEME_PAR_DEFAUT == "systeme.v3"
 
 
 def test_le_defaut_nest_ecrit_quà_un_seul_endroit(sans_cache_de_config):
