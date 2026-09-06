@@ -71,24 +71,40 @@ tableau ci-dessous est celui du rapport de la version de prompt en vigueur, que
 `make eval` régénère et qui est committé — voir `docs/eval/LISEZMOI.md`, qui dit lequel
 des rapports décrit quoi.
 
+> **Le prompt système par défaut est `systeme.v3` depuis le 2026-09-06** (étape 32), et
+> c'est lui que `make eval` mesure sans variable d'environnement. `systeme.v2` **et ses
+> cassettes restent** dans le dépôt : c'est un changement de défaut, pas une migration.
+>
+> ⚠️ **Les cinq autres jeux de cassettes sont archivés, et ce n'est pas dû à la bascule.**
+> `v2`, `machine.v1`, `v1-etape12`, `v1-partielle` et `v1-desserrage` — 151 cassettes —
+> déclarent l'empreinte de schéma d'outils d'avant `search_reviews` (2026-09-06). Les
+> rejouer mesurerait un produit qui n'existe plus, et `verifier()` refuse : la garde fait
+> son travail.
+>
+> **Un jeu archivé est une entrée de journal, pas une fixture vivante** — le journal dit ce
+> qui a été, l'état dit ce qui est. Ce qui est promis pour eux est donc : **conservé et
+> lisible, rejouable jusqu'au schéma d'outils du 2026-09-06**, et `make test-int` le
+> vérifie sur chaque cassette. Les rendre rejouables serait une décision délibérée avec son
+> coût — une campagne —, jamais une réparation entreprise parce qu'un test est rouge.
+
 | # | Critère | Seuil | Mesuré | |
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation | ✅ |
-| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1,0 tour sur 24 prises | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1,0 tour sur 27 prises | ✅ |
 | 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 12/12 prises à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | `tests/matching/` tourne dans `make check` | ✅ |
-| 6 | Cas zéro résultat traité proprement | binaire | 11/11 traités | ✅ |
+| 6 | Cas zéro résultat traité proprement | binaire | 12/12 traités | ✅ |
 
-*Sur 34 prises, 11 scénarios, 77 tours client, prompt `systeme.v2`.
+*Sur 36 prises, 11 scénarios, 81 tours client, prompt `systeme.v3`.
 `make eval` sort en code non nul si l'un des critères bloquants — 1, 2 et 6 — est violé,
 ou si une attente de scénario n'est pas tenue. **Ce tableau-là sort en 0** ; celui du jeu de
 la machine sort en **2**, et c'est attendu —
 voir [Les deux orchestrations](#les-deux-orchestrations-et-où-chacune-gagne).
-Deux prises sur 36 sont **écartées du compte**, et le rapport le dit en tête : les
-correctifs de validateur des étapes 17 et 18 lèvent les faux positifs qu'elles portaient,
-donc leurs réponses enregistrées ne sont plus celles que le modèle aurait données. Elles
-sont annoncées plutôt que mesurées quand même — voir [Le harnais](#le-harnais).
+Aucune prise n'est écartée de ce jeu, contrairement au jeu `v2` où deux l'étaient : les
+correctifs de validateur des étapes 17 et 18 y levaient les faux positifs que leurs
+réponses enregistrées portaient. Le jeu `v3` a été enregistré **après** ces correctifs —
+voir [Le harnais](#le-harnais).
 Quatre autres rapports coexistent dans `docs/eval/` : lequel décrit quoi est dans
 `docs/eval/LISEZMOI.md`.*
 
@@ -103,11 +119,39 @@ signifierait que **le validateur a un trou** — c'est là toute l'information.
 C'est pourquoi le rapport publie **trois couches**, et pourquoi les deux suivantes sont les
 plus intéressantes :
 
-| Couche | Campagne `systeme.v2` — `docs/eval/rapport.v2.md` |
-|---|---|
-| Ce qui est **livré** | 0 grief, 0 violation budget — les deux critères ci-dessus |
-| Ce que le modèle a **tenté** | **3 griefs refusés sur 77 tours**, soit 0,04 par tour : 1 `montant_non_fourni`, 1 `prix_etranger_au_produit`, 1 `valeur_non_fournie` |
-| Ce qui a fini en **repli** | **0 tour sur 77** — aucune réponse dégradée servie au client |
+| Couche | Campagne `systeme.v3` — `docs/eval/rapport.v3.md` | Rappel `v2` |
+|---|---|---|
+| Ce qui est **livré** | 0 grief, 0 violation budget — les deux critères ci-dessus | identique |
+| Ce que le modèle a **tenté** | **1 grief refusé sur 81 tours**, soit 0,01 par tour : 1 `montant_non_fourni` | 3 sur 77, soit 0,04 |
+| Ce qui a fini en **repli** | **0 tour sur 81** — aucune réponse dégradée servie au client | 0 sur 77 |
+
+### 🔴 Ces trois lignes en valaient 13, 3 et 4 % il y a une heure, et le modèle avait raison
+
+C'est le résultat le plus instructif de la campagne, et il ne se serait pas produit sans
+elle. La première mesure donnait **13 griefs et 3 replis**, tous sur `desserrage_refuse`,
+**3 prises sur 3 au même tour sur le même code** — un comportement, pas un tirage.
+
+L'hypothèse était une ligne de prompt. **La mesure l'a réfutée.** Au tour 1 le budget vaut
+200 $, deux écrans à 226,99 $ et 229,00 $ sont rendus au-dessus ; au tour 2 le client monte
+à 300 $ et la même recherche les rend **dans** le budget. Le modèle l'écrivait correctement.
+`ContexteFourni.hors_budget` gardait l'écart du tour 1, donc la règle « un produit hors
+budget se cite avec son écart » exigeait d'annoncer un dépassement **qui n'existait plus**.
+
+Le modèle a même argumenté à la seconde tentative — *« la recherche que j'ai sous les yeux
+le confirme explicitement »* — avant d'être remplacé par un repli. **Il avait raison.** Les
+cassettes de ces trois prises gardent cette prose : c'est la preuve que le refus était faux,
+et c'est pourquoi elles n'ont pas été réenregistrées.
+
+Le correctif tient en une ligne : **un produit rendu dans le budget cesse d'être hors
+budget**. Ce n'est pas un relâchement — rien de neuf ne devient citable, un fait périmé
+cesse seulement de contredire le fait qui l'a remplacé. C'est la même règle que le défaut
+jumeau trouvé le même jour dans le harnais de mesure : *on n'évalue pas une phrase contre un
+état accumulé quand l'état est destructif*.
+
+⚠️ **Le correctif étant dans le validateur et non dans le prompt, le rejeu a suffi à le
+vérifier : zéro dollar.** Les cassettes portent les réponses du modèle ; c'est la validation
+qui a changé. Le rejeu signale trois conversations « plus courtes » — les régénérations
+n'ont plus lieu d'être.
 
 ⚠️ **Le taux de rejet ne se lit pas seul.** Il valait 0,13 par tour sur le prompt v1 et
 0,04 sur v2, mais l'écart reste **en deçà de la dispersion mesurée** : sur trois prises par

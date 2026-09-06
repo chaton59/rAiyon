@@ -1,9 +1,9 @@
 # Les rapports d'éval — lequel décrit quoi
 
-Sept fichiers, presque identiques de forme et très différents de sens. Sans cet index,
+Huit fichiers, presque identiques de forme et très différents de sens. Sans cet index,
 c'est un piège : on ouvre le premier, on lit un tableau vert, et on croit avoir lu le bon.
 
-Un huitième, `conversations-a-essayer.md`, n'est pas un rapport : c'est la liste des
+Un neuvième, `conversations-a-essayer.md`, n'est pas un rapport : c'est la liste des
 conversations à tenir **à la main**, parce que les deux seuls défauts trouvés hors des
 tests l'ont été en conversation réelle.
 
@@ -23,8 +23,21 @@ telle quelle, et le markdown que le front n'affiche pas.
 |---|---|---|---|
 | `rapport.v1-etape12.md` | Le tirage de l'**étape 12**, celui que §7 de `PROJET.md` cite | `systeme.v1` | 19, dont **1 écartée** |
 | `rapport.v1-base.md` | La **ligne de base** contre laquelle v2 est comparée | `systeme.v1` | 31, **trois enregistrements** |
-| `rapport.v2.md` | La campagne de l'**étape 13**, prompt en vigueur | `systeme.v2` | 36, dont **2 écartées** |
+| `rapport.v2.md` | La campagne de l'**étape 13** — prompt en vigueur **jusqu'au 2026-09-06** | `systeme.v2` | 36, dont **2 écartées** |
 | `rapport.machine.v1.md` | La campagne de l'**étape 15** : la variante **machine à états** | `systeme.machine.v1` | 36, dont **6 écartées** |
+| **`rapport.v3.md`** | La campagne de l'**étape 32** — **le prompt en vigueur** depuis le 2026-09-06 | `systeme.v3` | 36, **aucune écartée** |
+
+⚠️ **`rapport.v3.md` est le seul que `make eval` régénère aujourd'hui**, et le seul dont le
+jeu de cassettes soit encore rejouable. Les cinq autres jeux — 151 cassettes — déclarent
+l'empreinte de schéma d'outils d'avant `search_reviews` (2026-09-06) : leurs rapports
+restent **lisibles et cités**, mais ils ne se recalculent plus. Voir `eval.est_archive` et
+`PROJET.md` §7.
+
+⚠️ **Ce tableau a eu un trou entre le 2026-09-06 et le 2026-09-07** : `rapport.v3.md`
+existait et n'y figurait pas, et la ligne de `v2` disait « prompt en vigueur » alors qu'il ne
+l'était plus. **Un index est un test de ce qu'il indexe** — celui-ci n'en est pas un, faute
+d'être exécutable, et c'est exactement pourquoi il a dérivé. Consigné plutôt que corrigé en
+silence.
 
 ⚠️ **`rapport.v1-etape12.md` n'est pas une base de comparaison.** C'est une archive : le
 tirage que §7 et le correctif de l'étape 12 décrivent, conservé pour qu'ils citent quelque

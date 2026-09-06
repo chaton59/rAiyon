@@ -5134,7 +5134,7 @@ Inchangé depuis l'étape 21, moins la ligne sur la garde : réenregistrer `mach
 (~176 appels), `systeme.machine.v2`, la dette nº1 de l'étape 8 (~366 appels), la recherche
 hybride `pgvector` (§3.5).
 
-### Étapes 23 à 31 — le journal des derniers jalons
+### Étapes 23 à 32 — le journal des derniers jalons
 
 **Une ligne par étape, pas un récit par étape.** Le détail vit là où la décision est
 spécifiée — §3.6, §3.11, §3.18, §7 — et le répéter ici en ferait une seconde copie, donc une
@@ -5153,6 +5153,7 @@ journal, elle ne le re-raconte pas.
 | **29 — les trois correctifs** ✅ | dénoncer sans citer (2 régénérations → 0) ; seuil de recouvrement à **0,5**, calibré sur les clés collectées ; « une recherche, un objet » — l'atténuation de l'étape 27 **aggravait ce qu'elle visait**, et c'est mesuré |
 | **30 — la mesure honnête** ✅ | prises multiples et `min/méd/max` : la ligne de base rend **3, 0 puis 2** griefs sur exécutions identiques, donc toute comparaison de comptes faite avant est dans le bruit. Le jeu passe à 10 scénarios : **60/60 recommandent, 0 repli**. La machine n'appelle **jamais** le sixième outil, et c'est structurel |
 | **31 — le fournisseur Brave** ✅ | première sortie réseau, **0,017 $** la conversation. `from None` n'efface que `__cause__` ; une garantie d'isolation peut tomber par un `import` ; les entités HTML doivent être décodées **avant** d'être assainies, sinon la garde est contournable par encodage |
+| **32 — la campagne v3 et les trois défauts qu'elle a payés** ✅ | 36 prises, 195 appels, **3,08 $** — le seul dépassement du projet (2,50 $ annoncés), et le seul qui ait trouvé quelque chose. **(a)** Le critère nº1 relisait la prose de chaque tour contre le contexte de **fin** de conversation : il a accusé une phrase vraie, parce qu'un changement de catégorie **efface** le budget. **(b)** `budget_absent` exigeait depuis le 2026-09-01 l'inverse de ce que §6 de `systeme.v3` demande depuis le 2026-09-06 — cinq jours de contradiction, sortie seulement à la campagne, parce que `Scenario.attentes` **n'avait qu'un lecteur, et il coûtait une campagne**. **(c)** Les 3 replis de la campagne étaient un **faux positif du validateur** : `hors_budget` gardait l'écart d'une recherche que la suivante avait rendu faux, et le modèle — qui avait raison — argumentait avant d'être remplacé par un template. Trois défauts, une seule règle : **on n'évalue pas contre un état accumulé quand l'état est destructif** |
 
 ⚠️ **Ces trois étapes se sont d'abord nommées « 17 » et « 21 »**, deux numéros déjà pris
 par le correctif de `NOMBRE` et par la garde d'extraction. La collision a été corrigée dans
@@ -5186,6 +5187,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Prix figés à juillet 2025, en USD** | Certaine — c'est un snapshot | Assumé et documenté au README. Sans effet sur la démonstration, qui porte sur le raisonnement et non sur l'exactitude commerciale |
 | **L'agent dérive vers l'interrogatoire ou la recommandation prématurée** | Moyenne — c'est la qualité perçue | Règle « donner avant de demander » dans le prompt, métrique suivie, itération outillée à l'étape 13 |
 | **Les cassettes deviennent obsolètes silencieusement** | Moyenne — les tests passent à côté de la réalité | Trois empreintes dans l'en-tête (prompt, schéma d'outils, modèle) ; le rejeu échoue en disant de régénérer. **Le validateur est la quatrième**, découverte à l'étape 13 — voir sa ligne. ⚠️ **Ce qui date chaque tirage** : l'étape 12 a été enregistrée le **2026-08-31**, la campagne v1 partielle et v2 le **2026-09-02**, toutes sous le modèle configuré `claude-sonnet-5`. ⚠️ **L'en-tête n'épingle pas un instantané** : il enregistre le nom **configuré** du modèle, qui est un alias, pas la version que l'API a réellement servie. `ReponseLLM` ne porte que `blocs` et `fin`. *Alternative écartée — capturer l'identifiant résolu* : elle rouvre le `Protocol` du client, donc le faux client et les surcharges de l'API, pour une information dont l'étape 13 n'a pas besoin. À rouvrir le jour où la dérive devient une question à part entière
+| ~~Un jeu archivé cesse d'être rejouable sans que personne s'en aperçoive~~ | **Requalifié** à l'étape 32 — ce n'était pas un risque, c'était une promesse mal écrite | `search_reviews` (2026-09-06) a changé l'empreinte de schéma d'outils : **5 jeux sur 6, 151 cassettes**, ont cessé d'être rejouables le même jour — dont celui de la machine. Deux seulement avaient été remarqués, parce qu'ils étaient les deux qu'un test rejouait. La promesse de l'étape 13 n'était pas « rejouable pour toujours » — personne ne peut la tenir — mais **« conservé »** : elle devient *conservé et lisible, rejouable jusqu'au schéma d'outils du 2026-09-06*, et `make test-int` la vérifie sur chaque cassette. `est_archive()` **dérive** l'état du disque au lieu d'énumérer des noms : un septième outil y fera basculer `v3` tout seul. Rendre un jeu rejouable est désormais une décision avec son coût, pas une dette rouge |
 | **Le nettoyage du dataset déborde** | Moyenne — dérive du projet | Geler le périmètre à ce qui est propre plutôt que poursuivre l'exhaustivité |
 | **Latence perçue de la boucle multi-outils** | Faible | Streaming des événements typés dès le premier appel d'outil |
 | **`absence_structurelle` est posé à la main dans le registre** | Faible aujourd'hui, croissante si le catalogue s'étend | Un seul attribut le porte (`internal-hard-drive.rpm`), et un test vérifie sur le seed que son absence est bien **déterminée** par `type`. Mais rien ne détecte le cas inverse : un attribut futur dont l'absence serait expliquée par une autre colonne ne se signalerait pas tout seul, et son zéro résultat serait diagnostiqué `donnee_absente` — donc expliqué par une phrase fausse. Atténuation partielle : un test balaie tous les attributs incomplets et échoue si l'un d'eux remplit le critère sans porter le drapeau. Il ne couvre que les vocabulaires fermés, et que le seed |
@@ -5292,7 +5294,7 @@ construisant**, et surtout ce qui se transporte hors de ce projet.
 Trois blocs : les capacités supposées sans mesure, les arbitrages renversés, et les règles
 générales.
 
-### 9.1 — Les sept précédents de capacité supposée non mesurée
+### 9.1 — Les huit précédents de capacité supposée non mesurée
 
 C'est la série la plus instructive du dépôt, parce qu'elle est **datée, comptée, et
 qu'elle continue**. Chaque ligne est une affirmation qui a été écrite comme un fait sans
@@ -5307,9 +5309,10 @@ avoir été vérifiée.
 | 5 | 29 | la ligne de base ne bougerait pas sans toucher au chemin web | rejouée plutôt que déduite : **3 → 0 → 2 griefs** sur exécutions identiques |
 | 6 | 30 | « la machine expose les mêmes six outils, **donc rien ne laisse attendre un écart** » | mesuré à **6 appels contre 0**, puis vérifié par lecture — c'est structurel |
 | 7 | 31 | « le fournisseur Brave fonctionne » | le premier tir avait touché **le cache**, pas le réseau : mesuré sur un `SELECT` |
+| 8 | 32 | « le test d'accord lie les deux lecteurs d'attentes » | la contre-épreuve a **cassé une branche sans faire échouer le test** : le scénario ne l'empruntait pas. Un test d'équivalence ne lie que les chemins que sa conversation parcourt |
 
-**Trois ont été attrapés avant d'être écrits** — les nº 5, 6 et 7 — c'est-à-dire au moment
-où la phrase allait entrer dans la documentation, et pas des semaines plus tard.
+**Quatre ont été attrapés avant d'être écrits** — les nº 5, 6, 7 et 8 — c'est-à-dire au
+moment où la phrase allait entrer dans la documentation, et pas des semaines plus tard.
 
 ⚠️ **Le nº 4 a retourné la leçon.** Les trois premiers étaient des capacités **absentes**
 qu'on croyait présentes ; celui-là est l'inverse — une capacité **présente** qu'on croyait
@@ -5337,6 +5340,7 @@ une section de synthèse **indexe** ; elle ne re-raconte pas.
 | Renversement | Étape | La raison, en une ligne | Détail |
 |---|---|---|---|
 | « moins de garde-fous » → **corriger au lieu de désactiver** | 25 | sur 3 griefs, **2 étaient des défauts de règle** et un seul une faute du modèle | §5 étape 25, §3.11 |
+| « les 3 replis de v3 sont une régression à documenter » → **un faux positif du validateur, corrigé** | 32 | l'hypothèse « c'est une ligne de prompt » a été **réfutée par la mesure** : le modèle avait raison, `hors_budget` gardait un écart périmé | §5 étape 32, `tests/validateur/test_faux_positifs.py` |
 | La **tolérance d'arrondi**, construite puis refusée | 25 | elle servait le plus **là où le risque se concentre** ; compter a remplacé admettre | `Grief.arrondi` |
 | Cache d'économie → **cache de comparabilité** | 26 | l'argument économique mesuré et **faux** (0,40 $) ; les deux ne se dimensionnent pas pareil, d'où 24 h | §3.18 |
 | L'**atténuation qui aggravait** ce qu'elle visait | 29 | « nommer le produit comme le catalogue » faisait exploser les requêtes de *sujet* | §3.18, `schema_outils.py` |
@@ -5440,6 +5444,70 @@ quelqu'un qui s'apprête à faire l'erreur.
 **Un chemin justifié par une docstring et jamais exercé.** `SEPARATEUR_DE_BLOCS` porte une
 justification écrite et n'a jamais servi : **0 ligne sur 36 456**. Une branche documentée
 n'est pas une branche testée, et l'écrire est ce qui sépare une garantie d'une intention.
+
+**Et son jumeau en version calcul : une valeur produite que personne ne lit.**
+`Attente.QUESTION_POSEE` était calculée par les **deux** lecteurs d'attentes — aucun
+scénario ne l'exigeait, aucun rapport ne la publiait. Elle a été **retirée**, pas tolérée :
+une valeur qui existe finit par être interprétée un jour par quelqu'un qui suppose qu'elle
+sert à quelque chose, et il n'y aura alors rien à lire pour le détromper. La case
+`ATTENTES_CALCULEES_SANS_LECTEUR` reste ouverte et vide, pour que le prochain cas soit écrit
+**avec sa raison** plutôt que glissé dans un scénario pour faire passer un test.
+⚠️ **Distinction à tenir** : `BESOIN_DE_BUDGET`, elle, reste — c'est un indicateur *publié
+sans seuil* et documenté comme tel, ce qui n'est pas la même chose qu'une attente morte.
+
+**Un index est un test de ce qu'il indexe.** Les six étapes manquantes du §5 n'ont été vues
+ni en relisant le journal ni en le parcourant : elles sont sorties quand un renvoi a cherché
+sa cible et ne l'a pas trouvée. C'est la version structurelle de « un test vert n'est pas
+une mesure » — une table des matières qui se construit **sans trou** prouve quelque chose
+qu'aucune lecture ne prouve, parce qu'elle échoue là où l'œil glisse.
+
+**Quand le modèle argumente contre son garde-fou, lire son argument.** À la seconde
+régénération de `desserrage_refuse`, le modèle a écrit : *« Je maintiens ce que j'ai écrit :
+les deux résultats de la dernière recherche figurent dans l'ensemble des produits **dans le
+budget**, pas dans celui des produits au-dessus — la recherche que j'ai sous les yeux le
+confirme explicitement. »* **Il avait raison, et le validateur avait tort.** Cette phrase
+était dans les cassettes, lisible, pendant que le tableau publiait « 3 replis » et qu'on
+cherchait quelle ligne de prompt corriger. Un refus répété n'est pas une preuve que le texte
+est fautif : c'est une preuve qu'une règle et un texte ne s'accordent pas, et la règle est un
+candidat au même titre que le texte. ⚠️ **Ce n'est pas un appel à relâcher les gardes** — la
+correction n'a rien rendu citable de neuf, elle a retiré un fait périmé qui contredisait le
+fait qui l'avait remplacé.
+
+**Un défaut systématique n'est pas nécessairement dans la couche qu'on soupçonne.** « 3
+prises sur 3, même tour, même code, donc probablement le prompt » est une inférence
+raisonnable, et elle était fausse. La régularité dit qu'il y a une cause ; elle ne dit pas où
+elle est. Le coût de la vérification était nul — relire une cassette — et celui de
+l'hypothèse aurait été une campagne dépensée à corriger la mauvaise couche.
+
+**On n'audite pas une conversation contre son état final quand l'état est destructif.** Le
+contexte de fin n'est pas un sur-ensemble des contextes de chaque tour, c'est un ensemble
+**différent** : un changement de catégorie retire le budget, `record_criteria` peut retirer
+un critère. Tout critère bâti sur « l'état final contient tout ce qui a existé » est donc
+faux **par construction**, et il l'est du côté qui accuse — le critère nº1 a rendu rouge une
+phrase que le validateur avait laissé passer à raison. La formulation du défaut vaut mieux
+que celle du correctif : **il lisait du passé avec un contexte du futur**.
+
+**Une exigence dont la seule vérification est chère sera violée en silence — pas par
+négligence, par économie.** `Scenario.attentes` n'avait qu'un lecteur, `make eval`, qui
+demande un jeu de cassettes enregistré. Deux fichiers du dépôt se sont contredits pendant
+**cinq jours** — l'intention de `budget_absent` contre §6 de `systeme.v3` — et il a fallu
+une campagne à 3,08 $ pour que quelqu'un lise le champ. Le correctif n'est pas de mieux
+relire : c'est de **donner un second lecteur bon marché** à ce que personne n'ira lire
+autrement. C'est la même idée que « une règle se met là où on la violera », appliquée au
+coût plutôt qu'au lieu.
+
+**Le seul dépassement de budget du projet est celui qui a payé.** Les campagnes ont toutes
+coûté moins que l'estimation, sauf une : 3,08 $ contre 2,50 $ annoncés, étape 32. C'est
+celle qui a trouvé le défaut du critère nº1 **et** la contradiction vieille de cinq jours
+entre `budget_absent` et §6 — deux choses qu'aucune relecture n'avait vues. Consigné parce
+que la tentation, devant un dépassement, est de resserrer la prochaine campagne : ici, la
+mesure de plus est précisément ce qui a rendu les deux défauts visibles.
+
+**Réécrire une exigence pour qu'elle épouse un comportement mesuré doit rester auditable.**
+C'est ce qui sépare « on a décidé » de « on s'est arrangé ». L'attente de `budget_absent` a
+été remplacée, et l'ancienne formulation est **rayée et datée dans le fichier**, avec les
+deux lignes de la contradiction — pas effacée. Le contrôle de qui gagne, du prompt ou de
+l'exigence, ne peut se faire que si le perdant est encore lisible.
 
 ---
 
