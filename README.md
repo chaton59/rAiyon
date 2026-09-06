@@ -5,6 +5,24 @@ naturel, l'assistant dialogue avec lui puis recommande des produits **réels** d
 catalogue. Le LLM ne produit jamais un fait — il met en mots des faits que le
 code lui a fournis.
 
+## Les quatre chiffres, avec leur portée
+
+Un chiffre sans sa portée ne vaut rien, donc chaque ligne porte la sienne. **Relevés au
+2026-09-06** — voir le garde-fou de lecture en bas de page.
+
+| Mesure | Portée exacte |
+|---|---|
+| **60 prises sur 60 ont recommandé, 0 repli** | 10 scénarios × 3 prises × 2 orchestrations, prompt `systeme.v3` |
+| **8/12 → 12/12** prises qui recommandent, de `systeme.v2` à `v3` | 4 scénarios × 3 prises, agent. Cas décisif : `besoin_flou`, **0 fois sur 3** chez v2, 3 sur 3 chez v3 |
+| **4 injections sur 4 refusées** par le modèle | ⚠️ **un tirage par cas**, et **2 des 4 charges n'ont été livrées qu'après ajustement des fixtures**. Un 4/4 survendu vaut moins qu'un 2/4 honnête |
+| **+24 %** de coût par recommandation, machine contre agent | 10 scénarios × 3 prises. Recalculé hors des 2 scénarios qui appellent l'outil web : **écart identique** |
+
+⚠️ **Le coût se lit par recommandation livrée, jamais brut.** Une version qui ne recommande
+pas est toujours moins chère : de `v2` à `v3`, le brut dit +92 % et le normalisé **+28 %**.
+
+**0,017 $** — une conversation complète avec recherche d'avis en direct (0,005 $ Brave +
+0,0117 $ modèle).
+
 ## Le chemin d'un message
 
 ```mermaid
@@ -12,7 +30,7 @@ flowchart TD
     C["Client<br/>« un écran 144 Hz, 400 $ max »"]
     B["Boucle d'agent<br/>un tour à la fois par session"]
     LLM{{"Modèle<br/>choisit l'outil, écrit la prose"}}
-    OUT["Couche outils<br/>cinq outils, aucun n'accepte de critère"]
+    OUT["Couche outils<br/>six outils, aucun n'accepte de critère"]
     MOT["Moteur de matching<br/>filtres durs, scoring, classement"]
     SQL[("Postgres<br/>catalogue committé")]
     VAL{"Validateur<br/>relit la prose"}
@@ -341,6 +359,17 @@ make seed      # charge le catalogue committé (~1 000 produits, aucun appel API
 make check     # lint + types + tests
 make test-int  # tests d'intégration : migrations, contraintes, index, chargement
 ```
+
+### Quatre variables qui changent le comportement
+
+Toutes ont un défaut sûr, et `.env.example` porte la version longue de chacune.
+
+| Variable | Défaut | Ce qu'elle change |
+|---|---|---|
+| `RAIYON_VALIDATION` | `bloquante` | `avertissement` **ne désactive rien** : les règles tournent et se comptent, mais le texte part au client sans régénération. Un validateur éteint ne mesure rien |
+| `RAIYON_AVIS_TTL_HEURES` | `24` | fraîcheur d'un avis web récupéré. Sans effet sur les avis du seed, qui ne périment jamais |
+| `RAIYON_JOURNAL_JSONL` | vide | double le terminal dans un fichier. Vide = terminal seul, et les logs s'évaporent |
+| `BRAVE_SEARCH_API_KEY` | absente | absente = **mode hors ligne**, ce qui n'est pas une panne |
 
 **`ANTHROPIC_API_KEY` n'est requise que pour `make chat`, `make api` et `make fumee`.** Tout le
 reste — installation, migrations, seed, calibration, `make check` — est du code
@@ -790,7 +819,7 @@ une borne haute calibrée à **13,375**.
 
 ## La couche outils, et ce qu'elle rend impossible
 
-Le modèle dispose de cinq outils. Un seul écrit dans la session :
+Le modèle dispose de six outils. Un seul écrit dans la session :
 
 | outil | rend |
 | --- | --- |
@@ -798,6 +827,7 @@ Le modèle dispose de cinq outils. Un seul écrit dans la session :
 | `probe_catalog` | des agrégats seuls — **aucun produit**, vérifié sur le type de retour |
 | `suggest_next_question` | le champ manquant le plus discriminant — **aucune phrase** |
 | `search_products` | les produits entiers, `produits` et `au_dessus_du_budget` séparés |
+| `search_reviews` | des **avis web encadrés** — aucun fait de catalogue, voir plus bas |
 | `ask_clarification` | une question, et la clôture du tour |
 
 **Les quatre derniers ne prennent aucun critère, aucun budget, aucune catégorie.** Ils
@@ -828,6 +858,56 @@ diagnostic**, parce qu'une contradiction est une réponse, pas un bug.
 
 Aucun module de `raiyon.tools` ne charge le SDK Anthropic — vérifié module par module,
 découverts sur le disque, chacun dans un interpréteur neuf.
+
+## La recherche d'avis, et pourquoi elle ne peut pas mentir
+
+`search_reviews` est le seul outil qui sorte du catalogue. Il rend des **avis et des
+retours d'usage** — jamais un prix, jamais une disponibilité, jamais l'existence d'un
+produit. Ces faits-là viennent du catalogue et de nulle part ailleurs.
+
+**Un contenu web n'a pas besoin d'être hostile pour tirer la prose hors du catalogue — il
+suffit qu'il nomme les choses autrement.** C'est ce qui est arrivé au premier tour réel :
+trois fiches marchandes parfaitement ordinaires, et le modèle a dérivé vers leur
+vocabulaire. La règle « les noms se citent verbatim » l'a attrapé, alors qu'elle avait été
+écrite deux mois plus tôt contre un tout autre risque.
+
+Deux gardes, deux métiers :
+
+| Garde | Tient dehors |
+|---|---|
+| Le contenu web n'entre **pas** dans le contexte validé | les **faits** : tout chiffre ramené du web tombe |
+| Les noms se citent verbatim | le **lexique** : la façon dont une page nomme un produit |
+
+Le contenu arrive **encadré** entre des marques portant un sceau tiré au hasard à chaque
+appel — une page écrite avant l'appel ne peut pas le contrefaire, donc pas refermer la
+marque par avance. ⚠️ **Ce n'est pas une garantie que le modèle ne sera pas trompé**, et le
+code le dit de lui-même : l'encadrement est la première ligne, l'exclusion des faits est
+celle qui tient.
+
+### Le cache, et le mode hors ligne
+
+Les avis sont mis en cache 24 h (`RAIYON_AVIS_TTL_HEURES`). **Ce cache ne sert pas à
+économiser** — 81 recherches valent 0,40 $ — il sert la **comparabilité** : deux exécutions
+comparées doivent avoir vu le même contenu, sinon la différence mesurée mélange l'effet du
+prompt et celui d'une page qui a bougé.
+
+🔴 **Aucune campagne de mesure ne sort sur le réseau, clé ou pas.** Le cache est
+pré-chargé par `make seed` depuis `data/seed/avis.jsonl`, **écrit à la main** : ni `make
+eval` ni `make check` ne peuvent appeler un fournisseur. Il faut le drapeau `--en-ligne`
+**et** la clé — un mode en ligne qui s'activerait à la seule présence d'un secret ferait
+qu'installer une clé change ce qu'on mesure.
+
+```bash
+uv run python scripts/essais.py --conversation 19 --en-ligne   # sort sur le réseau
+uv run python scripts/essais.py --jeu naturel --prises 3       # hors ligne, toujours
+```
+
+Hors ligne, un cache manquant n'est **pas** un résultat vide : c'est un refus qui **nomme
+la clé à écrire**. Un résultat vide se confondrait avec « cherché, rien trouvé », et le
+scénario mesurerait autre chose que ce qu'il annonce, sans erreur et sans message.
+
+⚠️ `BRAVE_SEARCH_API_KEY` est optionnelle et son absence n'est pas une panne. Les avis du
+seed sont **fabriqués** : aucun résultat de recherche réel n'entre dans le dépôt.
 
 ## Hors périmètre
 
@@ -908,6 +988,25 @@ alternatives écartées**, et les énoncés qui ont produit chaque étape sont c
 `docs/prompts/`. [`grande_echelle/architecture_cible.md`](grande_echelle/architecture_cible.md)
 répond à « et si ça passait à l'échelle ? » — il se déclare **exploratoire et hors MVP**,
 et n'engage aucune ligne de code d'ici.
+
+### Le partage des rôles entre les deux fichiers
+
+**Ce README porte l'état ; `PROJET.md` porte le raisonnement.** L'un dit ce que le produit
+fait aujourd'hui, l'autre pourquoi il le fait ainsi et ce qui a été écarté. `PROJET.md` est
+un **journal** : ses chiffres sont des relevés d'entrées datées, et les mettre à jour
+falsifierait le journal.
+
+⚠️ **Les chiffres de ce fichier-ci sont datés à la main**, ce qui tient tant qu'il y en a
+trois ou quatre. Au-delà, il faudra les générer plutôt que les dater un par un — dater
+coûte moins cher que générer jusqu'à ce que le compte augmente, et pas après.
+
+Si vous ne devez lire qu'une chose de `PROJET.md`, lisez le **§9, « Ce que le projet a
+appris »** : les sept capacités supposées sans mesure, les six arbitrages renversés, et les
+règles générales qui se transportent hors de ce projet. Dont celle-ci, qui ne parle pas de
+ce dépôt mais de la façon dont on écrit de la documentation :
+
+> **Le lieu le plus dangereux pour une supposition est la phrase qui dénonce les
+> suppositions, parce que c'est celle qu'on relit le moins.**
 
 ## Données
 

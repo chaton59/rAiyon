@@ -5134,19 +5134,25 @@ Inchangé depuis l'étape 21, moins la ligne sur la garde : réenregistrer `mach
 (~176 appels), `systeme.machine.v2`, la dette nº1 de l'étape 8 (~366 appels), la recherche
 hybride `pgvector` (§3.5).
 
-### Étapes 23 à 25 — posées ici, racontées plus tard ⏳
+### Étapes 23 à 31 — le journal des derniers jalons
 
-⚠️ **Trois lignes, pas trois récits.** Ces trois étapes sont committées et vertes, mais
-leur compte rendu complet — les arbitrages, les alternatives écartées, les chiffres —
-attend le jalon de consolidation, avec la campagne de cassettes v3. Elles sont posées ici
-maintenant parce que **le code les nomme déjà** : sans ces trois lignes, une quarantaine de
-docstrings renverraient à des numéros que §5 ne connaît pas.
+**Une ligne par étape, pas un récit par étape.** Le détail vit là où la décision est
+spécifiée — §3.6, §3.11, §3.18, §7 — et le répéter ici en ferait une seconde copie, donc une
+affirmation de plus à tenir d'accord. ⚠️ **C'est exactement le défaut que le jalon de
+documentation a passé une session à réparer** ; une section de synthèse **indexe** le
+journal, elle ne le re-raconte pas.
 
 | Étape | En une ligne |
 |---|---|
 | **23 — le journal d'observation** ✅ | `structlog` est enfin configuré (il ne l'avait jamais été, et `RAIYON_LOG_LEVEL` n'était lue par personne), un JSONL optionnel double le terminal, deux tables — `appels_modele` et `evenements_tour` — écrites dans le commit unique de fin de tour, et un tableau de bord `/journal` réservé à `dev`. En chemin : le raisonnement adaptatif était **actif depuis le premier appel du projet** alors qu'un commentaire annonçait le contraire, et `refusal` n'était surveillé par personne |
 | **24 — `systeme.v3`** ✅ | trois sections changent — la 5 cesse d'obliger à réciter des agrégats, la 6 fait passer la recherche devant la question de plus, la 8 laisse au vendeur le choix de la première catégorie. **v2 reste le défaut**, faute de cassettes v3. Deux outils de mesure entrent avec elle, dont un écrit après une comparaison assemblée à la main qui s'est corrompue au caractère |
 | **25 — le correctif du validateur** ✅ | accuser réception d'un budget que le client vient d'énoncer était **structurellement impossible** ; `montants_du_client` le rend possible, sous deux gardes — jamais le prix d'un produit, jamais un message de reprise. Plus `RAIYON_VALIDATION=avertissement`, qui fait tourner les règles sans les laisser bloquer, et `Grief.arrondi`, qui **compte** une tolérance écartée au lieu de l'appliquer |
+| **26 — le cache d'avis** ✅ | `avis_produit`, la clé normalisée, le seed fabriqué. L'argument économique du cache **tué par la mesure** (81 recherches = 0,40 $) : ce cache sert la **comparabilité**, ce qui fixe le TTL à 24 h et non à 4. Une ligne `fabrique` ne périme jamais — sans quoi le seed expirerait un jour après `make seed`, en silence |
+| **27 — le sixième outil** ✅ | `search_reviews`, encadré au sceau tiré par appel, exclu du `ContexteFourni` **par adhésion** et non par exception. Borne d'une recherche par message. Le test de l'exclusion a trouvé que `contexte_des_resultats()` était une seconde porte non gardée |
+| **28 — les cas adverses** ✅ | §8 bis au prompt ; 4 injections sur 4 refusées, **avec deux réserves qui voyagent avec le chiffre**. Le validateur refusait le modèle **parce qu'il dénonçait** l'injection en citant ses chiffres. Le relevé des clés manquées naît ici |
+| **29 — les trois correctifs** ✅ | dénoncer sans citer (2 régénérations → 0) ; seuil de recouvrement à **0,5**, calibré sur les clés collectées ; « une recherche, un objet » — l'atténuation de l'étape 27 **aggravait ce qu'elle visait**, et c'est mesuré |
+| **30 — la mesure honnête** ✅ | prises multiples et `min/méd/max` : la ligne de base rend **3, 0 puis 2** griefs sur exécutions identiques, donc toute comparaison de comptes faite avant est dans le bruit. Le jeu passe à 10 scénarios : **60/60 recommandent, 0 repli**. La machine n'appelle **jamais** le sixième outil, et c'est structurel |
+| **31 — le fournisseur Brave** ✅ | première sortie réseau, **0,017 $** la conversation. `from None` n'efface que `__cause__` ; une garantie d'isolation peut tomber par un `import` ; les entités HTML doivent être décodées **avant** d'être assainies, sinon la garde est contournable par encodage |
 
 ⚠️ **Ces trois étapes se sont d'abord nommées « 17 » et « 21 »**, deux numéros déjà pris
 par le correctif de `NOMBRE` et par la garde d'extraction. La collision a été corrigée dans
@@ -5274,3 +5280,192 @@ et il ne prétend pas le savoir.
 Conséquence documentée ailleurs : l'exemple « il me faut aussi une ponceuse, 300 € pour
 les deux » ne peut plus servir à justifier l'agent contre la machine à états. §3.6 porte
 l'amendement.
+
+---
+
+## 9. Ce que le projet a appris
+
+Cette section est ce qui distingue ce dépôt d'un chatbot de démonstration. Elle ne décrit
+pas ce qui a été construit — §3 et §5 le font — mais **ce qui a été appris en le
+construisant**, et surtout ce qui se transporte hors de ce projet.
+
+Trois blocs : les capacités supposées sans mesure, les arbitrages renversés, et les règles
+générales.
+
+### 9.1 — Les sept précédents de capacité supposée non mesurée
+
+C'est la série la plus instructive du dépôt, parce qu'elle est **datée, comptée, et
+qu'elle continue**. Chaque ligne est une affirmation qui a été écrite comme un fait sans
+avoir été vérifiée.
+
+| # | Étape | Ce qui était supposé | Comment le défaut a été découvert |
+|---|---|---|---|
+| 1 | 3 | `smt` existait comme champ exploitable de la source | mesuré en dépouillant le dataset : taux de remplissage insuffisant |
+| 2 | 5 | `temperature=0` donnait du déterminisme | deux exécutions identiques ont divergé |
+| 3 | 5 | `nom_fr` valait la passe LLM qui le produisait | mesuré : inutile, et redondant avec la réponse de l'étape 8 |
+| 4 | 23 | « pas de thinking étendu en v1 » | **160 blocs `thinking` signés et vides** dans les cassettes — le dépôt payait un raisonnement qu'il croyait avoir désactivé |
+| 5 | 29 | la ligne de base ne bougerait pas sans toucher au chemin web | rejouée plutôt que déduite : **3 → 0 → 2 griefs** sur exécutions identiques |
+| 6 | 30 | « la machine expose les mêmes six outils, **donc rien ne laisse attendre un écart** » | mesuré à **6 appels contre 0**, puis vérifié par lecture — c'est structurel |
+| 7 | 31 | « le fournisseur Brave fonctionne » | le premier tir avait touché **le cache**, pas le réseau : mesuré sur un `SELECT` |
+
+**Trois ont été attrapés avant d'être écrits** — les nº 5, 6 et 7 — c'est-à-dire au moment
+où la phrase allait entrer dans la documentation, et pas des semaines plus tard.
+
+⚠️ **Le nº 4 a retourné la leçon.** Les trois premiers étaient des capacités **absentes**
+qu'on croyait présentes ; celui-là est l'inverse — une capacité **présente** qu'on croyait
+absente. La règle vaut donc dans les deux sens (voir 9.3).
+
+🔴 **Le nº 6 est le plus intéressant, et il est de nous.** Ce n'est pas une supposition sur
+un service tiers : c'est une phrase que ce dépôt a écrite lui-même, dans une ligne de §7
+dont **l'objet était de signaler un non-mesuré**. Elle disait « rien ne laisse attendre un
+écart » — une affirmation non mesurée, produite à l'intérieur de la phrase qui dénonçait
+les affirmations non mesurées. Elle est barrée plutôt qu'effacée pour cette raison.
+
+---
+
+### 9.2 — Les arbitrages renversés — index
+
+Un arbitrage renversé n'est pas une erreur corrigée : c'est une décision qui a rencontré
+une mesure.
+
+⚠️ **Cette section est un index, et c'était d'abord un récit.** La première rédaction
+racontait chaque renversement en prose — c'est-à-dire une **seconde copie** de ce que §5 et
+§3 portent déjà, donc une affirmation de plus à tenir d'accord, qui dériverait. Le jalon de
+documentation venait de passer une session à réparer exactement ce défaut. Dans un journal,
+une section de synthèse **indexe** ; elle ne re-raconte pas.
+
+| Renversement | Étape | La raison, en une ligne | Détail |
+|---|---|---|---|
+| « moins de garde-fous » → **corriger au lieu de désactiver** | 25 | sur 3 griefs, **2 étaient des défauts de règle** et un seul une faute du modèle | §5 étape 25, §3.11 |
+| La **tolérance d'arrondi**, construite puis refusée | 25 | elle servait le plus **là où le risque se concentre** ; compter a remplacé admettre | `Grief.arrondi` |
+| Cache d'économie → **cache de comparabilité** | 26 | l'argument économique mesuré et **faux** (0,40 $) ; les deux ne se dimensionnent pas pareil, d'où 24 h | §3.18 |
+| L'**atténuation qui aggravait** ce qu'elle visait | 29 | « nommer le produit comme le catalogue » faisait exploser les requêtes de *sujet* | §3.18, `schema_outils.py` |
+| L'**exemption des chiffres cités**, proposée et écartée | 29 | elle ouvre le canal même que le validateur existe pour fermer | §5 étape 29 |
+| Le **guillemet cesse d'être un pouce** | 30 | 26 mentions de pouces, **toutes en toutes lettres**, zéro en guillemet | §7, `extraction.py` |
+
+🔴 **Le troisième est le plus transportable** : le réflexe était de justifier un cache par
+les appels qu'il évite, et la mesure a tué l'argument avant que le code ne soit écrit. Un
+cache d'économie se règle sur un taux de hit ; un cache de **comparabilité** se règle sur une
+frontière qui ne doit pas tomber au milieu d'une mesure. Le même mot désignait deux objets.
+
+### 9.3 — Les règles générales
+
+Ce sont elles qui se transportent hors du projet.
+
+**Un commentaire qui dit « on n'utilise pas X » se vérifie au même titre qu'un « X
+marche ».** Une capacité déclarée absente est une affirmation comme une autre. Le dépôt a
+payé les deux sens : trois capacités absentes crues présentes, puis un raisonnement présent
+cru absent pendant tout le projet.
+
+**La base dit ce que le modèle a émis, le flux d'événements dit ce que le client a reçu —
+partout où l'on re-dérive l'un depuis l'autre, on se trompe.** Un bloc `tool_use` présent
+en base n'est pas la preuve que son effet a atteint le client : un outil peut refuser, un
+texte être rejeté, une question ne jamais partir. Trouvé en affichant deux fois une
+question que le client n'avait vue qu'une fois.
+
+**Un tirage n'est pas un taux.** Trois exécutions **identiques** des mêmes quatre scénarios
+ont rendu **3, 0 puis 2** griefs. Toute comparaison de comptes faite sur une prise est dans
+le bruit : ni fausse, ni établie. La parade n'est pas de mieux interpréter, c'est de faire
+porter les prises multiples **par le harnais** et de publier `min/méd/max` — un tableau qui
+affiche un nombre sans son amplitude ne dit pas « voilà le comportement », il dit « voilà
+un tirage ».
+
+**Quand la variance est haute, l'indicateur grossier bat le fin.** Pendant que le compte de
+griefs oscillait d'un facteur 4 (8 → 2 sur campagne fraîche), le compte de **replis**
+restait lisible (2 → 0 → 0). Un repli est le seul événement que le **client subit** ; un
+grief est un événement interne que le système absorbe. On publie donc les replis d'abord et
+les griefs en diagnostic.
+
+**Normaliser le coût par unité livrée quand une version échoue plus souvent que l'autre.**
+Comparer des coûts bruts entre une version qui recommande et une qui, un tiers du temps, ne
+fait rien, dit l'inverse de ce qui s'est passé : **une version qui ne recommande jamais est
+toujours moins chère**. v2 contre v3 : +92 % en brut, **+28 % par recommandation livrée**.
+Le même défaut existe avec un dénominateur non normalisé — `comparaison.v2-machine.v1.md`
+compare des totaux sur 77 tours contre 69, et **sous-estime** de 12 %.
+
+**Un test vert n'est pas une mesure tant qu'on n'a pas vérifié qu'il savait rougir.** Trois
+angles de la même chose, tous rencontrés ici : un test qui **se saute** (le bloqueur de
+socket levait avant le chemin d'erreur, et `skip` passait pour un succès) ; un test qui
+**tait un trou** au lieu de le constater ; un test **vert sur une chaîne littérale** qui ne
+contient rien d'interdit (`assainir("&#x202E;")` rend `&#x202E;`, où aucun caractère
+dangereux n'apparaît). Le geste qui tranche est toujours le même : **retirer le correctif
+et compter les chutes.** Cinq, sur le décodage des entités. Son corollaire positif : un test
+qui **constate** un trou délibéré vaut mieux qu'un trou tu.
+
+**`from None` n'efface que `__cause__`.** `__context__` reste, et Python y attache
+l'exception en cours de traitement — donc l'erreur `httpx`, sa `Request`, ses en-têtes, donc
+le secret. La levée doit sortir du bloc `except`. Trouvé **seulement** en refusant un test
+qui se sautait.
+
+**Une garantie d'isolation peut tomber par un `import`, sans qu'une ligne de la capacité
+isolée soit écrite.** `RechercheImpossible` définie dans le module réseau et importée par
+la couche outils faisait charger `httpx` dans quatre couches — pour attraper une exception.
+L'exception appartient au `Protocol`, pas à l'implémentation.
+
+**Une affirmation réfutée doit être corrigée partout où elle est écrite, pas là où on en a
+parlé en dernier.** Douze familles trouvées d'un coup, toutes avec la même signature : la
+correction faite au **point d'usage**, l'affirmation laissée debout au **point de
+décision**. Une phrase réfutée survit en changeant de section.
+
+**Un nombre dans de la prose est soit généré, soit daté — jamais recopié.** Et la nuance
+qui compte : dans un **journal**, un nombre périmé est un **relevé**, pas une erreur — le
+mettre à jour falsifierait le journal. La parade n'est donc pas de tenir les chiffres à
+jour, c'est de **dire de quand ils datent**. Corollaire pour un statut : une dérive qui se
+dénonce vaut mieux qu'un statut qui se tait.
+
+**Corriger la classe, pas le cas.** `.gitignore` disait `.env` — vrai de l'instance, faux
+de l'intention, qui était « aucun secret dans git ». Un fichier fabriqué **en réparant un
+problème de secret** est tombé entre la lettre et l'esprit. La correction est `.env.*` avec
+`!.env.example`, parce que le prochain s'appellera autrement. Même forme que « exposé aux
+deux orchestrations » : vrai au schéma, faux à l'exécution.
+
+**Le lieu le plus dangereux pour une supposition est la phrase qui dénonce les
+suppositions**, parce que c'est celle qu'on relit le moins.
+
+**Une règle se met là où on la violera, pas là où on l'a comprise.** Deux applications du
+même geste, faites au jalon de documentation :
+
+* le garde-fou « au-delà de trois ou quatre chiffres, générez-les au lieu de les dater » est
+  écrit **dans le README**, pas gardé dans la conversation qui l'a produit. Une règle qui
+  vit dans un échange meurt avec lui ; celle-là est à l'endroit où on la relira au moment
+  de la violer — en ajoutant un cinquième chiffre ;
+* les deux réserves du « 4 injections sur 4 » sont **dans la cellule du tableau**, pas en
+  note de bas de page. **Une réserve en note est une réserve que personne ne lit**, et un
+  4/4 survendu vaut moins qu'un 2/4 honnête.
+
+C'est la même idée que « corriger au point de décision » vue depuis l'écriture plutôt que
+depuis la correction : le bon endroit pour une phrase est celui où elle sera lue par
+quelqu'un qui s'apprête à faire l'erreur.
+
+**Un chemin justifié par une docstring et jamais exercé.** `SEPARATEUR_DE_BLOCS` porte une
+justification écrite et n'a jamais servi : **0 ligne sur 36 456**. Une branche documentée
+n'est pas une branche testée, et l'écrire est ce qui sépare une garantie d'une intention.
+
+---
+
+### 9.4 — Ce qui n'est pas mesuré, et qui n'est pas un oubli
+
+Quatre non-mesurés assumés, écrits ici pour qu'ils ne passent pas pour des trous.
+
+**`RAIYON_VALIDATION=avertissement` n'a jamais été joué en campagne.** Le mode existe, il
+est testé unitairement des deux côtés (agent et machine), et **aucune mesure ne dit ce
+qu'il change sur une conversation réelle**. Le défaut reste `bloquante`, donc le chemin
+mesuré est le seul qui serve.
+
+**Le trou du guillemet est ouvert et non exercé.** Depuis le retrait de `"` des unités, une
+taille écrite `27"` avec une valeur non fournie n'est plus vérifiée par la règle 5. Trou
+réel ; **zéro occurrence** sur les proses collectées, où le pouce s'écrit 26 fois sur 26 en
+toutes lettres. Un test le **constate** plutôt que de le taire.
+
+**Le sixième outil côté machine : un constat publié, pas une dette.** La machine ne peut pas
+appeler `search_reviews`, et ce n'est pas un manque à combler — lui donner l'outil demande
+d'écrire une règle déterministe pour « il est temps de chercher des avis », exactement
+l'intention que §3.6 lui reproche d'être mauvaise à saisir. Le constat vaut mieux que la
+fonctionnalité.
+
+**Les mots vides : une hypothèse de dissolution, à fermer ou à rouvrir.** Le seuil de
+recouvrement a été calibré sur des formulations dispersées, et cette dispersion venait en
+grande partie de la description d'outil — corrigée depuis. Les formulations mesurées après
+correction sont courtes et reproductibles : **zéro quasi-doublon, donc zéro donnée nouvelle
+pour le seuil**. Si le prochain jalon n'en produit pas, la question se ferme au lieu de se
+traîner, et le seuil devient un filet peu sollicité plutôt qu'un mécanisme central.
