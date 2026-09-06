@@ -4920,6 +4920,25 @@ Inchangé depuis l'étape 21, moins la ligne sur la garde : réenregistrer `mach
 (~176 appels), `systeme.machine.v2`, la dette nº1 de l'étape 8 (~366 appels), la recherche
 hybride `pgvector` (§3.5).
 
+### Étapes 23 à 25 — posées ici, racontées plus tard ⏳
+
+⚠️ **Trois lignes, pas trois récits.** Ces trois étapes sont committées et vertes, mais
+leur compte rendu complet — les arbitrages, les alternatives écartées, les chiffres —
+attend le jalon de consolidation, avec la campagne de cassettes v3. Elles sont posées ici
+maintenant parce que **le code les nomme déjà** : sans ces trois lignes, une quarantaine de
+docstrings renverraient à des numéros que §5 ne connaît pas.
+
+| Étape | En une ligne |
+|---|---|
+| **23 — le journal d'observation** ✅ | `structlog` est enfin configuré (il ne l'avait jamais été, et `RAIYON_LOG_LEVEL` n'était lue par personne), un JSONL optionnel double le terminal, deux tables — `appels_modele` et `evenements_tour` — écrites dans le commit unique de fin de tour, et un tableau de bord `/journal` réservé à `dev`. En chemin : le raisonnement adaptatif était **actif depuis le premier appel du projet** alors qu'un commentaire annonçait le contraire, et `refusal` n'était surveillé par personne |
+| **24 — `systeme.v3`** ✅ | trois sections changent — la 5 cesse d'obliger à réciter des agrégats, la 6 fait passer la recherche devant la question de plus, la 8 laisse au vendeur le choix de la première catégorie. **v2 reste le défaut**, faute de cassettes v3. Deux outils de mesure entrent avec elle, dont un écrit après une comparaison assemblée à la main qui s'est corrompue au caractère |
+| **25 — le correctif du validateur** ✅ | accuser réception d'un budget que le client vient d'énoncer était **structurellement impossible** ; `montants_du_client` le rend possible, sous deux gardes — jamais le prix d'un produit, jamais un message de reprise. Plus `RAIYON_VALIDATION=avertissement`, qui fait tourner les règles sans les laisser bloquer, et `Grief.arrondi`, qui **compte** une tolérance écartée au lieu de l'appliquer |
+
+⚠️ **Ces trois étapes se sont d'abord nommées « 17 » et « 21 »**, deux numéros déjà pris
+par le correctif de `NOMBRE` et par la garde d'extraction. La collision a été corrigée dans
+un commit dédié plutôt que par un `amend` : le numéro d'étape est le système de références
+du dépôt, et une référence ambiguë vaut moins qu'une référence absente.
+
 ---
 
 ## 6. Ordre non négociable

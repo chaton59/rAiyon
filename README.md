@@ -669,6 +669,48 @@ atténuation et non une preuve, et le dire ainsi vaut mieux qu'un test de bout e
 donnerait l'illusion de la couverture pour le prix d'un `make check` qui cesserait de
 tourner sans base, sans conteneur et sans clé.
 
+### Le journal — `/journal`, développement seulement
+
+`make api` puis `http://127.0.0.1:8000/journal.html` — **l'interface produit n'y renvoie
+pas**, c'est une adresse qu'on tape. La page sert deux vues : la **liste des sessions**,
+les plus récentes d'abord, avec leurs totaux — tours, appels, jetons d'entrée et de sortie,
+replis, griefs ; et la **chronologie d'une session**, où chaque tour se déplie appel par
+appel : le message du client, le raisonnement résumé, les arguments exacts de chaque outil
+et ce qu'il a rendu, les refus du validateur à leur rang, le texte livré. Chaque appel
+porte son `stop_reason`, ses jetons et sa latence ; l'en-tête de session porte les
+`effort` et `display` observés, et les latences médiane et maximale.
+
+⚠️ **Le raisonnement affiché est un résumé produit par l'API, jamais la trace brute du
+modèle** — la page le dit à l'écran. Et un appel sans raisonnement est un **état normal** :
+l'adaptatif décide appel par appel. La page écrit « pas de raisonnement sur cet appel »,
+jamais un tiret de donnée manquante.
+
+C'est l'instrument avec lequel une version de prompt se compare à une autre, et il est là
+parce que **les logs s'évaporaient à la fermeture du terminal** — un défaut a déjà coûté
+une relecture de cassettes à la main pour un `WARNING` perdu avec son shell.
+`scripts/ligne_de_base.py` lit les mêmes tables et rend un tableau de plusieurs sessions
+d'un coup, sans appeler l'API ni rien écrire.
+
+⚠️ **La page n'existe pas hors `RAIYON_APP_ENV=dev` : les deux routes rendent 404.** Elles
+affichent des conversations entières — la prose du client comprise —, et rien de tout cela
+n'a à exister sur un serveur qui ne sert pas à observer. C'est **404 et non 403** : un 403
+sur `/journal/{uuid}` confirmerait qu'une session porte cet identifiant.
+
+Deux lectures piègent, et la page les désamorce elle-même :
+
+* une session avec des appels et **zéro jeton** n'est pas une mesure ratée — c'est un rejeu
+  de cassette ou un test, qui exécute la pile entière sans appeler l'API ;
+* « non mesuré » n'est pas zéro. Les conversations antérieures à l'instrumentation n'ont ni
+  appel ni événement enregistré, et rien ne permet de les leur fabriquer après coup. Leur
+  chronologie s'affiche quand même — elle est construite sur `tours_conversation`, qui
+  existe depuis l'étape 8 — mais les colonnes de mesure disent leur absence au lieu
+  d'afficher un chiffre faux.
+
+Le journal JSONL est l'autre moitié : `RAIYON_JOURNAL_JSONL=data/journal/raiyon.jsonl`
+double le terminal sans le changer, et couvre le cas que les tables ne couvrent pas — un
+tour qui plante n'écrit rien en base, pas même ses appels, parce que l'observation partage
+l'atomicité du tour.
+
 ## Le catalogue
 
 Le catalogue est **committé** dans `data/seed/produits.jsonl` : `make seed` ne fait
