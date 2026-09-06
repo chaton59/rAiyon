@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from raiyon.avis.cache import SOURCE_FABRIQUE, Avis, EtatCache, Lecture, est_perime
-from raiyon.avis.normalisation import normaliser
+from raiyon.avis.normalisation import meilleure_correspondance, normaliser
 
 QUAND = datetime(2026, 9, 6, 12, 0, tzinfo=UTC)
 """L'horodatage par défaut. Fixe : deux exécutions doivent produire le même décor."""
@@ -63,11 +63,15 @@ class DepotAvisEnMemoire:
 
     def lire(self, requete_normalisee: str, *, maintenant: datetime) -> Lecture:
         groupe = self.groupes.get(requete_normalisee)
+        etat = EtatCache.TROUVE
         if groupe is None:
-            return Lecture((), EtatCache.ABSENT)
+            voisine = meilleure_correspondance(requete_normalisee, self.groupes)
+            if voisine is None:
+                return Lecture((), EtatCache.ABSENT)
+            groupe, etat = self.groupes[voisine], EtatCache.APPROCHE
         if any(est_perime(un_avis, maintenant=maintenant, ttl=self._ttl) for un_avis in groupe):
             return Lecture((), EtatCache.PERIME)
-        return Lecture(tuple(sorted(groupe, key=lambda un_avis: un_avis.url)), EtatCache.TROUVE)
+        return Lecture(tuple(sorted(groupe, key=lambda un_avis: un_avis.url)), etat)
 
     def ecrire(self, requete_normalisee: str, avis: Sequence[Avis]) -> tuple[Avis, ...]:
         self.ecritures.append(requete_normalisee)

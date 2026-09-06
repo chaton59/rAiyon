@@ -6,16 +6,23 @@ tournent dans `make check` ; `DepotAvisSql` demande une base et vit dans `make t
 
 ---
 
-### Trois états, pas deux
+### Quatre états, pas deux
 
-Un cache se raconte d'habitude en hit / miss. Il en faut **trois** ici, parce que le
-journal doit pouvoir répondre à deux questions différentes :
+Un cache se raconte d'habitude en hit / miss. Il en faut **quatre** ici, parce que le
+journal doit pouvoir répondre à des questions que « hit » et « miss » confondent :
 
 | État | Ce qu'il dit |
 |---|---|
-| `TROUVE` | la clé est là et fraîche — l'outil sert le cache |
-| `ABSENT` | la clé n'a jamais été remplie |
+| `TROUVE` | la clé est là **à l'identique** et fraîche |
+| `APPROCHE` | une clé **voisine** a servi, au-dessus du seuil de recouvrement (étape 29) |
+| `ABSENT` | rien d'assez proche n'a été trouvé |
 | `PERIME` | la clé a été remplie, et sa fraîcheur est passée |
+
+⚠️ **`APPROCHE` est un état à part et pas un `TROUVE` déguisé.** Les deux servent le
+cache, donc les confondre serait tentant — et ferait perdre la seule question qui compte
+pour la comparabilité : deux exécutions ont-elles vu le **même** contenu parce qu'elles ont
+posé la même question, ou parce qu'un seuil les a rapprochées ? Un appariement approximatif
+est un jugement du code ; il doit se compter séparément pour pouvoir se rediscuter.
 
 `ABSENT` et `PERIME` déclenchent tous deux une récupération, donc les confondre serait
 tentant. Ils ne disent pourtant pas la même chose d'une campagne : un `ABSENT` sur un
@@ -58,6 +65,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from raiyon.avis.normalisation import meilleure_correspondance, recouvrement
 from raiyon.db.models import EXTRAIT_MAX_CARACTERES, AvisProduit
 
 logueur = structlog.get_logger(__name__)
@@ -98,9 +106,10 @@ class CleIncoherente(Exception):
 
 
 class EtatCache(StrEnum):
-    """Ce que la lecture a trouvé. Voir la docstring du module pour les trois états."""
+    """Ce que la lecture a trouvé. Voir la docstring du module pour les quatre états."""
 
     TROUVE = "trouve"
+    APPROCHE = "approche"
     ABSENT = "absent"
     PERIME = "perime"
 
@@ -126,10 +135,11 @@ class Avis:
 class Lecture:
     """Ce que le cache rend : des avis, et **pourquoi** il en rend ou non.
 
-    `avis` est vide dès que `etat` n'est pas `TROUVE`. Les deux champs pourraient donc
-    sembler redondants ; ils ne le sont pas, puisque `TROUVE` avec zéro avis est un état
-    légitime — une recherche a eu lieu et n'a rien rendu, ce qui est un fait à mettre en
-    cache comme un autre. Sans lui, une requête sans résultat serait refaite indéfiniment.
+    `avis` est vide dès que `etat` n'est ni `TROUVE` ni `APPROCHE`. Les deux champs
+    pourraient donc sembler redondants ; ils ne le sont pas, puisque `TROUVE` avec zéro
+    avis est un état légitime — une recherche a eu lieu et n'a rien rendu, ce qui est un
+    fait à mettre en cache comme un autre. Sans lui, une requête sans résultat serait
+    refaite indéfiniment.
     """
 
     avis: tuple[Avis, ...]
@@ -137,8 +147,14 @@ class Lecture:
 
     @property
     def utilisable(self) -> bool:
-        """Vrai quand l'appelant peut servir ce contenu sans rien récupérer."""
-        return self.etat is EtatCache.TROUVE
+        """Vrai quand l'appelant peut servir ce contenu sans rien récupérer.
+
+        `APPROCHE` en fait partie : le contenu vient du cache, il n'y a rien à aller
+        chercher. La **distinction** entre exact et approché ne se perd pas pour autant —
+        elle vit dans `etat`, que le journal enregistre, parce qu'elle décide de la
+        comparabilité et non de l'action.
+        """
+        return self.etat in (EtatCache.TROUVE, EtatCache.APPROCHE)
 
 
 class DepotAvis(Protocol):
@@ -210,12 +226,37 @@ class DepotAvisSql:
         produit qu'après une écriture concurrente perdue, et il se tranche du côté sûr.
         """
         lignes = self._groupe(requete_normalisee)
+        etat = EtatCache.TROUVE
         if not lignes:
-            return Lecture((), EtatCache.ABSENT)
+            # L'appariement par recouvrement (étape 29) : **après** l'échec exact, jamais
+            # avant. Une clé identique sert toujours son propre groupe, quoi qu'en dise le
+            # seuil — sinon le seuil déciderait de cas qu'il n'a aucune raison d'arbitrer.
+            voisine = meilleure_correspondance(requete_normalisee, self._cles_connues())
+            if voisine is None:
+                return Lecture((), EtatCache.ABSENT)
+            lignes = self._groupe(voisine)
+            etat = EtatCache.APPROCHE
+            logueur.info(
+                "avis.cache_approche",
+                requete=requete_normalisee,
+                servie_par=voisine,
+                recouvrement=round(recouvrement(requete_normalisee, voisine), 3),
+            )
         avis = tuple(_depuis_ligne(ligne) for ligne in lignes)
         if any(est_perime(un_avis, maintenant=maintenant, ttl=self._ttl) for un_avis in avis):
             return Lecture((), EtatCache.PERIME)
-        return Lecture(avis, EtatCache.TROUVE)
+        return Lecture(avis, etat)
+
+    def _cles_connues(self) -> list[str]:
+        """Les clés distinctes du cache. **Un balayage, et il est assumé à cette taille.**
+
+        Quelques dizaines de clés aujourd'hui : le coût est sous la milliseconde et il ne
+        s'exécute que sur un miss exact. À dix mille, il faudra un index — `pg_trgm` est
+        déjà disponible dans l'image (§3.2) et n'a jamais été employé. La condition de
+        bascule est écrite ici pour ne pas être redécouverte : **le jour où ce balayage
+        apparaît dans une latence mesurée**, et pas avant.
+        """
+        return list(self._session.scalars(select(AvisProduit.requete_normalisee).distinct()))
 
     def ecrire(self, requete_normalisee: str, avis: Sequence[Avis]) -> tuple[Avis, ...]:
         """Remplace le groupe. Rend ce qui est en cache après coup — pas ce qu'on a passé.

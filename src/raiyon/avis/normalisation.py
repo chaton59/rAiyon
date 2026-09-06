@@ -58,20 +58,23 @@ Trois demandes identiques, **trois clés**. Un mot de plus ou de moins suffit, e
 formule librement — donc c'est le mode de miss le plus probable en pratique, très loin
 devant les collisions du tri.
 
-**Ce n'est pas corrigé ici, et le motif est daté.** La parade est un appariement par
-recouvrement — un cache touché quand les jetons de la requête sont *inclus* dans ceux
-d'une entrée, ou au-delà d'un seuil de Jaccard. C'est un **second mécanisme** avec son
-seuil à calibrer, et le calibrer suppose de savoir à quelle fréquence le cas arrive.
+**✅ Corrigé à l'étape 29 par `meilleure_correspondance()`, et le seuil vient d'un
+relevé.** La parade est un appariement par recouvrement de Jaccard. Elle n'a pas été
+écrite plus tôt exprès : un seuil se calibre sur des données, et les données n'existaient
+pas avant que le miss bruyant les produise. Voir `SEUIL_RECOUVREMENT` pour les quatre
+paires qui l'ont placé.
 
-Or ce chiffre existera bientôt et ne coûte rien : l'étape 28 compte les `ABSENT`, et un
-`ABSENT` hors ligne **nomme la clé** que le modèle a formulée. Après une campagne, on
-saura si le modèle produit dix formulations pour un produit ou toujours la même — et donc
-s'il faut un appariement flou, ou simplement quelques fixtures de plus. Poser le seuil
-avant ce chiffre serait le poser à l'intuition, ce que ce dépôt refuse ailleurs.
+⚠️ **Ce que le recouvrement ne rattrape pas, et qui n'est pas de son ressort.** La requête
+à trois produits observée à l'étape 28 — `MSI MAG 274CQF vs LG 27GP750-B vs Asus TUF…` —
+recouvre à 0,333, sous le seuil, **et c'est correct** : une recherche d'avis qui nomme
+trois écrans est mauvaise en soi, quelle que soit la façon dont on l'apparie. C'est un
+défaut de produit, corrigé dans la description de l'outil (« une recherche porte sur UN
+seul produit ou UN seul sujet »), pas dans le cache.
 
-⚠️ **Atténuation immédiate, et elle est dans le prompt** : la description de
-`search_reviews` demande de nommer le produit **tel que le catalogue l'écrit**, ce qui
-concentre les formulations. Ça réduit la dispersion, ça ne la ferme pas.
+⚠️ **L'atténuation écrite à l'étape 27 aggravait ce qu'elle visait, et c'est mesuré.**
+« Nommer le produit tel que le catalogue l'écrit » concentre bien les requêtes *produit*,
+et fait exploser les requêtes *sujet* en comparaisons multi-produits. La description dit
+donc maintenant **un objet à la fois**, produit ou sujet.
 
 ### Ce qui a été refusé, et pourquoi
 
@@ -98,6 +101,39 @@ leurs vingt-quatre premiers jetons triés sont, à ce stade, la même.
 
 import re
 import unicodedata
+from collections.abc import Iterable
+
+SEUIL_RECOUVREMENT = 0.5
+"""Recouvrement de Jaccard minimal pour qu'une clé en serve une autre. **Calibré, pas choisi.**
+
+⚠️ **Le chiffre vient du relevé de l'étape 28**, pas d'une intuition — c'est exactement ce
+que le miss bruyant avait été écrit pour produire. Sur les clés réellement formulées par le
+modèle et sur celles du seed :
+
+| Paire | Recouvrement | Ce qu'on veut |
+|---|---|---|
+| `avis dalle ips jouer joueurs pour va vs` ↔ `dalle ips jouer ou pour va` | **0,556** | fusionner |
+| `avis dalle gamers ips jouer pour va vs` ↔ la même | **0,556** | fusionner |
+| `asus avis gaming tuf vg279qm1a` ↔ `asus defauts vg279qm1a` | **0,333** | **ne pas** fusionner |
+| requête à trois produits ↔ `asus avis gaming tuf vg279qm1a` | **0,333** | **ne pas** fusionner |
+
+La fenêtre admissible est donc `]0,333 ; 0,556]`. Son milieu est 0,44 ; **0,5 est retenu
+parce qu'il faut se tromper du bon côté**.
+
+### L'asymétrie qui place le seuil, et elle n'est pas dans les chiffres
+
+Un seuil trop haut rate un quasi-doublon : le miss est alors **bruyant** hors ligne
+(`AVIS_HORS_LIGNE` nomme la clé) et déclenche une vraie recherche en ligne. Coût visible,
+rattrapable, mesuré.
+
+Un seuil trop bas sert les avis d'**une autre requête**, et personne ne le voit : la prose
+parle de l'écran demandé en citant les retours d'un autre. C'est la panne silencieuse que
+tout ce jalon existe pour éviter. Le seuil erre donc **haut** : 0,5 laisse 0,167 de marge
+au-dessus de la pire fusion à tort connue, et seulement 0,056 sous la vraie fusion la plus
+serrée. Ce déséquilibre est voulu.
+
+⚠️ **Quatre paires ne sont pas une calibration**, et le chiffre se relira à la prochaine
+campagne. Il est écrit ici avec ses données pour que la relecture ait de quoi trancher."""
 
 JETONS_MAX = 24
 """Nombre de jetons conservés dans la clé. **Garde sur l'index**, voir la docstring."""
@@ -130,3 +166,46 @@ def _sans_diacritiques(texte: str) -> str:
     """
     decompose = unicodedata.normalize("NFD", texte)
     return "".join(caractere for caractere in decompose if not unicodedata.combining(caractere))
+
+
+def recouvrement(une: str, autre: str) -> float:
+    """L'indice de Jaccard entre deux clés : jetons communs sur jetons de l'union. Pur.
+
+    ⚠️ **Sur des ensembles, pas des listes** — les clés sont déjà triées et dédupliquées
+    par `normaliser()`, donc un jeton ne pèse qu'une fois quelle que soit sa fréquence.
+    C'est cohérent avec la clé elle-même : deux requêtes qui ne diffèrent que par une
+    répétition sont déjà la même clé.
+
+    Deux clés vides rendent `0.0` et non `1.0` : une clé vide n'est pas une clé, et la
+    faire recouvrir tout le monde serait le pire comportement possible.
+    """
+    jetons_une, jetons_autre = set(une.split()), set(autre.split())
+    union = jetons_une | jetons_autre
+    if not union:
+        return 0.0
+    return len(jetons_une & jetons_autre) / len(union)
+
+
+def meilleure_correspondance(
+    cle: str, candidates: Iterable[str], *, seuil: float = SEUIL_RECOUVREMENT
+) -> str | None:
+    """La clé connue qui recouvre le mieux `cle`, si elle passe le seuil. Pure.
+
+    Rend `None` plutôt que la moins mauvaise : en dessous du seuil, il n'y a pas de
+    correspondance « approximative acceptable », il y a un miss — qui est bruyant hors
+    ligne et déclenche une recherche en ligne. Voir `SEUIL_RECOUVREMENT` pour l'asymétrie
+    qui place le seuil.
+
+    ⚠️ **Départage par la clé la plus courte à score égal.** Le cas se produit (deux
+    entrées du seed peuvent recouvrir autant), et sans règle explicite le résultat
+    dépendrait de l'ordre de la base — donc deux exécutions comparées pourraient servir
+    des avis différents pour la même requête. C'est précisément ce que ce cache existe pour
+    empêcher.
+    """
+    meilleures = sorted(
+        ((recouvrement(cle, candidate), -len(candidate), candidate) for candidate in candidates),
+        reverse=True,
+    )
+    if not meilleures or meilleures[0][0] < seuil:
+        return None
+    return meilleures[0][2]

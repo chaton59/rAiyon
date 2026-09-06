@@ -28,6 +28,29 @@ coûteux d'un harnais de mesure, et il a déjà été payé une fois dans ce dé
 les fixtures, étape 26). Un refus, lui, se compte par code dans le rapport d'éval, se voit
 dans le journal, et **nomme la fixture à écrire**.
 
+### ⚠️ Ce qu'un `ABSENT` compte — et le taux unique qu'il ne faut pas publier
+
+L'étape 28 a rendu « 8 recherches, 4 miss, 50 % ». **Ce taux recouvre trois choses de
+natures différentes, et les additionner ne veut rien dire :**
+
+| Ce que le miss dit | Nature | Où ça se corrige |
+|---|---|---|
+| la fixture n'est pas au seed | **propriété du harnais** | écrire la fixture |
+| deux formulations voisines d'un besoin | **défaut réel**, en ligne aussi | `SEUIL_RECOUVREMENT` |
+| une requête qui nomme trois produits | **défaut de produit** | la description de l'outil |
+
+Le premier cas ne coûte rien en ligne : le miss y déclenche simplement une vraie recherche.
+Le deuxième en coûte toujours — deux recherches payées pour une, et deux entrées de cache
+qui cassent la comparabilité que ce cache existe pour tenir. Le troisième ne se rattrape
+par aucun appariement : aucune page d'avis ne traite trois références à la fois.
+
+La première ligne ne doit **jamais** entrer dans le même compteur que les deux autres :
+elle mesure la couverture d'un jeu de fixtures écrit à la main, ce qui n'a pas de sens
+comme métrique de produit et qui ferait paraître le cache défaillant là où c'est le seed
+qui est incomplet. Les deux autres sont des défauts, et elles se comptent séparément parce
+qu'elles se corrigent à deux endroits opposés — l'appariement pour l'une, le prompt pour
+l'autre.
+
 *Alternative écartée — lever une exception et arrêter la campagne.* Plus bruyant encore,
 et trop : une fixture manquante ferait perdre les mesures de tous les autres scénarios de
 la passe. Le refus est visible sans être destructeur, et il laisse la conversation se
