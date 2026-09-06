@@ -175,23 +175,32 @@ def main() -> int:
             label, brut = entree.split("=", 1)
             lignes.append((label, uuid.UUID(brut), _mesurer(base, uuid.UUID(brut))))
 
+    # ⚠️ **L'ordre des colonnes est une décision, pas une mise en page** (étape 30). Ce
+    # qu'un lecteur voit en premier est ce qu'il retient : les deux premières colonnes
+    # après le nom sont donc celles qui décrivent **ce que le client a vécu** — a-t-il eu
+    # une recommandation, a-t-il reçu un repli. Le compte de griefs vient en dernier,
+    # comme diagnostic, parce qu'un grief est un événement interne que le système absorbe.
     entetes = (
         "scénario",
         "prises",
-        "appels",
-        "j.sortie",
         "→reco",
-        "lat.méd",
+        "replis",
+        "$/reco",
         "coût $",
+        "appels",
+        "lat.méd",
         "griefs",
-        "détail des griefs",
+        "détail (diagnostic)",
     )
     print(
-        f"| {entetes[0]:<26} | {entetes[1]:>5} | {entetes[2]:>8} | {entetes[3]:>8} | "
-        f"{entetes[4]:>10} | {entetes[5]:>11} | {entetes[6]:>7} | {entetes[7]:>8} | {entetes[8]}"
+        f"| {entetes[0]:<24} | {entetes[1]:>5} | {entetes[2]:>10} | {entetes[3]:>6} | "
+        f"{entetes[4]:>6} | {entetes[5]:>6} | {entetes[6]:>8} | {entetes[7]:>11} | "
+        f"{entetes[8]:>7} | {entetes[9]}"
     )
     print("  (min/méd/max sur les prises ; « = » quand toutes les prises s'accordent)")
-    largeurs = (28, 7, 10, 10, 12, 13, 9, 10, 30)
+    print("  ⚠️ $/reco est le coût normalisé : une version qui ne recommande pas est toujours")
+    print("     moins chère, et le coût brut seul dit alors l'inverse de ce qui s'est passé.")
+    largeurs = (26, 7, 12, 8, 8, 8, 10, 13, 9, 26)
     print("|".join("-" * largeur for largeur in largeurs))
     for label, mesures in _grouper(lignes).items():
         griefs_cumules: Counter[str] = Counter()
@@ -212,12 +221,15 @@ def main() -> int:
         sans_reco = sum(1 for reco in recos if reco is None)
         reco = _amplitude(recos) + (f" ({sans_reco}∅)" if sans_reco else "")
         cout = sum(mesure["cout"] or 0 for mesure in mesures)
+        livrees = len(mesures) - sans_reco
+        par_reco = "—" if not livrees else f"{cout / livrees:.4f}"
+        replis = sum(sum(mesure["replis"].values()) for mesure in mesures)
         print(
-            f"| {label:<26} | {len(mesures):>5} | "
+            f"| {label:<24} | {len(mesures):>5} | {reco:>10} | {replis:>6} | "
+            f"{par_reco:>6} | {cout:>6.3f} | "
             f"{_amplitude([float(m['appels']) for m in mesures]):>8} | "
-            f"{sum(m['jetons_sortie'] for m in mesures):>8} | {reco:>10} | "
             f"{_amplitude([m['latence_mediane'] for m in mesures]):>11} | "
-            f"{cout:>7.4f} | {_amplitude(par_prise):>8} | {detail}"
+            f"{_amplitude(par_prise):>7} | {detail}"
         )
 
     total_sortie = sum(mesure["jetons_sortie"] for _, _, mesure in lignes)
@@ -227,10 +239,17 @@ def main() -> int:
     for _, _, mesure in lignes:
         tous_griefs.update(mesure["griefs"])
         tous_replis.update(mesure["replis"])
+    prises_totales = len(lignes)
+    livrees_totales = sum(1 for _, _, mesure in lignes if mesure["recommande"] is not None)
+    par_reco = "—" if not livrees_totales else f"{total_cout / livrees_totales:.4f} $"
     print(
-        f"\nTOTAL : {total_sortie} jetons sortie · {total_cout:.4f} $ estimés · "
-        f"griefs {dict(tous_griefs) or '—'} · replis {dict(tous_replis) or '—'}"
+        f"\nTOTAL : {livrees_totales}/{prises_totales} prises ont recommandé · "
+        f"replis {sum(tous_replis.values())} · {total_cout:.4f} $ dont **{par_reco} par "
+        f"recommandation livrée** · {total_sortie} jetons sortie"
     )
+    print(f"        griefs (diagnostic) : {dict(tous_griefs) or '—'}")
+    if tous_replis:
+        print(f"        replis par motif    : {dict(tous_replis)}")
     print("\nURLs :")
     for label, identifiant, _ in lignes:
         print(f"  {label:<26} http://127.0.0.1:8000/journal.html#{identifiant}")

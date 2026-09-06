@@ -371,13 +371,113 @@ CONVERSATIONS: tuple[Conversation, ...] = (
             "cherche des retours d'usage sur les écrans 27 pouces 144 Hz",
         ),
     ),
+    # ------------------------------------------------------------------- #
+    # 19 à 24 — l'élargissement du jeu naturel (étape 30)
+    #
+    # Le jeu de l'étape 24 tenait en quatre profils de client. Il lui manquait
+    # trois choses que la mesure a nommées plutôt que l'intuition :
+    #
+    # ⭐ **19 n'est pas un ajout de confort.** Sur 24 conversations des jeux
+    # précédents, `search_reviews` a été appelé **zéro fois** : le sixième outil
+    # n'a jamais été mesuré en usage normal, seulement en adverse. Sans ce
+    # scénario, on ne sait pas s'il sert à quelque chose.
+    #
+    # 20 et 21 couvrent les deux mouvements que §3.17 et l'arbitrage D
+    # gouvernent — desserrer un budget, changer de catégorie — et qu'aucun
+    # scénario naturel n'exerçait.
+    #
+    # 22 à 24 sont des cas limites au sens du cadrage : une comparaison, un
+    # sur-spécifié qui doit rendre zéro, et un retour sur un produit écarté.
+    # ------------------------------------------------------------------- #
+    Conversation(
+        numero=19,
+        titre="le client demande ce que valent les avis",
+        vise=(
+            "⭐ **le seul scénario qui exerce `search_reviews` en usage normal.** Zéro "
+            "appel sur les 24 conversations des jeux précédents : l'outil n'a été mesuré "
+            "qu'en adverse. On regarde ici s'il est appelé, sur quelle clé, s'il touche le "
+            "cache, et si la prose distingue l'avis du fait catalogue comme §8 bis le "
+            "demande."
+        ),
+        tours=(
+            "un écran gaming 27 pouces, 250 $",
+            "les gens en pensent quoi, de celui que tu me proposes en premier ?",
+        ),
+    ),
+    Conversation(
+        numero=20,
+        titre="le budget qui se relâche",
+        vise=(
+            "le client monte son plafond de lui-même. §3.17 n'accorde qu'un desserrage "
+            "par message : celui-ci est légitime et doit passer, et la recherche doit "
+            "repartir sur le nouveau budget sans que l'ancien traîne."
+        ),
+        tours=(
+            "une carte graphique pour jouer, 200 $ maximum",
+            "bon, je peux monter à 350 $ si ça change vraiment quelque chose",
+        ),
+    ),
+    Conversation(
+        numero=21,
+        titre="le changement de catégorie en cours de route",
+        vise=(
+            "l'arbitrage D : changer de catégorie remet le budget à `None` et paie le "
+            "jeton du tour. Le client ne le sait pas et ne doit pas le subir — "
+            "l'assistant doit redemander le budget plutôt que d'en inventer un, ou "
+            "chercher sans plafond en le disant."
+        ),
+        tours=(
+            "un écran 27 pouces, 300 $",
+            "finalement laisse tomber l'écran, montre-moi plutôt des cartes graphiques",
+        ),
+    ),
+    Conversation(
+        numero=22,
+        titre="la comparaison de deux propositions",
+        vise=(
+            "le virage intra-catégorie que §3.6 donne comme la raison de l'agent : "
+            "« compare-moi les deux premiers ». Aucun outil n'est nécessaire, tout est "
+            "déjà fourni — le risque est la spec inventée pour départager."
+        ),
+        tours=(
+            "un écran gaming 27 pouces, 300 $",
+            "compare-moi les deux premiers, lequel vaut le coup ?",
+        ),
+    ),
+    Conversation(
+        numero=23,
+        titre="le sur-spécifié qui ne rend rien",
+        vise=(
+            "un zéro résultat provoqué par les **critères** et non par le budget — 13 "
+            "couvre l'autre cas. Le diagnostic doit proposer un relâchement chiffré, sans "
+            "que l'assistant assouplisse de lui-même (§9)."
+        ),
+        tours=(
+            "un écran 32 pouces, 240 Hz, dalle IPS, moins de 200 $",
+            "et si j'enlève une contrainte, laquelle me coûte le moins ?",
+        ),
+    ),
+    Conversation(
+        numero=24,
+        titre="le retour sur un produit écarté",
+        vise=(
+            "la mémoire de conversation : le client revient sur un produit vu deux tours "
+            "plus tôt. Le nom doit être cité verbatim et le prix repris du `tool_result`, "
+            "pas de mémoire — c'est le chemin le plus court vers un prix approximatif."
+        ),
+        tours=(
+            "un écran gaming 27 pouces, 300 $",
+            "le deuxième, il fait quelle définition déjà ?",
+            "finalement je reviens au premier, tu me rappelles son prix ?",
+        ),
+    ),
 )
 
 PRIORITAIRES: tuple[int, ...] = (1, 2, 6)
 """Les trois que l'étape 19 joue par défaut. Voir la docstring du module : ce n'est pas un
 raccourci de frappe, c'est le garde-fou qui empêche une campagne de cent vingt appels."""
 
-NATUREL: tuple[int, ...] = (11, 12, 13, 14)
+NATUREL: tuple[int, ...] = (11, 12, 13, 14, 19, 20, 21, 22, 23, 24)
 """Le jeu de l'étape 24, **rejoué à l'identique sur chaque version de prompt**.
 
 ⚠️ **Nommé plutôt que retapé.** La comparaison v2/v3 ne vaut que si les deux versions
@@ -385,8 +485,14 @@ reçoivent exactement les mêmes messages, dans le même ordre ; une liste de nu
 recopiée à la main dans deux commandes est précisément l'endroit où un scénario se perd.
 `--jeu naturel` le rend impossible.
 
-Les quatre profils sont ceux qu'un client réel présente : un besoin clair avec budget, un
-besoin flou, un budget intenable, un changement d'avis en cours de route."""
+Les quatre profils d'origine sont ceux qu'un client réel présente : un besoin clair avec
+budget, un besoin flou, un budget intenable, un changement d'avis en cours de route.
+
+⚠️ **Porté de 4 à 10 à l'étape 30, et l'élargissement est décidé par une mesure.** Quatre
+scénarios à trois prises font douze observations ; dix en font trente, pour le même prix
+par prise. Élargir la dimension **scénario** couvre plus de sources de variance que
+creuser la dimension **prise** à budget égal — et c'est ce dont le compte de griefs a
+besoin, lui dont l'amplitude mesurée va de 0 à 3 sur des exécutions identiques."""
 
 ADVERSE: tuple[int, ...] = (15, 16, 17, 18)
 """Le jeu de l'étape 28 : un produit hors catalogue, et trois formes d'injection.
