@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import Evenement
 from raiyon.agent.session import creer_session, historique_de, tour
+from raiyon.avis.fournisseur import Fournisseur
 from raiyon.db.models import SessionConversation
 from raiyon.eval.metriques import PriseJouee, TourJoue
 from raiyon.eval.scenario import Scenario
@@ -50,6 +51,19 @@ class Reglages:
     max_iterations: int
     max_regenerations: int
     tolerance: Decimal | None = None
+
+    fournisseur: Fournisseur | None = None
+    """Le récupérateur d'avis web. `None` — **le défaut** — veut dire hors ligne.
+
+    🔴 **C'est ce défaut qui garantit qu'une campagne ne sort jamais sur le réseau**, et il
+    le garantit *par construction* plutôt que par une variable d'environnement. `jouer()`,
+    `scripts/eval.py` et le rejeu de cassettes ne le renseignent nulle part : il n'existe
+    donc aucun chemin de mesure qui puisse appeler Brave, même avec une clé en place.
+
+    ⚠️ **La clé présente ne suffit pas, et c'est voulu.** Un mode en ligne qui s'activerait
+    à la seule présence d'un secret ferait qu'installer une clé changerait silencieusement
+    ce que `make eval` mesure. Seul un appelant qui construit explicitement un fournisseur
+    sort sur le réseau — aujourd'hui `scripts/essais.py --en-ligne`, la console et l'API."""
 
     orchestrateur: Orchestrateur | None = None
     """Qui conduit le tour. `None` = celle que la configuration désigne.
@@ -133,6 +147,7 @@ def jouer_un_tour(
         max_regenerations=reglages.max_regenerations,
         tolerance=reglages.tolerance,
         orchestrateur=reglages.orchestrateur,
+        fournisseur=reglages.fournisseur,
     )
     evenements: list[Evenement] = []
     while True:

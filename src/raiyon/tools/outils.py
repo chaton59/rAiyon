@@ -52,7 +52,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from raiyon.avis.cache import Avis, DepotAvis, EtatCache
 from raiyon.avis.encadrement import encadrer_les_avis
-from raiyon.avis.fournisseur import Fournisseur
+from raiyon.avis.fournisseur import Fournisseur, RechercheImpossible
 from raiyon.avis.recherche import AvisHorsLigne, RequeteVide, chercher_des_avis
 from raiyon.catalogue.schemas import Categorie
 from raiyon.matching.attributs import ATTRIBUTS
@@ -281,6 +281,12 @@ class ResultatAvis:
     avis: tuple[Avis, ...]
     etat_cache: EtatCache
     latence_ms: int
+
+    source: str = "cache"
+    """D'où vient ce contenu-ci : `cache`, ou le nom du fournisseur (étape 31)."""
+
+    cout_usd: float = 0.0
+    """Ce que cette recherche a coûté au fournisseur. Zéro sur un hit, par définition."""
 
     terminal: bool = False
 
@@ -538,6 +544,14 @@ def chercher_des_avis_web(
             f"{arguments.requete!r} ne contient aucun mot cherchable. Formuler la "
             "recherche avec le nom du produit ou le sujet voulu.",
         ) from vide
+    except RechercheImpossible as panne:
+        # ⚠️ **Une panne réseau n'interrompt pas la conversation.** Le fournisseur a déjà
+        # filtré la clé de son message (`_erreur_propre`) ; ce qui remonte au modèle dit
+        # qu'il n'y a pas d'avis, pas qu'il s'est passé quelque chose de technique.
+        raise OutilRefuse(
+            CodeRefus.AVIS_HORS_LIGNE,
+            f"{panne}. Poursuivre sans avis, ou reformuler au message suivant.",
+        ) from None
     except AvisHorsLigne as hors_ligne:
         # 🔴 Le miss bruyant du mode hors ligne. Le message nomme la clé **normalisée** :
         # c'est exactement ce qu'il faut écrire dans `data/seed/avis.jsonl`.
@@ -554,6 +568,8 @@ def chercher_des_avis_web(
         avis=trouvaille.avis,
         etat_cache=trouvaille.etat_cache,
         latence_ms=trouvaille.latence_ms,
+        source=trouvaille.source,
+        cout_usd=trouvaille.cout_usd,
     )
 
 

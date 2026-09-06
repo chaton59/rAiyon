@@ -196,6 +196,8 @@ def evenement_de(resultat: ResultatOutil) -> Evenement | None:
             depuis_le_cache=resultat.depuis_le_cache,
             etat_cache=resultat.etat_cache.value,
             latence_ms=resultat.latence_ms,
+            source=resultat.source,
+            cout_usd=resultat.cout_usd,
         )
     return None
 

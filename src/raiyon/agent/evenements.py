@@ -174,6 +174,20 @@ class AvisConsultes:
     etat_cache: str
     latence_ms: int
 
+    source: str = "cache"
+    """D'où vient **ce contenu-ci** : `cache`, ou le nom du fournisseur (étape 31).
+
+    ⚠️ **Ce n'est pas `Avis.source`.** Celui-là dit comment la ligne est **entrée** en base
+    — `brave` ou `fabrique` —, celui-ci dit ce que **ce tour** a fait : lire, ou sortir. Une
+    ligne `brave` servie depuis le cache donne `source=cache` ici et `source=brave` là, et
+    les deux sont vrais. Les confondre ferait compter une lecture comme une sortie réseau."""
+
+    cout_usd: float = 0.0
+    """Ce que **cette** recherche a coûté au fournisseur. Zéro sur un hit, par définition.
+
+    Compté, pas estimé : le fournisseur incrémente son compteur de requêtes et le tarif est
+    figé à côté. C'est le seul coût du projet qui ne soit pas un coût de modèle."""
+
 
 @dataclass(frozen=True, slots=True)
 class QuestionPosee:

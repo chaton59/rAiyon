@@ -76,6 +76,7 @@ from sqlalchemy.orm import Session
 from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import Evenement
 from raiyon.avis.cache import DepotAvisSql, ttl_des_avis
+from raiyon.avis.fournisseur import Fournisseur
 from raiyon.db.models import (
     AppelModele,
     EvenementTour,
@@ -164,6 +165,7 @@ def tour(
     max_regenerations: int,
     tolerance: Decimal | None = None,
     orchestrateur: Orchestrateur | None = None,
+    fournisseur: Fournisseur | None = None,
 ) -> Generator[Evenement, None, IssueDuTour]:
     """Un tour client complet : relire, tourner, écrire, commit. **À consommer en entier.**
 
@@ -225,10 +227,12 @@ def tour(
                 # lignes de conversation et les tables d'observation. Un tour qui plante
                 # ne laisse pas un cache à moitié rempli.
                 depot_avis=DepotAvisSql(session, ttl=ttl_des_avis()),
-                # ⚠️ **`fournisseur` reste `None` : hors ligne** (étape 27). L'implémentation
-                # réseau n'existe pas encore, et son absence n'est pas un manque — c'est ce
-                # qui garantit qu'aucune exécution ne sort. Le jour où elle entrera, elle
-                # sera construite **ici**, sous condition de clé, et nulle part ailleurs.
+                # ⚠️ **`None` par défaut : hors ligne** (§3.18). Le fournisseur est
+                # **injecté**, jamais construit ici : c'est ce qui fait qu'une campagne ne
+                # peut pas sortir sur le réseau, même avec une clé en place. Seul un
+                # appelant qui en construit un explicitement — `--en-ligne`, la console,
+                # l'API — ouvre ce chemin.
+                fournisseur=fournisseur,
             ),
             max_iterations=max_iterations,
             max_regenerations=max_regenerations,

@@ -66,6 +66,8 @@ class Trouvaille:
     avis: tuple[Avis, ...]
     etat_cache: EtatCache
     latence_ms: int
+    source: str = "cache"
+    cout_usd: float = 0.0
 
     @property
     def depuis_le_cache(self) -> bool:
@@ -127,18 +129,28 @@ def chercher_des_avis(
         )
         raise AvisHorsLigne(cle, requete)
 
+    # ⚠️ Le coût est lu **sur le fournisseur**, jamais recalculé ici : lui seul connaît son
+    # tarif. On prend la différence avant/après plutôt que le cumul, parce qu'un même
+    # fournisseur sert plusieurs tours et que le journal veut le coût **de ce tour-ci**.
+    # `getattr` parce que le `Protocol` ne l'impose pas : un fournisseur de test n'a pas de
+    # tarif et n'a pas à en inventer un.
+    avant = float(getattr(fournisseur, "cout_usd", 0.0))
     depart = _horloge()
     recuperes = fournisseur.chercher(requete, limite=limite)
     latence = _horloge() - depart
+    cout = float(getattr(fournisseur, "cout_usd", 0.0)) - avant
     ranges = depot.ecrire(cle, [_sous_la_cle(un_avis, cle) for un_avis in recuperes[:limite]])
+    nom = str(getattr(fournisseur, "nom", "") or type(fournisseur).__name__)
     logueur.info(
         "avis.recupere",
         requete=cle,
         resultats=len(ranges),
         etat=lecture.etat.value,
         latence_ms=latence,
+        source=nom,
+        cout_usd=round(cout, 6),
     )
-    return Trouvaille(cle, ranges, lecture.etat, latence_ms=latence)
+    return Trouvaille(cle, ranges, lecture.etat, latence_ms=latence, source=nom, cout_usd=cout)
 
 
 def _sous_la_cle(avis: Avis, cle: str) -> Avis:

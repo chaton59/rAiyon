@@ -53,7 +53,29 @@ pas l'autorité** : il vit dans le voisinage du contenu non fiable, et une page 
 système** (§3.18, étape 28), où aucune page ne peut l'atteindre. Le rappel est une
 commodité de lecture, et il est présent parce qu'un modèle lit ce qui est près.
 
-### 4. Neutralisation de ce qui n'a rien à faire dans un extrait
+### 4. Décodage AVANT neutralisation — l'ordre est la correction
+
+🔴 **`décoder → assainir → encadrer`, et l'ordre n'est pas une préférence de lecture.**
+L'assainisseur retire des **caractères** ; une page qui écrit `&#x202E;` au lieu du
+caractère littéral traverse donc un filtre qui ne le voit pas, et la surcharge de direction
+redevient vivante dès que quoi que ce soit décode en aval — un navigateur, un lecteur de
+journal, un copier-coller. **La garde serait contournable par encodage, par construction.**
+
+Trouvé sur la première vraie réponse Brave, qui rendait `l&#x27;objet` et
+`<strong>offre…</strong>` : le défaut ne s'était jamais posé sur des fixtures écrites à la
+main. Que le modèle ait lu à travers sans broncher ne dit rien — ce n'est pas lui que cette
+couche protège.
+
+⚠️ **Le décodage est répété jusqu'à stabilité**, borné à `DECODAGES_MAX`. `&amp;#x202E;`
+demande deux passes : la première rend `&#x202E;`, la seconde le caractère. Une seule passe
+laisserait exactement la même évasion, un cran plus loin.
+
+⚠️ **Les balises tombent après le décodage**, et la contrepartie est écrite : une page qui
+écrivait littéralement `&lt;script&gt;` pour *afficher* `<script>` perd ses chevrons. C'est
+accepté — un extrait d'avis qui parle de balises est bien plus rare que la surface qu'on
+ferme, et il ne reste plus aucun contexte où ces caractères servent.
+
+### 5. Neutralisation de ce qui n'a rien à faire dans un extrait
 
 Caractères de contrôle, largeurs nulles, et surtout les **surcharges de direction**
 bidirectionnelles (U+202A à U+202E, U+2066 à U+2069). Aucun de ces caractères n'a de rôle
@@ -65,6 +87,7 @@ page multi-lignes est le premier moyen de faire ressembler du texte à une nouve
 du message.
 """
 
+import html
 import re
 import secrets
 import unicodedata
@@ -79,6 +102,18 @@ lisible dans une cassette, un journal et une trace de conversation. Ce n'est pas
 cryptographique : c'est un jeton d'unicité, et `secrets` est employé plutôt que `random`
 parce qu'un sceau prévisible **serait** contrefaisable par une page qui connaît la graine.
 """
+
+DECODAGES_MAX = 3
+"""Passes de décodage d'entités. **Jusqu'à stabilité, et borné.**
+
+Deux suffisent au double encodage (`&amp;#x202E;`) ; la troisième est la marge. La borne
+existe parce qu'une chaîne peut être construite pour se re-décoder indéfiniment, et qu'une
+boucle non bornée sur du contenu de tiers est une porte ouverte."""
+
+_BALISES = re.compile(r"<[^>]*>")
+"""Ce qui ressemble à une balise, retiré **après** décodage. Remplacé par une espace et non
+supprimé : `a<br>b` deviendrait `ab`, un mot que la page ne contient pas — même raison que
+pour les sauts de ligne."""
 
 MARQUE_OUVRANTE = "[[texte-de-tiers {sceau}]]"
 MARQUE_FERMANTE = "[[/texte-de-tiers {sceau}]]"
@@ -116,7 +151,10 @@ _ESPACES = re.compile(r"\s+")
 def assainir(texte: str) -> str:
     """Un fragment de tiers, réduit à du texte lisible sur une ligne. Pur.
 
-    NFKC d'abord : il ramène les formes de compatibilité — dont les variantes de
+    L'ordre est **décoder, retirer les balises, normaliser, neutraliser, réduire** — voir
+    la couche 4 du module pour pourquoi le décodage vient en tête.
+
+    NFKC ensuite : il ramène les formes de compatibilité — dont les variantes de
     présentation qui permettent d'écrire un mot de plusieurs façons visuellement
     identiques. Puis les invisibles tombent, puis les espaces se réduisent.
 
@@ -125,8 +163,24 @@ def assainir(texte: str) -> str:
     qu'aucune expression régulière ne sait faire honnêtement. Ce module borne la **forme**
     et laisse le fond à l'encadrement, au prompt et au validateur.
     """
-    sans_invisibles = _INVISIBLES.sub("", unicodedata.normalize("NFKC", texte))
+    sans_balises = _BALISES.sub(" ", decoder(texte))
+    sans_invisibles = _INVISIBLES.sub("", unicodedata.normalize("NFKC", sans_balises))
     return _ESPACES.sub(" ", sans_invisibles).strip()
+
+
+def decoder(texte: str) -> str:
+    """Les entités HTML résolues, **jusqu'à stabilité** et au plus `DECODAGES_MAX` fois.
+
+    ⚠️ **Appelé en premier par `assainir()`, et c'est la correction.** Voir la couche 4 de
+    la docstring du module : un filtre qui retire des caractères ne voit pas ceux qui sont
+    encodés, et une garde contournable par encodage n'est pas une garde.
+    """
+    for _ in range(DECODAGES_MAX):
+        decode = html.unescape(texte)
+        if decode == texte:
+            return decode
+        texte = decode
+    return texte
 
 
 def tirer_un_sceau(fragments: tuple[str, ...] = ()) -> str:

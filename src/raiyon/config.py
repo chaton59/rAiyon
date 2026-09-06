@@ -80,6 +80,18 @@ class Settings(BaseSettings):
     *Alternative écartée — `SecretStr | None` déballé sur chaque site d'usage.* Elle
     répand un `| None` dans chaque appelant ; l'accesseur n'en laisse qu'un."""
 
+    brave_search_api_key: SecretStr | None = Field(
+        default=None, validation_alias="BRAVE_SEARCH_API_KEY"
+    )
+    """**Optionnelle**, et déballée par `cle_brave()` seule — même patron qu'`ANTHROPIC_API_KEY`.
+
+    ⚠️ **Son absence n'est pas une panne, c'est le mode hors ligne** (§3.18). Sans elle,
+    `search_reviews` sert le cache pré-chargé et refuse bruyamment ce qu'il n'y trouve pas ;
+    aucune commande n'échoue au démarrage pour autant. C'est la différence avec
+    `ANTHROPIC_API_KEY`, dont l'absence empêche `make api` d'exister.
+
+    Sans préfixe `RAIYON_`, comme la clé Anthropic : c'est le nom que Brave documente."""
+
     database_url: PostgresDsn = PostgresDsn(
         "postgresql+psycopg://raiyon:raiyon@localhost:5432/raiyon"
     )
@@ -195,6 +207,22 @@ class Settings(BaseSettings):
     app_env: Literal["dev", "test", "prod"] = "dev"
     """⚠️ **Depuis l'étape 23, elle décide aussi de l'existence des routes `/journal`.**
     Elles exposent des conversations entières : hors `dev`, elles rendent 404."""
+
+
+def cle_brave() -> str | None:
+    """La clé Brave, ou `None`. **Seul déballage, et il ne lève jamais.**
+
+    ⚠️ **Contrairement à `cle_api()`, l'absence n'est pas une erreur de configuration.**
+    Elle est un **mode de fonctionnement** : hors ligne, le sixième outil sert le cache et
+    refuse le reste en le nommant. Lever ici obligerait chaque appelant à distinguer « pas
+    de clé » de « clé invalide », et ferait échouer des commandes qui n'ont aucun besoin du
+    réseau.
+
+    Le `None` est donc la valeur de retour normale, et c'est l'appelant — un seul, celui qui
+    construit le fournisseur — qui décide d'en faire un fournisseur ou rien.
+    """
+    cle = get_settings().brave_search_api_key
+    return None if cle is None else cle.get_secret_value()
 
 
 def cles_reconnues() -> frozenset[str]:

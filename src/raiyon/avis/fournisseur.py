@@ -63,6 +63,22 @@ from typing import Protocol
 from raiyon.avis.cache import Avis
 
 
+class RechercheImpossible(Exception):
+    """La récupération a échoué — réseau, quota, réponse illisible.
+
+    ⚠️ **Elle vit ici et non dans l'implémentation, et c'est une contrainte d'architecture.**
+    `raiyon.tools.outils` doit pouvoir l'attraper pour la traduire en refus d'outil ; si
+    elle était définie dans `brave.py`, la couche outils importerait le module qui charge
+    `httpx`, et **tout le dépôt se mettrait à charger un client HTTP** pour attraper une
+    exception. La garantie « le réseau est joignable à un seul endroit » tomberait par un
+    `import`, ce que `tests/avis/test_isolation_reseau.py` constaterait — mais après coup.
+
+    ⚠️ **Elle ne porte jamais la requête HTTP**, donc jamais la clé : une exception `httpx`
+    transporte son `Request` et ses en-têtes, et une trace non filtrée est le chemin le plus
+    court d'un secret vers un fichier de log.
+    """
+
+
 class Fournisseur(Protocol):
     """Ce qu'un moteur de recherche doit savoir faire, et rien de plus.
 

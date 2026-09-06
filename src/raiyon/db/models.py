@@ -378,7 +378,32 @@ SOURCES_AVIS = ("brave", "fabrique")
 propreté : les conditions Brave §3(b) interdisent de *« redistribute, resell, or
 sublicense the Search Results »*. Un `avis.jsonl` committé contenant de vrais résultats de
 recherche serait exactement cela. Le seed est donc **fabriqué**, et la colonne rend le
-fait vérifiable par une requête au lieu de le laisser à une intention."""
+fait vérifiable par une requête au lieu de le laisser à une intention.
+
+---
+
+### 🔴 Le droit de persister ces lignes dépend du plan, et le plan n'est pas connu
+
+**Plan effectif : à compléter.** Les deux branches sont écrites ici plutôt qu'attendues,
+parce que le code, lui, écrit déjà.
+
+* **Sous un plan accordant des droits de stockage** — Brave en propose un explicitement —
+  la persistance de `source='brave'` est un droit accordé, et cette table est en règle
+  telle qu'elle est.
+* **Sous le plan standard**, elle est une **zone grise**. Le §3(b) interdit de *« store,
+  cache, or create a database of Search Results […] other than transient storage required
+  for operation »*, sans jamais chiffrer « transient ». Un cache à 24 h remplacé en bloc et
+  jamais redistribué est **défendable** comme stockage opérationnel ; ce n'est pas une
+  permission écrite, et ce dépôt ne présente pas une interprétation comme un droit.
+
+**Ce qui a été observé, et qui rend la question concrète** (premier run en ligne, étape
+31) : trois lignes `source='brave'` ont été écrites en base, puis effacées par le
+`make seed` de restauration — et elles **seront réécrites à chaque exécution en ligne**.
+Ce n'est donc pas une hypothèse sur un usage futur : le chemin est emprunté.
+
+⚠️ **Rien de tout cela ne concerne les campagnes**, qui ne sortent jamais sur le réseau
+(§3.18) et ne lisent que des fixtures fabriquées. La zone grise porte sur l'usage produit
+— console et API — et sur lui seul."""
 
 EXTRAIT_MAX_CARACTERES = 500
 """Longueur maximale d'un extrait. ⚠️ **Une borne, pas une mesure** — rien ne l'a calibrée.

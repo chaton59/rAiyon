@@ -48,8 +48,19 @@ chemin le plus court pour sortir sans dépendance, donc celui qu'on prendrait sa
 seul."""
 
 
-@pytest.mark.parametrize("module", modules_du_paquet(PAQUET))
-def test_aucun_module_du_paquet_ne_charge_un_client_http(module: str):
+MODULE_DU_RESEAU = "raiyon.avis.brave"
+"""🔴 **Le seul module autorisé à charger un client HTTP** (étape 31).
+
+Il est nommé ici, explicitement, comme `test_isolation_api` nomme `raiyon.api.app` pour
+FastAPI. La forme du test change donc — « aucun module » devient « tous sauf celui-ci » —
+et c'est ce changement de forme qui **oblige à décider** plutôt qu'à laisser un module
+neuf entrer sans que personne ne dise s'il a le droit de sortir."""
+
+
+@pytest.mark.parametrize(
+    "module", [nom for nom in modules_du_paquet(PAQUET) if nom != MODULE_DU_RESEAU]
+)
+def test_aucun_autre_module_du_paquet_ne_charge_un_client_http(module: str):
     """La décision de l'étape 26, rendue exécutable.
 
     Le message de pytest nomme le module coupable et le client chargé : c'est ce que
@@ -59,6 +70,20 @@ def test_aucun_module_du_paquet_ne_charge_un_client_http(module: str):
         f"{module} charge un client HTTP. Les mesures ne sortent jamais sur le réseau — "
         "voir la docstring de ce fichier pour les deux raisons."
     )
+
+
+def test_la_couche_outils_ne_charge_pas_de_client_http():
+    """🔴 **La garantie que le déplacement de `RechercheImpossible` protège.**
+
+    L'exception a d'abord été définie dans `brave.py`, et `raiyon.tools.outils` l'importait
+    pour la traduire en refus. Conséquence immédiate : **toute la couche outils chargeait
+    `httpx`** — donc l'agent, la machine, le validateur et le harnais d'éval, pour attraper
+    une exception. La garantie « le réseau est joignable à un seul endroit » tombait par un
+    `import`, sans qu'aucune ligne de code réseau soit écrite.
+
+    L'exception vit donc dans `fournisseur.py`, à côté du `Protocol`, qui n'importe rien.
+    """
+    assert modules_charges_par("raiyon.tools.outils", CLIENTS_HTTP) == []
 
 
 def test_le_chargement_du_seed_ne_charge_pas_de_client_http():
@@ -77,6 +102,12 @@ def test_contre_epreuve_le_dispositif_sait_voir_un_client_http():
     présent, quel que soit l'état des dépendances du projet.
     """
     assert modules_charges_par("http.client", CLIENTS_HTTP) != []
+
+
+def test_le_module_du_reseau_charge_bien_un_client_http():
+    """Contre-épreuve du classement : sans elle, `MODULE_DU_RESEAU` pourrait nommer
+    n'importe quoi et la suite resterait verte."""
+    assert modules_charges_par(MODULE_DU_RESEAU, CLIENTS_HTTP) != []
 
 
 def test_le_client_http_est_bien_installe_donc_la_garantie_porte_sur_les_imports():

@@ -1,4 +1,8 @@
 .env
+# ⚠️ Et toute sauvegarde de .env : un fichier .env.bak porte le même secret et
+# n'était PAS ignoré (constaté à l'étape 31, un .env.bak-chevrons traînait non suivi).
+.env.*
+!.env.example
 .venv/
 __pycache__/
 *.pyc

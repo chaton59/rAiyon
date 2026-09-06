@@ -13,6 +13,8 @@ La garantie dure est ailleurs de toute façon : le contenu web n'entre pas dans 
 `tests/validateur/test_exclusion_du_web.py`, qui est la garde qui tient.
 """
 
+import html
+
 from avis_de_test import avis_fabrique
 from raiyon.avis.cache import Avis
 from raiyon.avis.encadrement import (
@@ -20,6 +22,7 @@ from raiyon.avis.encadrement import (
     MARQUE_OUVRANTE,
     RAPPEL,
     assainir,
+    decoder,
     encadrer,
     encadrer_les_avis,
     tirer_un_sceau,
@@ -186,3 +189,57 @@ class TestLesAvisEncadres:
         _, encadres = encadrer_les_avis((avis,))
 
         assert "‮" not in encadres[0]["extrait"]
+
+
+# --------------------------------------------------------------------------- #
+# Le décodage des entités — étape 31, trouvé sur la première vraie réponse Brave
+# --------------------------------------------------------------------------- #
+
+
+class TestLeDecodageDesEntites:
+    """🔴 **Une garde qui filtre des caractères est contournable par encodage.**
+
+    ⚠️ **L'assertion porte sur ce que devient la sortie APRÈS un décodage aval**, et pas
+    sur la sortie elle-même. C'est ce qui rend ces tests capables d'échouer : avant le
+    correctif, `assainir("&#x202E;")` rendait la chaîne littérale `&#x202E;`, qui ne
+    **contient** aucun caractère interdit — un test naïf serait passé au vert en ne
+    prouvant rien. Ce que la garde doit promettre est plus fort : quoi que fasse l'aval —
+    un navigateur, un lecteur de journal, un copier-coller — aucun caractère neutralisé ne
+    doit pouvoir ressusciter.
+    """
+
+    def test_une_entite_encodant_une_surcharge_de_direction_ne_ressuscite_pas(self):
+        """Le cas qui a motivé le correctif. Échoue avant lui."""
+        assaini = assainir("avis&#x202E;gnitar")
+
+        assert "‮" not in html.unescape(assaini)
+
+    def test_une_entite_doublement_encodee_ne_ressuscite_pas_non_plus(self):
+        """⚠️ Une seule passe de décodage laisserait la même évasion, un cran plus loin."""
+        assaini = assainir("avis&amp;#x202E;gnitar")
+
+        assert "‮" not in html.unescape(html.unescape(assaini))
+
+    def test_une_entite_de_largeur_nulle_ne_ressuscite_pas(self):
+        assaini = assainir("a&#x200B;vis")
+
+        assert "​" not in html.unescape(assaini)
+
+    def test_les_entites_ordinaires_sont_rendues_lisibles(self):
+        """Le bénéfice de lecture, mesuré sur ce que Brave a réellement rendu."""
+        assert assainir("l&#x27;objet d&#x27;un contrôle") == "l'objet d'un contrôle"
+
+    def test_les_balises_tombent_sans_coller_les_mots(self):
+        """`<strong>` était dans la première vraie réponse. `a<br>b` ne doit pas faire `ab`."""
+        assert assainir("Le MSI <strong>offre</strong> une bonne image") == (
+            "Le MSI offre une bonne image"
+        )
+        assert assainir("a<br>b") == "a b"
+
+    def test_le_decodage_est_borne(self):
+        """Une chaîne construite pour se re-décoder indéfiniment ne fait pas boucler."""
+        assert decoder("&amp;" * 50).count("&") >= 1
+
+    def test_le_texte_dune_injection_traverse_toujours_intact(self):
+        """La couche 5 n'a pas changé de politique : on borne la forme, pas le fond."""
+        assert assainir(INJECTION) == INJECTION

@@ -228,6 +228,10 @@ def nom_et_donnees(evenement: Evenement) -> tuple[NomEvenement, Donnees]:
             "depuis_le_cache": evenement.depuis_le_cache,
             "etat_cache": evenement.etat_cache,
             "latence_ms": evenement.latence_ms,
+            # La source **de ce tour** (`cache` ou le fournisseur) et ce qu'il a coûté :
+            # c'est ce qui rend une vraie sortie réseau lisible dans le journal.
+            "source": evenement.source,
+            "cout_usd": evenement.cout_usd,
         }
     if isinstance(evenement, QuestionPosee):
         return NomEvenement.QUESTION, {

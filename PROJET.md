@@ -1123,6 +1123,31 @@ des résultats de recherche, ce qu'un JSONL committé serait.
 « evaluate / benchmark », ou seulement l'interdiction de stocker ? Avec le cache
 pré-chargé, elle porte beaucoup moins — mais on ne signe pas sans savoir.
 
+#### 🔴 Deux gardes, deux métiers — et la seconde n'avait pas été conçue pour ça
+
+Premier tour en ligne (étape 31), première vraie réponse Brave : le validateur a levé un
+**`nom_reecrit`** et demandé une régénération. Ce n'était **pas une injection** — les pages
+récupérées étaient trois fiches marchandes ordinaires. Le modèle avait simplement dérivé
+vers le vocabulaire des pages qu'il venait de lire.
+
+C'est un mode d'échec que rien n'avait anticipé : **du contenu web n'a pas besoin d'être
+hostile pour tirer la prose hors du catalogue.** Il suffit qu'il nomme les choses
+autrement. L'exclusion du `ContexteFourni` ne le voit pas — elle tient les *faits* dehors,
+pas le *lexique*.
+
+| Garde | Ce qu'elle tient dehors | Conçue pour ça ? |
+|---|---|---|
+| Exclusion du `ContexteFourni` (§3.18) | les **faits** du web : prix, disponibilité, existence | oui |
+| Règle 3, les noms se citent verbatim (§3.11) | le **lexique** du web : la façon dont une page nomme un produit | **non** |
+
+⚠️ **La règle 3 a été écrite à l'étape 9 contre un tout autre risque** — un modèle qui
+francise ou abrège un nom de produit du catalogue. Elle attrape ici un contenu qui n'existait
+pas alors, sur un chemin qui n'existait pas non plus, et elle l'attrape **au premier tour
+réel**. C'est l'une des rares fois de ce projet où une garde sert hors de son intention, et
+elle mérite d'être écrite comme telle : non pas « le validateur est robuste », mais
+« l'invariant *un nom se cite verbatim* couvre une famille de dérives plus large que celle
+qui l'a motivé ».
+
 ---
 
 ## 4. Critères d'acceptation

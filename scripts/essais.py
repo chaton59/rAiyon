@@ -66,7 +66,7 @@ from raiyon.agent.evenements import (
 from raiyon.agent.prompts import prompt_systeme
 from raiyon.agent.session import creer_session
 from raiyon.catalogue.schemas import LIBELLES_CATEGORIE
-from raiyon.config import ConfigurationError, get_settings
+from raiyon.config import ConfigurationError, cle_brave, get_settings
 from raiyon.db.engine import get_sessionmaker
 from raiyon.eval.client import ClientEnregistreur
 from raiyon.eval.executeur import Reglages, jouer_un_tour
@@ -546,6 +546,15 @@ def main() -> int:
         ),
     )
     analyseur.add_argument(
+        "--en-ligne",
+        action="store_true",
+        help=(
+            "SORT SUR LE RÉSEAU : construit le fournisseur Brave et laisse `search_reviews` "
+            "récupérer ce que le cache n'a pas. Sans ce drapeau — et donc pour toute "
+            "campagne — le mode hors ligne s'applique, clé présente ou non."
+        ),
+    )
+    analyseur.add_argument(
         "--orchestration",
         choices=("agent", "machine", "deux"),
         default="deux",
@@ -570,6 +579,22 @@ def main() -> int:
         print(f"\n⛔ {erreur}\n", file=sys.stderr)
         return 1
 
+    # 🔴 **Le seul endroit de ce script qui puisse ouvrir le réseau**, et il faut le
+    # demander deux fois : le drapeau **et** la clé. La clé seule ne suffit pas — sinon
+    # l'installer changerait silencieusement ce que les essais mesurent.
+    fournisseur = None
+    if arguments.en_ligne:
+        from raiyon.avis.brave import FournisseurBrave
+
+        cle_brave_lue = cle_brave()
+        if cle_brave_lue is None:
+            print(
+                "\n⛔ --en-ligne demandé mais BRAVE_SEARCH_API_KEY est absente.\n",
+                file=sys.stderr,
+            )
+            return 1
+        fournisseur = FournisseurBrave(cle_brave_lue)
+
     outils = schema_des_outils()
     noms = ("agent", "machine") if arguments.orchestration == "deux" else (arguments.orchestration,)
     table = orchestrations()
@@ -579,7 +604,8 @@ def main() -> int:
         f"\n\033[1mrAiyon — essais\033[0m · prompt {prompt.version} ({prompt.empreinte})\n"
         f"conversations : {', '.join(str(essai.numero) for essai in conversations)}\n"
         f"orchestrations : {', '.join(noms)}\n"
-        "⚠️  Rien n'est écrit : ni cassette, ni rapport. Un essai n'est pas une mesure."
+        "⚠️  Rien n'est écrit : ni cassette, ni rapport. Un essai n'est pas une mesure.\n"
+        + ("🌐 EN LIGNE : search_reviews peut sortir sur le réseau." if fournisseur else "")
     )
 
     total = USAGE_NUL
@@ -601,6 +627,7 @@ def main() -> int:
                     outils=outils,
                     max_iterations=reglage.max_agent_iterations,
                     max_regenerations=reglage.max_regenerations,
+                    fournisseur=fournisseur,
                     orchestrateur=table[nom],
                 )
                 with fabrique() as base:
