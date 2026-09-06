@@ -25,6 +25,7 @@ Les produits « vus au sondage seulement » ne sont donc **pas** dans `ContexteF
 c'est tout l'enjeu, et un fixture qui les y mettrait viderait les tests de leur sens.
 """
 
+from dataclasses import replace
 from decimal import Decimal
 from typing import Any
 
@@ -165,6 +166,24 @@ def charge_recherche() -> dict[str, object]:
     return en_tool_result(
         rechercher_produits(etat_du_scenario(), depot, tour_client=1, tolerance=TOLERANCE)
     )
+
+
+def charge_recherche_avec_budget(budget: str) -> dict[str, object]:
+    """La même recherche, sous un autre plafond — le tour 2 de `desserrage_refuse`.
+
+    Sert le faux positif de l'étape 32 : sous 400 $ le LG est `au_dessus_du_budget`, sous
+    500 $ il est dans `produits`. Deux charges du **même outil réel**, et c'est le point —
+    le défaut vivait dans l'accumulation de l'une sur l'autre, pas dans une règle.
+    """
+    depot = DepotEnMemoire()
+    # ⚠️ Le dépôt de test **ne calcule pas** la frontière de budget : c'est l'appelant qui
+    # range les produits dans l'un ou l'autre seau. Le tour 2 la déplace donc à la main —
+    # LG passe des hors-budget aux rendus —, ce qui est exactement ce que le moteur réel
+    # fait quand le plafond monte, et c'est la seule chose que ce décor doit reproduire.
+    depot.produits = list(HORS_BUDGET)
+    depot.hors_budget = []
+    etat = replace(etat_du_scenario(), budget_usd=Decimal(budget))
+    return en_tool_result(rechercher_produits(etat, depot, tour_client=2, tolerance=TOLERANCE))
 
 
 def contexte_apres_sondage() -> ContexteFourni:

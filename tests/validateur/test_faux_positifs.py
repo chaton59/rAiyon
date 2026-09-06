@@ -1,4 +1,4 @@
-"""Onze sorties **légitimes**, qui doivent passer sans un seul grief. Aussi important.
+"""Douze sorties **légitimes**, qui doivent passer sans un seul grief. Aussi important.
 
 C'est un validateur qui crie sur du français correct qui tue le mécanisme, pas un qui en
 laisse passer. Un grief coûte un appel API et affiche au client une réponse plus sèche :
@@ -12,8 +12,16 @@ S'il ne passait pas, ce serait le validateur qu'il faudrait corriger, pas le mod
 from decimal import Decimal
 
 import pytest
-from contexte_de_test import SCEPTRE, contexte_apres_sondage, contexte_complet
+from contexte_de_test import (
+    LG,
+    SCEPTRE,
+    charge_recherche,
+    charge_recherche_avec_budget,
+    contexte_apres_sondage,
+    contexte_complet,
+)
 
+from raiyon.validateur.contexte import contexte_des_resultats
 from raiyon.validateur.validateur import valider
 
 
@@ -297,3 +305,44 @@ def test_un_montant_du_client_ne_devient_pas_le_prix_dun_produit(contexte):
 
     assert not verdict.valide
     assert [grief.code.value for grief in verdict.griefs] == ["prix_etranger_au_produit"]
+
+
+def test_un_produit_repasse_dans_le_budget_cesse_dexiger_son_ecart():
+    """🔴 **Le faux positif le plus cher du projet : trois replis, et le modèle avait raison.**
+
+    Mesuré à l'étape 32 sur `desserrage_refuse`, **3 prises sur 3**. Au tour 1 le budget
+    vaut 200 $ et deux écrans à 226,99 $ et 229,00 $ sont rendus `au_dessus_du_budget` ; au
+    tour 2 le client monte à 300 $ et **la même recherche les rend `produits`**, dans le
+    budget. Le modèle l'écrivait correctement ; `hors_budget` gardait l'écart du tour 1,
+    donc `ecart_non_dit` exigeait d'annoncer un dépassement **qui n'existait plus**.
+
+    Le modèle a même argumenté à la seconde tentative — « la recherche que j'ai sous les
+    yeux le confirme explicitement » — avant de se faire remplacer par un repli. Les
+    cassettes de ces trois prises **gardent cette prose** : c'est la preuve que le refus
+    était faux, et c'est pourquoi elles n'ont pas été réenregistrées.
+
+    ⚠️ **Ce test se construit par `contexte_des_resultats` sur deux charges successives, et
+    il le faut** : le défaut n'est pas dans une règle, il est dans l'**accumulation** du
+    contexte. Un test bâti sur un `ContexteFourni` fabriqué à la main ne l'aurait jamais vu
+    — il aurait posé directement l'état final, c'est-à-dire la réponse.
+    """
+    serre = charge_recherche()
+    assert LG.id in {fiche["produit"]["id"] for fiche in serre["au_dessus_du_budget"]}, (
+        "le décor doit d'abord rendre LG au-dessus du budget"
+    )
+
+    large = charge_recherche_avec_budget("500")
+    assert LG.id in {fiche["id"] for fiche in large["produits"]}
+    assert not large["au_dessus_du_budget"]
+
+    # Tour 1 seul : l'écart est dû, et le validateur a raison de l'exiger.
+    tour_1 = contexte_des_resultats([serre])
+    assert LG.id in tour_1.hors_budget
+    assert not valider(f"Le {LG.nom} est à 417,14 $.", tour_1).valide
+
+    # Tour 2 : la même recherche le rend dans le budget. L'écart n'est plus dû.
+    apres = contexte_des_resultats([serre, large])
+    assert LG.id not in apres.hors_budget, (
+        "un écart périmé a survécu à la recherche qui l'a rendu faux"
+    )
+    assert valider(f"Le {LG.nom} est à 417,14 $, dans votre budget.", apres).valide

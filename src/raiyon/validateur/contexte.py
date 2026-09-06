@@ -554,9 +554,34 @@ class _Accumulateur:
         )
 
     def absorber(self, charge: Mapping[str, Any]) -> None:
-        """Range une charge utile d'outil selon les clés qu'elle porte."""
+        """Range une charge utile d'outil selon les clés qu'elle porte.
+
+        ⚠️ **`produits` est absorbé avant `au_dessus_du_budget`, et l'ordre compte**
+        (étape 32) : le premier **retire** de `hors_budget`, le second y écrit. Les deux
+        ensembles sont disjoints dans une même charge (§3.10), donc aucune entrée posée par
+        cette charge-ci ne peut être effacée par elle.
+        """
         for brut in _liste(charge.get(CLE_PRODUITS)):
-            self._produit(brut)
+            produit = self._produit(brut)
+            if produit is not None:
+                # 🔴 **Un produit rendu DANS le budget cesse d'être hors budget** — sans
+                # cette ligne, l'écart d'une recherche antérieure survivait à la recherche
+                # qui l'avait rendu faux, et la règle `ecart_non_dit` exigeait qu'on
+                # annonce un dépassement **qui n'existait plus**.
+                #
+                # Mesuré à l'étape 32, sur `desserrage_refuse`, 3 prises sur 3 : au tour 1
+                # le budget vaut 200 $ et deux écrans à 226,99 $ et 229,00 $ sont rendus
+                # au-dessus ; au tour 2 le client monte à 300 $, la même recherche les rend
+                # **dans** le budget, et le modèle l'écrit — correctement. Le validateur
+                # refusait, régénérait, et se repliait : **les trois seuls replis de la
+                # campagne v3**, tous sur une prose vraie. Le modèle a même argumenté à la
+                # seconde tentative — « la recherche que j'ai sous les yeux le confirme ».
+                #
+                # C'est la règle du §9.3 appliquée à l'exécution : on n'évalue pas une
+                # phrase contre un état accumulé quand l'état est destructif. Ce n'est pas
+                # un relâchement — rien de neuf ne devient citable, un fait périmé cesse
+                # seulement de contredire le fait qui l'a remplacé.
+                self.hors_budget.pop(produit.id, None)
 
         for brut in _liste(charge.get(CLE_AU_DESSUS_DU_BUDGET)):
             if not isinstance(brut, Mapping):
