@@ -362,7 +362,7 @@ faire, jamais en échec silencieux.
 
 | suite | tests | ce qu'elle exige |
 | --- | --- | --- |
-| `make check` — la totalité de la part pure | **1002** | rien : ni base, ni conteneur, ni clé API |
+| `make check` — la totalité de la part pure | **1 243** au 2026-09-06 | rien : ni base, ni conteneur, ni clé API |
 | `make test-int` | **98** | un Postgres joignable |
 
 ## La carte du dépôt

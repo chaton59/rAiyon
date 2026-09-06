@@ -1,21 +1,34 @@
 # rAiyon — Assistant conseil produit en temps réel
 
-Document de cadrage. Il consigne les décisions d'architecture, **les alternatives
-écartées et pourquoi**. Il fait foi : toute décision qui le contredit doit être
-discutée et amender ce fichier.
+**Ce document est un JOURNAL de décisions, pas un état.** Il consigne les décisions
+d'architecture, **les alternatives écartées et pourquoi**, et les renversements avec leur
+date. Il fait foi sur le *raisonnement* : une décision qui le contredit doit être discutée
+et l'amender.
 
-Statut : étapes 1 à 6 franchies. Source, domaine et 6 catégories arrêtés
-(3.4, 3.4bis), schéma d'attributs écrit et validé, schéma SQL migré et testé,
-catalogue de 1 026 produits normalisé, committé et chargé en base, **moteur de
-matching écrit, calibré et testé**.
-✅ La passe LLM du catalogue a été **supprimée après mesure** (§3.4ter, réécrite) :
-le catalogue reste en anglais, le français se produit dans la réponse à l'étape 8.
-Aucun octet de la base ne vient d'un modèle, et aucune clé API n'est nécessaire
-avant l'étape 8.
-✅ **Critère d'acceptation nº5 franchi** (§3.16) : hors du dépôt SQL, le moteur est
-pur, et `tests/matching/` tourne hors ligne en moins d'une seconde.
-Étape suivante — 7, couche outils et invariants.
-Dernière révision : 2026-08-30.
+Il court des **étapes 1 à 31** (cadrage : 2026-08-25 · dernière entrée : 2026-09-06).
+
+⚠️ **Cette portée dérivera, et c'est accepté** : elle se met à jour dans le même geste que
+l'ajout d'une entrée. Si elle dérive quand même, c'est le signal que le journal a cessé
+d'être tenu — **une dérive qui se dénonce vaut mieux qu'un statut qui se tait**, et c'est
+toute la différence avec le bloc que cette ligne remplace.
+
+⚠️ **L'état courant du produit vit dans le README, jamais ici, et c'est une décision de
+l'étape 32.** Ce fichier portait un bloc « Statut » qui annonçait « étapes 1 à 6
+franchies » et « étape suivante — 7 » alors que le dépôt en était à la trentième : faux de
+vingt-quatre étapes, et **c'était la première chose qu'on lisait**. Un statut vivant dans
+386 Ko dérive toujours — c'est le même mode de défaillance que les comptes de tests figés
+à 1002 et 1018 ailleurs dans ce fichier, pas un second. Un journal n'a pas de champ
+« statut » : il a des entrées datées, et §5 les porte.
+
+⚠️ **Convention de chiffre, posée à l'étape 32 : un nombre dans de la prose est soit
+GÉNÉRÉ, soit DATÉ — jamais recopié.** Les compteurs de `make check` qui apparaissent dans
+§5 (1002, 1018, 1028…) sont des **relevés d'entrée de journal** : ils disent ce que la
+suite rendait *à cette étape-là*, et les mettre à jour serait falsifier le journal. Ce
+qu'ils ne disent pas, c'est le compte courant — qui vit dans le README, où il est daté.
+
+C'est la même défaillance sous deux formes : un statut qui dérive et un compteur recopié
+sont tous deux des faits vrais à l'écriture, faux à la lecture. La parade n'est pas de les
+tenir à jour, c'est de dire **de quand ils datent**.
 
 ---
 
@@ -610,6 +623,23 @@ reste unique et instrumenté.
 > | `search_products()` | Produits entiers, `produits` et `au_dessus_du_budget` séparés, avec trace |
 > | `ask_clarification(question, champ_vise)` | `{ok, terminal}` — le tour est clos |
 
+> **Amendement de l'étape 27 — cinq sont devenus six**, et le tableau ci-dessus est donc
+> incomplet, pas faux. Le sixième est `search_reviews(requete)`, la recherche d'avis web
+> (§3.18). Il est ajouté **ici**, au point où les outils sont spécifiés, et non seulement
+> dans `schema_outils.py` où ils sont déclarés.
+>
+> | Outil | Rend |
+> |---|---|
+> | `search_reviews(requete)` | Des avis web **encadrés**, et rien d'autre. Aucun fait de catalogue |
+>
+> ⚠️ **C'est le seul outil dont la charge utile ne déclare pas `faits_du_catalogue`**, donc
+> le seul dont rien n'entre dans le `ContexteFourni`. Il apporte des opinions ; les faits
+> viennent du catalogue et de nulle part ailleurs.
+>
+> 🔴 **Et il n'est pas exposé aux deux orchestrations, contrairement à ce que §3.18 a
+> d'abord écrit.** La machine à états ne montre au modèle que `record_criteria` : mesuré à
+> 6 appels contre 0, et vérifié par lecture. Voir l'amendement de §3.6.
+
 ### 3.8 — La relance : gain d'information, pas ordre codé
 
 **Retenu.** `suggest_next_question()` interroge le sous-catalogue courant et rend
@@ -1050,6 +1080,13 @@ tour 5, revenir sur `monitor` au tour 6, et chercher sans plafond.
 
 ### 3.18 — La recherche web : un sixième outil, et un cache qui sert la mesure
 
+🔴 **Un outil, une orchestration — et pas deux, contrairement à ce que cette section a
+d'abord annoncé.** `search_reviews` est exposé **au schéma**, donc « aux deux
+orchestrations » sur le papier. À l'exécution, la machine à états ne le montre jamais au
+modèle : `repondre_machine()` filtre le schéma à `record_criteria` seul, et `decider()` n'a
+aucune action « chercher des avis ». Mesuré à **6 appels contre 0** (étape 30), puis vérifié
+par lecture. Voir l'amendement de §3.6 pour ce que ce constat dit du déterminisme.
+
 **Décidé à l'étape 26.** Le catalogue apporte des faits ; le web apporte des **opinions** —
 des avis et des retours d'usage, ce dont aucune colonne ne dispose. La bride a été
 délibérément relâchée pour rendre la conversation plus naturelle, quitte à sortir un peu
@@ -1064,7 +1101,7 @@ journal de l'étape 23 précède celle-ci.
 | **Fournisseur : Brave Search API** | Choisi sur ses conditions de stockage, **pas sur son prix**. Google et Exa l'interdisent, Serper et SerpAPI revendent du Google sous litige, Tavily est silencieuse — et le silence n'est pas une permission. Brave est le seul où stocker est un droit **accordé explicitement**, moyennant un plan « storage rights ». Variable `BRAVE_SEARCH_API_KEY`, traitée comme `ANTHROPIC_API_KEY` |
 | **Cache sur la requête normalisée**, lien produit optionnel | La recherche est libre — le modèle formule ce qu'il veut —, donc il n'y a pas toujours un `produit_id` sous lequel ranger |
 | **Contenu brut, URL, date. Jamais de synthèse générée** | On ne met pas de texte de LLM dans la base de faits (§2). Même règle que `produits` |
-| **Le contenu web n'entre PAS dans le `ContexteFourni`** | Conséquence voulue : la prose qualitative reste libre — aucune règle ne la couvre — et **tout chiffre ramené du web tombe**. ⚠️ C'est un acte à poser, pas un état par défaut : `_charges_utiles()` lit tout `tool_result` réussi sans regarder de quel outil il vient, donc un sixième outil y entrerait **automatiquement**. Un test doit échouer si l'exclusion est retirée |
+| **Le contenu web n'entre PAS dans le `ContexteFourni`** | Conséquence voulue : la prose qualitative reste libre — aucune règle ne la couvre — et **tout chiffre ramené du web tombe**. ✅ **Posée à l'étape 27, et par adhésion plutôt que par exception** : une charge n'entre que si elle déclare `faits_du_catalogue: true`. Un futur outil dont on oublierait la déclaration voit ses faits refusés — visible — plutôt que son contenu devenir citable — silencieux. `tests/validateur/test_exclusion_du_web.py` le garde avec une charge **construite pour polluer** si l'exclusion tombe. ⚠️ La garde vit dans `contexte_des_resultats()` et non dans `_charges_utiles()` : le test a trouvé que les deux portes rendaient des contextes différents pour la même charge |
 
 #### Le TTL vaut 24 h, et le chiffre vient d'une frontière — pas d'un taux de hit
 
@@ -2445,13 +2482,37 @@ en place — automatique et mémorisé sur un `BadRequestError` tant que le mode
 (`smt` à l'étape 3, `temperature=0` et `nom_fr` à l'étape 5) ; cette fois il a été mesuré
 avant d'être supposé.
 
-**12 — Quatre réglages, tranchés au plus simple.** Pas de thinking étendu en v1 (les blocs
+**12 — Quatre réglages, tranchés au plus simple.** ~~Pas de thinking étendu en v1 (les blocs
 `thinking` devraient être réinjectés verbatim et persistés, pour un raisonnement qui tient
-en deux lignes — à rouvrir à l'étape 13 si la métrique nº4 plafonne). On ne fixe pas
+en deux lignes — à rouvrir à l'étape 13 si la métrique nº4 plafonne).~~ On ne fixe pas
 `temperature` : le dépôt s'est déjà fait prendre à supposer que `temperature=0` donnait du
-déterminisme, on ne le suppose plus et on ne le revendique nulle part. `max_tokens = 2048`.
+déterminisme, on ne le suppose plus et on ne le revendique nulle part. ~~`max_tokens = 2048`.~~
 Le faux client reste dans `tests/` : pas de mode démo hors ligne, ce serait une seconde
 façon de faire tourner le produit, à maintenir.
+
+> 🔴 **Deux des quatre réglages sont renversés, et le premier était faux dès qu'il a été
+> écrit** (étape 23). Corrigé **ici**, au point de décision, et pas seulement dans
+> `client_anthropic.py` où il était utilisé — c'est la faute que le balayage de l'étape 32
+> a trouvée douze fois.
+>
+> * **« Pas de thinking étendu en v1 » n'a jamais décrit la réalité.** Sur `claude-sonnet-5`
+>   le raisonnement adaptatif est **actif par défaut**, `display` vaut `omitted`, et l'API
+>   renvoyait des blocs `{"thinking": "", "signature": "…"}` — du raisonnement réel, facturé
+>   sur `max_tokens`, réinjecté dans l'historique, et **vide à la lecture**. Les 160 blocs
+>   `thinking` de `evals/cassettes/` en portent la preuve : tous signés, aucun ne porte une
+>   lettre. Le dépôt payait le raisonnement, le transportait, et croyait l'avoir désactivé.
+>   Depuis l'étape 23 il est demandé explicitement, avec `display: "summarized"` — **le seul
+>   effet réel de la ligne**, l'adaptatif tournant déjà.
+> * **`max_tokens` vaut 6 144**, et le chiffre est mesuré : sur 191 appels enregistrés, la
+>   moyenne est de 242 jetons de sortie et le plus gros message assistant fait ~1 200. Le
+>   plafond de 2 048 était partagé entre une prose mesurée et un raisonnement qu'on ne
+>   voyait pas — deux cassettes portent un bloc `thinking` **et rien d'autre** avec
+>   `fin=max_tokens`, c'est-à-dire une troncature survenue *pendant* le raisonnement.
+>
+> ⚠️ **Ce renversement a produit une règle générale** (§9) : les trois précédents du dépôt
+> étaient des capacités **absentes** qu'on croyait présentes ; celui-ci est l'inverse, une
+> capacité **présente** qu'on croyait absente. Un commentaire qui dit « on n'utilise pas X »
+> se vérifie au même titre qu'un « X marche ».
 
 #### Ce que l'étape a appris, et qui n'était pas prévu
 
@@ -5131,7 +5192,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Le besoin d'un retrait des mots vides est peut-être en train de se dissoudre** | Faible — hypothèse à ne pas traîner | Le seuil de recouvrement (§3.18) a été calibré sur des formulations dispersées : `…avis joueurs`, `…avis gamers`, une comparaison à trois produits. ⚠️ **Cette dispersion venait en grande partie de la description de l'outil**, qui demandait de nommer le produit comme le catalogue l'écrit et faisait exploser les requêtes de *sujet* — corrigé à l'étape 29 en « une recherche, un objet ». Depuis : les **6** formulations de la campagne de l'étape 30 sont toutes courtes, à un seul produit, et **reproductibles au caractère près** (`avis MSI MAG 274CQF` quatre fois à l'identique). Zéro quasi-doublon, donc zéro donnée nouvelle pour le seuil. **Hypothèse : si le jalon 5 ne produit pas de quasi-doublon, la question des mots vides se ferme au lieu de se traîner** — et le seuil de recouvrement devient un filet peu sollicité plutôt qu'un mécanisme central |
 | 🔴 **Un compte de griefs à une prise est dans le bruit — mesuré** | **Élevée**, et elle invalide des comparaisons déjà publiées | Étape 29 : trois exécutions **identiques** des quatre mêmes scénarios ont rendu **3, puis 0, puis 2** griefs, sans qu'aucune touche le chemin web (0 appel à `search_reviews` dans les trois). L'amplitude mesurée est donc de 0 à 3 sur un compte dont les valeurs publiées valaient 0 à 3. ⚠️ **Conséquence qui déborde le jalon : toute comparaison de comptes de griefs faite jusqu'ici — v2 contre v3, l'étape 28 — est dans le bruit. Aucune n'est fausse, aucune n'est établie.** La correction n'est pas une note : c'est le harnais qui doit porter les prises multiples, et `ligne_de_base.py` publie désormais `min/méd/max` au lieu d'un nombre seul. Ce risque a été trouvé en **rejouant plutôt qu'en déduisant** une ligne de base dont la déduction disait « rien ne bouge » — cinquième précédent de capacité supposée non mesurée, deuxième attrapé du bon côté |
 | **Le 4/4 des cas adverses est un résultat, pas un taux** | Moyenne — c'est une lecture de portfolio qui peut déraper | Étape 28 : le modèle n'a suivi aucune des quatre injections. ⚠️ **Deux réserves voyagent avec ce chiffre partout où il est cité.** (1) Un tirage par cas : quatre conversations ne disent rien de la variance, et rien ne permet d'en tirer un taux de résistance. (2) **Deux des quatre charges n'ont été livrées qu'après avoir ajusté les fixtures à la forme réelle des requêtes du modèle** — la livraison est une précondition, pas la mesure, et deux tirages avaient échoué avant. Un 4/4 survendu vaut moins qu'un 2/4 honnête |
-| **Aucune mesure du sixième outil côté machine à états** | Faible | Tout ce qui est mesuré aux étapes 27 et 28 l'est sur l'orchestration `agent`. La machine expose les mêmes six outils et passe par le même répartiteur, donc rien ne laisse attendre un écart — mais rien ne le constate non plus, et c'est exactement la forme d'affirmation que ce dépôt refuse ailleurs. À porter au jalon qui étend les scénarios |
+| 🔴 ~~**Aucune mesure du sixième outil côté machine à états**~~ | **Fermée à l'étape 30 — et la ligne elle-même était fausse** | Le texte d'origine, écrit à l'étape 28, disait : « la machine expose les mêmes six outils et passe par le même répartiteur, **donc rien ne laisse attendre un écart** ». Mesure : **6 appels côté agent, 0 côté machine**, et c'est structurel — `repondre_machine()` ne montre au modèle que `record_criteria`, l'appel de rédaction reçoit le même schéma filtré, et `decider()` n'a aucune action « chercher des avis ». Voir l'amendement de §3.6. ⚠️ **Ce qui rend cette ligne instructive n'est pas le défaut qu'elle signalait, c'est celui qu'elle contenait** : sa raison d'être était de nommer un non-mesuré, et elle a produit dans la même phrase une affirmation non mesurée — « rien ne laisse attendre un écart ». Elle est barrée plutôt qu'effacée pour cette raison : **le lieu le plus dangereux pour une supposition est la phrase qui dénonce les suppositions**, parce que c'est celle qu'on relit le moins. Sixième précédent de la série de §9 |
 | **L'entropie sur un champ numérique continu est grossière** | Faible | Sur `price_per_gb` ou `core_clock`, chaque produit porte presque sa propre valeur : l'entropie normalisée y est maximale alors que la question n'apprendrait rien. La parade est une **exclusion par nombre de valeurs distinctes** — au-delà de la moitié des candidats, le champ sort du classement. C'est **un seuil, pas une théorie**, et il n'a pas été calibré : le découpage en classes, qui serait la vraie réponse, est hors périmètre. Second effet, écrit plutôt que masqué : la normalisation par `log2(k)` mesure l'équilibre et non le gain brut, d'où un départage à score égal sur le nombre de valeurs atteignables |
 | **Le champ le plus discriminant n'est pas toujours la meilleure question** | Faible — c'est la qualité perçue | Mesuré sur le seed : sur les 32 écrans à 144 Hz sous 400 $, `marque` marque 0,93 contre 0,73 pour le type de dalle, parce que treize marques bien réparties portent plus d'information que deux types de dalle. La mesure a raison ; « tu as une préférence de marque ? » n'est pourtant pas toujours ce qu'un vendeur demanderait. Gain d'information et valeur conversationnelle sont deux critères distincts : l'outil rend le premier et **reste une suggestion** (§3.8), le prompt de l'étape 8 arbitre le second, et la métrique nº3 le mesure |
 | **La garde de l'arbitrage C concentre l'invariant, elle ne le supprime pas** | Faible, mais à ne pas oublier | Les outils de recherche n'ont plus d'argument de critère : il n'existe donc plus d'argument hostile à clamper. Mais la règle de collant doit toujours être appliquée quelque part, et ce quelque part est maintenant **unique** — `record_criteria`. Un futur outil qui écrirait dans l'état sans passer par `fusionner()` rouvrirait tout, et rien dans le typage ne l'en empêche. Atténuation : `EtatSession` est immuable et ses champs sont typés `Mapping`, donc une écriture en place ne compile pas sous `mypy --strict` ; mais construire un état neuf à la main reste possible |
