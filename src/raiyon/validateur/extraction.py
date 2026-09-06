@@ -257,16 +257,53 @@ UNITE_DE_PRIX = "USD"
 """Sortie de la liste des unités : un prix est l'affaire de la règle 2, qui sait à
 quel produit il doit appartenir. L'y laisser produirait deux griefs pour une faute."""
 
-UNITES_SUPPLEMENTAIRES = frozenset({"To", "coeurs", "px", '"'})
+UNITES_SUPPLEMENTAIRES = frozenset({"To", "coeurs", "px"})
 """Ce que le registre ne porte pas et qu'un modèle écrit quand même : le téraoctet
-(le catalogue compte en `Go`), `cœurs` sans ligature, `px` pour `pixels`, et le
-pouce en guillemet droit. Écrites ici plutôt que dans `attributs.py` : ce sont des
-formes de **rédaction**, pas des unités du catalogue.
+(le catalogue compte en `Go`), `cœurs` sans ligature, et `px` pour `pixels`. Écrites ici
+plutôt que dans `attributs.py` : ce sont des formes de **rédaction**, pas des unités du
+catalogue.
 
 ⚠️ **`GB`, `TB` et `MB` en sont volontairement absents.** Les noms de produits du
 catalogue sont anglais et en contiennent (`Corsair Vengeance 16 GB`) : les déclarer
 unités ferait crier la règle 5 sur un nom cité **verbatim**, c'est-à-dire sur le
-comportement exact que §3.4ter réclame."""
+comportement exact que §3.4ter réclame.
+
+---
+
+### 🔴 Le guillemet droit en est sorti à l'étape 29, et c'est une mesure qui l'a sorti
+
+Il y figurait comme forme de rédaction du pouce. Le motif ne distingue pas un symbole
+d'unité d'un guillemet fermant de citation : **tout nombre suivi d'un guillemet devenait
+une mesure en pouces.** Deux occurrences réelles, toutes deux fausses :
+
+* `« Vantrix Pro 480 »` cité entre guillemets droits → `480"` → un écran de 480 pouces ;
+* `« Nexoria ZX-9000 »` → `9000"` → 9 000 pouces.
+
+⚠️ **La seconde est celle qui a décidé.** Elle refusait la phrase « le "Nexoria ZX-9000"
+n'existe pas dans notre catalogue » — c'est-à-dire **exactement le bon comportement**, le
+seul chemin où nommer un produit hors catalogue est ce qu'on demande au modèle. Et l'effet
+de second ordre a été mesuré : à la régénération, le modèle a cessé de nommer le produit,
+et le client y a perdu.
+
+**Ce que le retrait laisse passer, dit franchement** : un modèle qui écrirait « un écran de
+27" » avec une taille qu'aucun outil n'a rendue ne déclencherait plus la règle 5. C'est un
+vrai trou, et il est **non exercé** : sur toutes les proses réelles collectées aux étapes
+28 et 29, le pouce est écrit **en toutes lettres 26 fois** (23 fois `27 pouces`, 3 fois
+`24 pouces`) et **zéro fois** en guillemet. Le catalogue déclare d'ailleurs `pouces` comme unité de
+`screen_size` ; la forme en guillemet n'a jamais été qu'une supposition sur la rédaction du
+modèle, et la mesure la contredit.
+
+*Alternative écartée — exclure les nombres situés dans une portée entre guillemets
+appariés.* Plus fidèle en apparence, et **strictement pire** : elle ferait de la citation
+une porte de sortie universelle. « il annonce "144 Hz" » exempterait le 144 de toute
+vérification, quel que soit son origine — donc n'importe quel chiffre inventé deviendrait
+citable en le mettant entre guillemets. C'est le canal même que le validateur existe pour
+fermer, et une portée mal appariée redevient un piège par-dessus le marché. Plus de code
+pour un trou plus large.
+
+*Alternative écartée — n'accepter le guillemet qu'après une valeur plausible de diagonale.*
+Elle encode une fourchette sémantique dans un analyseur lexical : le jour où le catalogue
+gagne une catégorie, la fourchette est fausse et personne ne s'en aperçoit."""
 
 
 def unites_connues() -> frozenset[str]:

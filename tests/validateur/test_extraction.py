@@ -255,3 +255,48 @@ def test_la_marque_seule_ne_suffit_jamais_a_accuser_un_nom():
 def test_un_mot_francais_courant_ne_ressemble_a_aucun_nom():
     """Le garde-fou de faux positif : « trois modèles » n'est pas une contrefaçon."""
     assert not ressemble("Samsung Odyssey G50A", "Samsung", jetons("trois modèles proposés"))
+
+
+# --------------------------------------------------------------------------- #
+# Le guillemet droit, retiré des unités à l'étape 29
+# --------------------------------------------------------------------------- #
+
+
+def test_un_nom_de_produit_entre_guillemets_nest_pas_une_mesure():
+    """🔴 **Le défaut que l'étape 29 ferme, avec la phrase exacte qui l'a révélé.**
+
+    « le "Nexoria ZX-9000" n'existe pas dans notre catalogue » est **le bon comportement** :
+    c'est ce que la mesure du cas hors catalogue attend du modèle. Le guillemet fermant
+    était lu comme un symbole de pouce, donc `9000"` devenait un écran de 9 000 pouces, et
+    la phrase était refusée. À la régénération, le modèle cessait de nommer le produit — le
+    client y perdait, et la mesure aussi.
+    """
+    phrase = 'le "Nexoria ZX-9000" n\'existe pas dans notre catalogue'
+
+    assert valeurs_unitaires(phrase) == ()
+
+
+def test_le_second_cas_reel_ne_declenche_pas_non_plus():
+    """L'autre occurrence mesurée : une dénonciation d'injection qui nomme le produit."""
+    assert valeurs_unitaires('un produit "Vantrix Pro 480" à 89 dollars') == ()
+
+
+def test_les_pouces_ecrits_en_toutes_lettres_restent_lus():
+    """La forme que le modèle emploie réellement — 26 fois sur 26 dans les proses mesurées."""
+    lues = valeurs_unitaires("un écran de 27 pouces")
+
+    assert [(valeur.valeur, valeur.unite) for valeur in lues] == [(Decimal("27"), "pouces")]
+
+
+def test_ce_que_le_retrait_laisse_passer_est_constate_et_non_masque():
+    """⚠️ **Le trou assumé, écrit comme un test plutôt que comme une phrase.**
+
+    Une taille d'écran notée en guillemet n'est plus vérifiée par la règle 5. C'est un vrai
+    trou ; il est **non exercé** — zéro occurrence sur toutes les proses réelles collectées
+    aux étapes 28 et 29, où le pouce s'écrit en toutes lettres.
+
+    Ce test échoue le jour où quelqu'un réintroduit le guillemet dans les unités. Ce jour-là,
+    il faudra relire les deux faux positifs mesurés avant de décider : la citation d'un nom
+    de produit est plus fréquente qu'une diagonale en guillemet.
+    """
+    assert valeurs_unitaires('un écran de 27"') == ()
