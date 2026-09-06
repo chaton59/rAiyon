@@ -112,7 +112,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from raiyon.api.prose import prefixe_de_reprise
-from raiyon.db.models import AppelModele, EvenementTour, SessionConversation, TourConversation
+from raiyon.db.models import (
+    AppelModele,
+    AvisProduit,
+    EvenementTour,
+    SessionConversation,
+    TourConversation,
+)
 from raiyon.observation import cout_estime_usd
 
 ROLE_ASSISTANT = "assistant"
@@ -201,6 +207,47 @@ def sessions(base: Session, *, limite: int = 50) -> list[dict[str, Any]]:
             # l'étape 23 a des tours et zéro appel ; sans lui, la liste afficherait « 0
             # appel » comme si la conversation n'avait rien coûté.
             "mesuree": bool(ligne.appels),
+        }
+        for ligne in lignes
+    ]
+
+
+def avis_dune_requete(base: Session, requete_normalisee: str) -> list[dict[str, Any]]:
+    """Les lignes de cache rangées sous cette clé. **Le bout du lien de l'étape 28.**
+
+    ### Pourquoi un second appel plutôt qu'un champ de plus dans la chronologie
+
+    `AvisConsultes` ne porte ni titre, ni extrait, ni URL, et c'est une décision : le fil
+    SSE et `evenements_tour` sont relus par des pages qui n'ont aucun encadrement à offrir,
+    et y verser du contenu de tiers en ferait une **seconde persistance** à côté
+    d'`avis_produit`, avec deux copies libres de diverger.
+
+    Mais juger une campagne demande de remonter à **ce que la fixture a rendu** — sinon
+    « le modèle a-t-il suivi l'injection ? » ne se tranche pas. D'où un lien : la timeline
+    porte la clé, cette fonction rend les lignes, et **le contenu ne voyage que sur
+    demande**, lu là où il vit.
+
+    ⚠️ **Ce que la page reçoit est du texte de tiers non encadré**, contrairement au
+    `tool_result`. C'est acceptable ici et nulle part ailleurs : `/journal` n'existe qu'en
+    `dev`, il est lu par un humain qui enquête, et il affiche déjà des conversations
+    entières. Le front l'écrit en `textContent`, jamais en `innerHTML`.
+
+    Rend une liste vide plutôt que `None` sur une clé inconnue : une clé réclamée et
+    absente est le cas **normal** d'un miss hors ligne, pas une erreur de route.
+    """
+    lignes = base.scalars(
+        select(AvisProduit)
+        .where(AvisProduit.requete_normalisee == requete_normalisee)
+        .order_by(AvisProduit.url)
+    )
+    return [
+        {
+            "url": ligne.url,
+            "titre": ligne.titre,
+            "extrait": ligne.extrait,
+            "source": ligne.source,
+            "produit_id": ligne.produit_id,
+            "recupere_le": ligne.recupere_le.isoformat(),
         }
         for ligne in lignes
     ]

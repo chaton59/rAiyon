@@ -293,6 +293,12 @@ function rendreLaChronologie(donnees) {
         const replis = tour.evenements.filter((evenement) => evenement.genre === "fallback");
         for (const evenement of replis) bloc.appendChild(rendreUnEvenement(evenement));
 
+        // Les recherches d'avis : l'acte, et un **lien** vers ce que le cache a rendu.
+        // L'événement ne porte ni titre, ni extrait, ni URL — c'est délibéré, voir
+        // `AvisConsultes`. Le contenu se lit à la demande, là où il vit.
+        const avis = tour.evenements.filter((evenement) => evenement.genre === "reviews_consulted");
+        for (const evenement of avis) bloc.appendChild(rendreUneRechercheDavis(evenement));
+
         chronologie.appendChild(bloc);
     }
 }
@@ -470,6 +476,70 @@ function rendreUnOutil(outil) {
         note.style.gridColumn = "1 / -1";
         bloc.appendChild(note);
     }
+    return bloc;
+}
+
+/**
+ * Une recherche d'avis : la clé, le hit/miss, la latence — et un lien vers le contenu.
+ *
+ * ⚠️ Le contenu du cache est du **texte de tiers non encadré** : il est chargé à la
+ * demande, écrit en `textContent` comme tout le reste de cette page, et il n'existe qu'en
+ * `dev`. C'est le seul endroit du projet où il s'affiche sans ses marques, parce que le
+ * lecteur est ici un humain qui enquête sur une campagne, pas un modèle qui rédige.
+ */
+function rendreUneRechercheDavis(evenement) {
+    const charge = evenement.charge;
+    const bloc = noeud("article", "evenement avis");
+    const barre = noeud("header", "barre-appel");
+    barre.appendChild(noeud("span", "iteration", `rang ${evenement.rang}`));
+    barre.appendChild(noeud("span", "jeton", LIBELLES[evenement.genre] || evenement.genre));
+    barre.appendChild(noeud("span", "jeton", charge.depuis_le_cache ? "cache" : "récupéré"));
+    barre.appendChild(noeud("span", "jeton", charge.etat_cache));
+    bloc.appendChild(barre);
+
+    bloc.appendChild(noeud("p", "texte", `Requête normalisée : ${charge.requete}`));
+    bloc.appendChild(
+        noeud("p", "note", `${charge.nombre} résultat(s) · ${charge.latence_ms} ms`),
+    );
+
+    const details = noeud("details", "avis-contenu");
+    const resume = noeud("summary", null, "voir ce que le cache a rendu");
+    details.appendChild(resume);
+    const cible = noeud("div", "avis-lignes");
+    details.appendChild(cible);
+    let charge_faite = false;
+    details.addEventListener("toggle", async () => {
+        if (!details.open || charge_faite) return;
+        charge_faite = true;
+        cible.appendChild(noeud("p", "note", "chargement…"));
+        try {
+            const lignes = await lire(`/journal/avis/${encodeURIComponent(charge.requete)}`);
+            cible.replaceChildren();
+            if (!lignes.length) {
+                cible.appendChild(noeud("p", "note", "aucune ligne en cache sous cette clé."));
+                return;
+            }
+            for (const ligne of lignes) cible.appendChild(rendreUneLigneDavis(ligne));
+        } catch (erreur) {
+            cible.replaceChildren(noeud("p", "note", `lecture impossible : ${erreur.message}`));
+        }
+    });
+    bloc.appendChild(details);
+    return bloc;
+}
+
+/** Une ligne de `avis_produit`, telle qu'elle est en base — sans encadrement. */
+function rendreUneLigneDavis(ligne) {
+    const bloc = noeud("div", "avis-ligne");
+    bloc.appendChild(noeud("p", "avis-titre", ligne.titre));
+    const lien = noeud("a", "avis-url", ligne.url);
+    lien.href = ligne.url;
+    lien.rel = "noopener noreferrer nofollow";
+    bloc.appendChild(lien);
+    bloc.appendChild(noeud("p", "texte", ligne.extrait));
+    bloc.appendChild(
+        noeud("p", "note", `source : ${ligne.source} · récupéré le ${ligne.recupere_le}`),
+    );
     return bloc;
 }
 

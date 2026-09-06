@@ -513,6 +513,29 @@ def lire_le_journal(identifiant: uuid.UUID, _: JournalOuvert, fabrique: Fabrique
     return chronologie
 
 
+@app.get("/journal/avis/{requete}")
+def lire_les_avis_du_journal(
+    requete: str, _: JournalOuvert, fabrique: Fabrique
+) -> list[dict[str, Any]]:
+    """Les lignes de cache d'une requête normalisée — **le bout du lien de l'étape 28**.
+
+    La timeline porte la clé sans le contenu (`AvisConsultes` n'a ni titre, ni extrait, ni
+    URL) ; cette route rend le contenu **à la demande**, lu là où il vit. C'est un lien, pas
+    une copie : aucune seconde persistance, et `evenements_tour` reste exempt de texte de
+    tiers.
+
+    ⚠️ **Aucun conflit avec `/journal/{identifiant}`**, et il vaut mieux le dire que de le
+    supposer : les deux motifs n'ont pas le même nombre de segments — un seul là-bas, deux
+    ici —, donc l'ordre de déclaration est sans effet. Il en irait autrement pour une route
+    `/journal/{quelque_chose}` de même forme, qui serait avalée par le `uuid.UUID` et
+    rendrait un 422 au lieu de son contenu.
+
+    La clé normalisée contient des espaces : elle voyage donc encodée dans l'URL.
+    """
+    with fabrique() as base:
+        return journal.avis_dune_requete(base, requete)
+
+
 @app.get("/health")
 def sante(reponse: Response, partagees: Partagees, fabrique: Fabrique) -> Sante:
     """Base joignable, prompt en vigueur, mode `strict` retenu.

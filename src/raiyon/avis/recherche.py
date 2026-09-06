@@ -40,11 +40,18 @@ class AvisHorsLigne(Exception):
     pour que le scénario cesse de mesurer autre chose que ce qu'il annonce. Le message est
     lu par un humain qui répare une campagne, pas par le modèle — `repartiteur` le
     retraduit en `OutilRefuse` avant qu'il n'atteigne la conversation.
+
+    ⚠️ **Elle porte aussi la formulation d'origine, et ce n'est pas de la décoration**
+    (étape 28). La clé normalisée dit quoi écrire ; la formulation dit **ce que le modèle a
+    réellement tapé**, et c'est elle qui décidera un jour du seuil d'un appariement par
+    recouvrement. Sans les deux, on saurait qu'un miss a eu lieu sans savoir de combien de
+    mots on est passé à côté — donc sans pouvoir calibrer autre chose qu'à l'intuition.
     """
 
-    def __init__(self, requete_normalisee: str) -> None:
+    def __init__(self, requete_normalisee: str, requete: str) -> None:
         super().__init__(requete_normalisee)
         self.requete_normalisee = requete_normalisee
+        self.requete = requete
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,14 +115,17 @@ def chercher_des_avis(
         return Trouvaille(cle, lecture.avis, lecture.etat, latence_ms=0)
 
     if fournisseur is None:
-        # 🔴 Le miss bruyant. Le message nomme la clé : c'est la fixture à écrire.
+        # 🔴 Le miss bruyant. La ligne porte **les deux** formes : la clé dit quoi écrire
+        # dans le seed, la formulation dit ce que le modèle a tapé. C'est le jeu de données
+        # du seuil de recouvrement (étape 28), et il ne se collecte qu'ici.
         logueur.error(
             "avis.hors_ligne",
             requete=cle,
+            formulation=requete,
             etat=lecture.etat.value,
             consequence="refus d'outil — la fixture manque dans data/seed/avis.jsonl",
         )
-        raise AvisHorsLigne(cle)
+        raise AvisHorsLigne(cle, requete)
 
     depart = _horloge()
     recuperes = fournisseur.chercher(requete, limite=limite)
