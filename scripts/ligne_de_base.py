@@ -30,6 +30,7 @@ import argparse
 import sys
 import uuid
 from collections import Counter
+from collections.abc import Sequence
 from statistics import median
 from typing import Any
 
@@ -108,8 +109,53 @@ def _mesurer(base: Session, identifiant: uuid.UUID) -> dict[str, Any]:
     }
 
 
+# --------------------------------------------------------------------------- #
+# Les prises multiples — étape 30
+# --------------------------------------------------------------------------- #
+
+
+def _amplitude(valeurs: Sequence[float | None]) -> str:
+    """`min/méd/max` sur les prises, ou la valeur seule s'il n'y en a qu'une.
+
+    🔴 **C'est le correctif du défaut le plus important mesuré sur ce projet.** Trois
+    exécutions identiques des mêmes quatre scénarios ont rendu 3, 0 puis 2 griefs. Un
+    tableau qui publie un compte sans son amplitude ne dit donc pas « voilà le
+    comportement », il dit « voilà un tirage » — et laisse le lecteur croire le premier.
+
+    Les `None` sont écartés et non comptés comme zéro : une prise qui n'a jamais recommandé
+    n'a pas « recommandé au tour 0 », elle n'a pas de rang. Même raison que
+    `tours_avant_valeur` dans le harnais d'éval.
+    """
+    connues = [valeur for valeur in valeurs if valeur is not None]
+    if not connues:
+        return "—"
+    if len(connues) == 1:
+        return _nombre(connues[0])
+    plus_bas, plus_haut = min(connues), max(connues)
+    if plus_bas == plus_haut:
+        return f"={_nombre(plus_bas)}"
+    return f"{_nombre(plus_bas)}/{_nombre(median(connues))}/{_nombre(plus_haut)}"
+
+
+def _nombre(valeur: float) -> str:
+    """Un entier reste un entier ; une médiane paire peut tomber sur un demi."""
+    return str(int(valeur)) if float(valeur).is_integer() else f"{valeur:.1f}"
+
+
+def _grouper(lignes: Sequence[tuple[str, uuid.UUID, dict[str, Any]]]) -> dict[str, list[dict]]:
+    """Les mesures par label, dans l'ordre d'apparition. Un label répété = plusieurs prises."""
+    groupes: dict[str, list[dict[str, Any]]] = {}
+    for label, _, mesure in lignes:
+        groupes.setdefault(label, []).append(mesure)
+    return groupes
+
+
 def main() -> int:
-    """Rend le tableau des sessions nommées. Un `label=uuid` par argument."""
+    """Rend le tableau des sessions nommées. Un `label=uuid` par argument.
+
+    **Un label répété est un scénario à plusieurs prises** : les mesures sont alors
+    publiées en `min/méd/max` au lieu d'un nombre seul.
+    """
     analyseur = argparse.ArgumentParser(description=__doc__)
     analyseur.add_argument(
         "sessions",
@@ -131,32 +177,47 @@ def main() -> int:
 
     entetes = (
         "scénario",
-        "tours",
+        "prises",
         "appels",
         "j.sortie",
         "→reco",
         "lat.méd",
         "coût $",
         "griefs",
-        "replis",
+        "détail des griefs",
     )
     print(
-        f"| {entetes[0]:<26} | {entetes[1]:>5} | {entetes[2]:>6} | {entetes[3]:>8} | "
-        f"{entetes[4]:>5} | {entetes[5]:>7} | {entetes[6]:>7} | {entetes[7]:<34} | {entetes[8]}"
+        f"| {entetes[0]:<26} | {entetes[1]:>5} | {entetes[2]:>8} | {entetes[3]:>8} | "
+        f"{entetes[4]:>10} | {entetes[5]:>11} | {entetes[6]:>7} | {entetes[7]:>8} | {entetes[8]}"
     )
-    largeurs = (28, 7, 8, 10, 7, 9, 9, 36, 20)
+    print("  (min/méd/max sur les prises ; « = » quand toutes les prises s'accordent)")
+    largeurs = (28, 7, 10, 10, 12, 13, 9, 10, 30)
     print("|".join("-" * largeur for largeur in largeurs))
-    for label, _, mesure in lignes:
-        griefs = ", ".join(f"{code} x{compte}" for code, compte in mesure["griefs"].items()) or "—"
-        replis = (
-            ", ".join(f"{motif} x{compte}" for motif, compte in mesure["replis"].items()) or "—"
-        )
-        reco = "—" if mesure["recommande"] is None else str(mesure["recommande"])
-        cout = "—" if mesure["cout"] is None else f"{mesure['cout']:.4f}"
+    for label, mesures in _grouper(lignes).items():
+        griefs_cumules: Counter[str] = Counter()
+        for mesure in mesures:
+            griefs_cumules.update(mesure["griefs"])
+        # ⚠️ Les griefs sont publiés en **amplitude par prise** et non en total : un total
+        # de 6 sur 3 prises peut être « 2, 2, 2 » ou « 6, 0, 0 », et ces deux comportements
+        # n'appellent pas la même lecture. Le détail par code suit, cumulé.
+        par_prise = [float(sum(mesure["griefs"].values())) for mesure in mesures]
+        detail = ", ".join(f"{code} x{n}" for code, n in griefs_cumules.items()) or "—"
+        replis_cumules: Counter[str] = Counter()
+        for mesure in mesures:
+            replis_cumules.update(mesure["replis"])
+        recos = [
+            None if mesure["recommande"] is None else float(mesure["recommande"])
+            for mesure in mesures
+        ]
+        sans_reco = sum(1 for reco in recos if reco is None)
+        reco = _amplitude(recos) + (f" ({sans_reco}∅)" if sans_reco else "")
+        cout = sum(mesure["cout"] or 0 for mesure in mesures)
         print(
-            f"| {label:<26} | {mesure['tours']:>5} | {mesure['appels']:>6} | "
-            f"{mesure['jetons_sortie']:>8} | {reco:>5} | {mesure['latence_mediane']:>7} | "
-            f"{cout:>7} | {griefs:<34} | {replis}"
+            f"| {label:<26} | {len(mesures):>5} | "
+            f"{_amplitude([float(m['appels']) for m in mesures]):>8} | "
+            f"{sum(m['jetons_sortie'] for m in mesures):>8} | {reco:>10} | "
+            f"{_amplitude([m['latence_mediane'] for m in mesures]):>11} | "
+            f"{cout:>7.4f} | {_amplitude(par_prise):>8} | {detail}"
         )
 
     total_sortie = sum(mesure["jetons_sortie"] for _, _, mesure in lignes)

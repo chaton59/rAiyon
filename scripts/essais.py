@@ -431,6 +431,15 @@ def main() -> int:
         ),
     )
     analyseur.add_argument(
+        "--prises",
+        type=int,
+        default=1,
+        help=(
+            "combien de fois rejouer chaque conversation, chacune dans une session neuve. "
+            "3 est la convention du dépôt (`prises=3` dans scenario.py) — voir la docstring."
+        ),
+    )
+    analyseur.add_argument(
         "--orchestration",
         choices=("agent", "machine", "deux"),
         default="deux",
@@ -469,25 +478,29 @@ def main() -> int:
 
     total = USAGE_NUL
     for essai in conversations:
-        for nom in noms:
-            # ⚠️ **Un enregistreur par essai, et c'est lui qui compte.** `dernier_usage`
-            # ne porte que le dernier appel ; le cumul se fait par `getattr` après chaque
-            # appel, exactement comme pour une campagne. Réutiliser `ClientEnregistreur`
-            # plutôt que réécrire ce geste fait que le coût imprimé ici et le coût publié
-            # par les cassettes sortent du même code. **Rien n'est enregistré pour
-            # autant** : une cassette n'existe qu'après `en_cassette()`, jamais appelé.
-            compteur = ClientEnregistreur(reel=reel)
-            reglages = Reglages(
-                systeme=prompt.texte,
-                outils=outils,
-                max_iterations=reglage.max_agent_iterations,
-                max_regenerations=reglage.max_regenerations,
-                orchestrateur=table[nom],
-            )
-            with fabrique() as base:
-                _jouer(base, essai, nom, client=compteur, reglages=reglages)
-            print(f"\033[90m   coût : {compteur.usage.en_ligne()}\033[0m")
-            total = total + compteur.usage
+        # ⚠️ **Chaque prise ouvre une session neuve**, comme `eval.executeur.jouer()` :
+        # deux prises d'un même scénario doivent partir du même état vide, sinon la seconde
+        # mesure la première. Le mécanisme n'est pas réutilisé — voir la docstring du module.
+        for _prise in range(1, max(1, arguments.prises) + 1):
+            for nom in noms:
+                # ⚠️ **Un enregistreur par essai, et c'est lui qui compte.** `dernier_usage`
+                # ne porte que le dernier appel ; le cumul se fait par `getattr` après chaque
+                # appel, exactement comme pour une campagne. Réutiliser `ClientEnregistreur`
+                # plutôt que réécrire ce geste fait que le coût imprimé ici et le coût publié
+                # par les cassettes sortent du même code. **Rien n'est enregistré pour
+                # autant** : une cassette n'existe qu'après `en_cassette()`, jamais appelé.
+                compteur = ClientEnregistreur(reel=reel)
+                reglages = Reglages(
+                    systeme=prompt.texte,
+                    outils=outils,
+                    max_iterations=reglage.max_agent_iterations,
+                    max_regenerations=reglage.max_regenerations,
+                    orchestrateur=table[nom],
+                )
+                with fabrique() as base:
+                    _jouer(base, essai, nom, client=compteur, reglages=reglages)
+                print(f"\033[90m   coût : {compteur.usage.en_ligne()}\033[0m")
+                total = total + compteur.usage
 
     print(
         f"\n{'=' * 78}\n\033[1mCoût total\033[0m — lu sur le client, pas estimé\n"
@@ -541,6 +554,7 @@ def _jouer(
     print(f"\033[1m=== Conversation nº{essai.numero} — {essai.titre}\033[0m  ·  {orchestration}")
     print(f"=== vise : {essai.vise}")
     print(f"=== session : {conversation.id}")
+    print(f"=== label : n{essai.numero}={conversation.id}")
     print("=" * 78)
 
     for numero, message in enumerate(essai.tours, start=1):
