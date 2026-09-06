@@ -29,7 +29,7 @@ archivé est `make eval-etape12`, et c'est lui qui réécrit `docs/eval/rapport.
 from collections.abc import Iterator
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
 from eval import JEU_ETAPE_12, Jeu, jeu_en_vigueur, prises_du_jeu  # scripts/ sur le pythonpath
@@ -97,14 +97,23 @@ def test_une_cassette_committee_se_rejoue_et_se_mesure(base_seedee):
     que `systeme.v1` était le défaut ; depuis que le jalon 3 a mis v2 en vigueur, rejouer un
     jeu v1 avec le prompt en vigueur le déclarerait périmé — ce qui serait vrai, et sans
     rapport avec ce que ce test mesure.
+
+    ⚠️ **Il visait `JEU_ANCRE` jusqu'à l'étape 32, et ce n'est plus tenable.** L'arrivée du
+    sixième outil a changé l'empreinte de schéma pour tout le monde : les cinq jeux
+    antérieurs sont devenus **archivés** — conservés et lisibles, rejouables jusqu'au schéma
+    d'outils du 2026-09-06 — et ce test-ci a besoin d'un jeu **vivant**, puisque ce qu'il
+    garantit est « les cassettes committées se rejouent ». Il vise donc le jeu en vigueur.
+    Que ce jeu change à chaque campagne est le prix, et il est plus juste que de garantir
+    le rejeu sur un jeu qui ne se rejoue plus.
     """
     from eval import systeme_du_jeu
 
+    jeu = _jeu_courant()
     scenario = par_nom(SCENARIO)
-    prompt = systeme_du_jeu(JEU_ANCRE)
+    prompt = systeme_du_jeu(jeu)
     outils = schema_des_outils()
 
-    chemin = JEU_ANCRE.chemin(SCENARIO, PRISE)
+    chemin = jeu.chemin(SCENARIO, PRISE)
     assert chemin.is_file(), f"{chemin} est absente — lancer `make eval-enregistrer`."
     cassette = depuis_json(chemin.read_text(encoding="utf-8"))
 
@@ -195,39 +204,39 @@ def test_les_vingt_et_une_prises_payees_restent_rejouables(base_seedee):
     Le jour où quelqu'un modifierait `systeme.v1.md` en place, c'est ici que ça se
     verrait — et c'est exactement ce que la contrainte « v1 ne se modifie pas en place »
     protège. Le jeu est archivé sous un nom qui dit ce qu'il est : `v1-partielle`.
-    """
-    from eval import systeme_du_jeu
 
-    scenario = par_nom(SCENARIO)
+    ### ⚠️ Ce test a changé de garantie à l'étape 32, et il fallait qu'il change
+
+    Il **rejouait** une prise. Depuis le sixième outil, ces cassettes déclarent un schéma
+    d'outils qui n'est plus celui en vigueur : les rejouer mesurerait un produit qui
+    n'existe plus, et `verifier()` a raison de refuser. Le rejeu conseillait « régénérer »,
+    ce qui **détruirait** le tirage payé que §7 cite.
+
+    Ce qui est garanti ici est donc ce qui était réellement promis : **conservé et lisible,
+    rejouable jusqu'au schéma d'outils du 2026-09-06**. Les vingt et une prises sont là,
+    entières, lisibles, et leur en-tête dit sous quoi elles ont tourné — c'est ce qui rend
+    « conservé » plus fort que « pas effacé », sans exiger un rejeu que le dépôt ne peut
+    plus faire gratuitement.
+    """
+    from eval import empreintes_doutils, est_archive, systeme_du_jeu
+
     archive = Jeu(nom="v1-partielle", version="systeme.v1")
     prompt = systeme_du_jeu(archive)
-    outils = schema_des_outils()
+    courante = empreinte_des_outils(schema_des_outils())
 
     assert len(prises_du_jeu(archive)) == 21
-    chemin = archive.chemin(SCENARIO, PRISE)
-    cassette = depuis_json(chemin.read_text(encoding="utf-8"))
-    verifier(
-        cassette,
-        prompt_version=prompt.version,
-        prompt_empreinte=prompt.empreinte,
-        outils_empreinte=empreinte_des_outils(outils),
-        source=str(chemin),
-    )
+    assert est_archive(archive, courante), "ce test décrit un jeu archivé ; celui-ci ne l'est plus"
 
-    client = ClientCassette(cassette, source=str(chemin.name))
-    jouee = jouer(
-        base_seedee,
-        scenario,
-        PRISE,
-        client=client,
-        depot=DepotSql(base_seedee),
-        reglages=Reglages(
-            systeme=prompt.texte, outils=outils, max_iterations=8, max_regenerations=1
-        ),
-    )
+    # **Lisible** : chaque cassette se relit, porte des prises, et déclare le prompt du jeu.
+    for scenario, prise in prises_du_jeu(archive):
+        cassette = depuis_json(archive.chemin(scenario.nom, prise).read_text(encoding="utf-8"))
+        assert cassette.prises, f"{scenario.nom}.{prise} est vide"
+        assert cassette.entete.prompt_version == prompt.version
+        assert cassette.entete.prompt_empreinte == prompt.empreinte
 
-    assert client.epuisee
-    assert agreger([mesurer(jouee)]).bloquants_tenus is True
+    # **Gelé à une seule date** : un jeu archivé qui mélangerait deux schémas d'outils ne
+    # serait pas une entrée de journal, ce serait un jeu à moitié réenregistré.
+    assert len(empreintes_doutils(archive)) == 1
 
 
 def test_un_jeu_incomplet_ne_produit_pas_de_rapport_committe():
@@ -348,22 +357,27 @@ def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu(monkeypatch, base_s
 
     Il passe donc par `mesurer_le_jeu`. On déclare divergente une cassette qui se rejoue
     parfaitement (`budget_serre.1`) : le rejeu doit s'arrêter en le disant.
+
+    ⚠️ **Sur le jeu en vigueur depuis l'étape 32, et non plus sur l'archive** : ce test a
+    besoin d'une cassette qui **se rejoue vraiment**, sans quoi il constaterait une
+    péremption au lieu d'une divergence absente. Les jeux antérieurs au sixième outil sont
+    archivés — voir `est_archive`.
     """
     import eval as module
-    from eval import DivergenceAttendueAbsente, Jeu, _reglages_pour, mesurer_le_jeu, systeme_du_jeu
+    from eval import DivergenceAttendueAbsente, _reglages_pour, mesurer_le_jeu, systeme_du_jeu
 
-    archive = Jeu(nom=JEU_ETAPE_12, version="systeme.v1")
+    jeu = _jeu_courant()
     monkeypatch.setitem(
         module.DIVERGENCES_ATTENDUES,
-        (JEU_ETAPE_12, SCENARIO, PRISE),
+        (jeu.nom, SCENARIO, PRISE),
         "ligne inventée par le test : cette cassette se rejoue en réalité très bien.",
     )
-    prompt = systeme_du_jeu(archive)
+    prompt = systeme_du_jeu(jeu)
     reglages, _, empreinte_outils = _reglages_pour(prompt)
 
     with pytest.raises(DivergenceAttendueAbsente) as erreur:
         mesurer_le_jeu(
-            archive,
+            jeu,
             [(par_nom(SCENARIO), PRISE)],
             reglages,
             prompt,
@@ -372,7 +386,7 @@ def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu(monkeypatch, base_s
 
     message = str(erreur.value)
     assert "se rejouent pourtant sans divergence" in message
-    assert f"{JEU_ETAPE_12}/{SCENARIO}.{PRISE}" in message
+    assert f"{jeu.nom}/{SCENARIO}.{PRISE}" in message
     assert "DIVERGENCES_ATTENDUES" in message
 
 
@@ -455,3 +469,167 @@ def test_un_jeu_compose_se_resout_par_son_nom():
     assert _jeu_nomme(LIGNE_DE_BASE.nom) is LIGNE_DE_BASE
     assert _jeu_nomme("v1-etape12").composants == ("v1-etape12",)
     assert _jeu_nomme("v1-partielle").version == "systeme.v1"
+
+
+SCENARIOS_DE_LACCORD = (
+    "budget_absent",
+    "categorie_efface_budget",
+    "desserrage_refuse",
+    "zero_budget_trop_bas",
+)
+"""Quatre scénarios, choisis **pour les branches qu'ils font marcher**, pas pour le nombre.
+
+La première version de ce test n'en rejouait qu'un, `budget_serre`, et **la contre-épreuve
+l'a pris en défaut** : casser volontairement le lecteur du journal sur « budget effacé » ne
+le faisait pas échouer, parce que ce scénario n'efface jamais de budget. Un test d'accord ne
+lie que les chemins que sa conversation emprunte — c'est la même leçon que « un test vert
+n'est pas une mesure », vue depuis l'équivalence.
+
+| Scénario | Ce qu'il fait marcher |
+|---|---|
+| `budget_absent` | livraison sans budget → l'heuristique de prose |
+| `categorie_efface_budget` | budget posé puis retiré → `BUDGET_EFFACE` |
+| `desserrage_refuse` | `MOUVEMENT_REFUSE` et `CRITERE_TENU` |
+| `zero_budget_trop_bas` | `ZERO_RESULTAT` et `AUCUN_PRODUIT_CITE` |
+"""
+
+
+@pytest.mark.parametrize("nom", SCENARIOS_DE_LACCORD)
+def test_les_deux_lecteurs_dattentes_saccordent(base_seedee, nom):
+    """**Deux lecteurs, une seule vérité** — et c'est ce test qui la tient (étape 32).
+
+    `Scenario.attentes` n'avait qu'un lecteur, `make eval`, qui exige une campagne
+    enregistrée. Une exigence dont la seule vérification coûte 3,08 $ sera violée en
+    silence, et elle l'a été : la contradiction entre l'intention de `budget_absent` et §6
+    de `systeme.v3` a vécu cinq jours. `attentes_du_journal` est le second lecteur, gratuit,
+    branché sur `evenements_tour` — donc sur `scripts/ligne_de_base.py`.
+
+    ⚠️ **Un second lecteur qui diverge est pire qu'un lecteur cher** : il rendrait deux
+    verdicts de conformité pour la même conversation, et le désaccord ne se verrait nulle
+    part. Ce test rejoue, lit des deux côtés, et compare les **ensembles entiers** — pas une
+    attente choisie.
+    """
+    from eval import systeme_du_jeu
+    from raiyon.db.models import EvenementTour
+    from raiyon.eval.metriques import attentes_du_journal
+
+    # ⚠️ **Le jeu en vigueur, et non `JEU_ANCRE`.** Les autres tests de ce fichier
+    # s'ancrent sur le jeu archivé parce qu'ils vérifient le harnais, qui doit survivre aux
+    # campagnes. Celui-ci vérifie l'accord de deux lecteurs sur **une conversation** : il
+    # lui faut un jeu que l'empreinte d'outils en vigueur laisse rejouer, ce que le jeu
+    # courant est par définition. C'est aussi ce qui le rend utile après une bascule.
+    jeu = _jeu_courant()
+    scenario = par_nom(nom)
+    prompt = systeme_du_jeu(jeu)
+    outils = schema_des_outils()
+    chemin = jeu.chemin(nom, PRISE)
+    assert chemin.is_file(), f"{chemin} est absente — lancer `make eval-enregistrer`."
+    cassette = depuis_json(chemin.read_text(encoding="utf-8"))
+    verifier(
+        cassette,
+        prompt_version=prompt.version,
+        prompt_empreinte=prompt.empreinte,
+        outils_empreinte=empreinte_des_outils(outils),
+        source=str(chemin),
+    )
+    jouee = jouer(
+        base_seedee,
+        scenario,
+        PRISE,
+        client=ClientCassette(cassette, source=str(chemin.name)),
+        depot=DepotSql(base_seedee),
+        reglages=Reglages(
+            systeme=prompt.texte, outils=outils, max_iterations=8, max_regenerations=1
+        ),
+    )
+    assert jouee.session_id is not None, "le rejeu doit relier la prise à sa conversation"
+
+    lignes = [
+        (ligne.tour_client, ligne.genre, ligne.charge)
+        for ligne in base_seedee.scalars(
+            select(EvenementTour)
+            .where(EvenementTour.session_id == jouee.session_id)
+            .order_by(EvenementTour.tour_client, EvenementTour.rang)
+        )
+    ]
+    assert lignes, "le journal est vide : ce test ne comparerait alors rien à rien"
+
+    depuis_le_journal = attentes_du_journal(lignes)
+    depuis_le_harnais = mesurer(jouee).faits
+    assert depuis_le_journal == depuis_le_harnais, (
+        f"{nom} : les deux lecteurs d'attentes divergent — "
+        f"journal seul {depuis_le_journal - depuis_le_harnais}, "
+        f"harnais seul {depuis_le_harnais - depuis_le_journal}"
+    )
+    # Le scénario en porte, sans quoi l'égalité ci-dessus serait vraie de deux ensembles
+    # vides et ce test passerait au vert en ne mesurant rien.
+    assert scenario.attentes
+
+
+def test_les_quatre_scenarios_de_laccord_couvrent_les_branches_annoncees():
+    """Le tableau de `SCENARIOS_DE_LACCORD` est une **promesse**, et la voici tenue.
+
+    Sans ce test, la liste pourrait perdre le scénario qui fait marcher une branche sans
+    que rien ne le dise — et l'accord redeviendrait ce qu'il était : vrai d'un chemin,
+    silencieux sur les autres.
+    """
+    attendues = {
+        Attente.BUDGET_DEMANDE_EN_LIVRANT,
+        Attente.BUDGET_EFFACE,
+        Attente.MOUVEMENT_REFUSE,
+        Attente.AUCUNE_RECHERCHE_SANS_BUDGET,
+    }
+    portees = {attente for nom in SCENARIOS_DE_LACCORD for attente in par_nom(nom).attentes}
+    assert attendues <= portees, f"branches perdues : {attendues - portees}"
+
+
+def test_tout_jeu_de_cassettes_est_rejouable_ou_archive_et_lisible():
+    """**La classe, pas les cas** — et la promesse de l'étape 13 reformulée en test.
+
+    Un répertoire de cassettes est dans l'un de deux états, jamais entre les deux :
+
+    * **vivant** — son empreinte de schéma d'outils est celle en vigueur, il se rejoue ;
+    * **archivé** — il déclare une empreinte antérieure. C'est une **entrée de journal** :
+      le journal dit ce qui a été, l'état dit ce qui est. Il ne se rejoue pas, et ce n'est
+      pas une dette.
+
+    Ce test garantit ce qui était réellement promis pour les archives : **conservé et
+    lisible**. Chaque cassette se relit, porte des prises, et déclare la version de prompt
+    de son jeu. Ce qui n'est plus promis, et qui ne l'a jamais vraiment été, c'est
+    « rejouable pour toujours » — le sixième outil a montré le 2026-09-06 que personne ne
+    peut le promettre.
+
+    ⚠️ **Ce test se dérive du disque plutôt que d'une liste.** Quand la question s'est posée
+    à l'étape 32, **cinq jeux sur six** étaient déjà archivés, dont celui de la machine, et
+    deux seulement avaient été remarqués — parce qu'ils étaient les deux qu'un test
+    rejouait. Une liste écrite ce jour-là aurait donc été fausse le jour même.
+    """
+    from eval import CASSETTES, PREFIXE_SYSTEME, Jeu, empreintes_doutils, est_archive
+
+    courante = empreinte_des_outils(schema_des_outils())
+    repertoires = sorted(
+        chemin for chemin in CASSETTES.iterdir() if chemin.is_dir() and any(chemin.glob("*.json"))
+    )
+    assert repertoires, "aucun jeu de cassettes : ce test ne garantirait rien"
+
+    vivants, archives = [], []
+    for repertoire in repertoires:
+        nom = repertoire.name.removeprefix(PREFIXE_SYSTEME)
+        jeu = Jeu(nom=nom, version=f"{PREFIXE_SYSTEME}{nom}")
+        (archives if est_archive(jeu, courante) else vivants).append(jeu)
+
+        # Un jeu **gelé à une seule date** : deux empreintes dans le même répertoire
+        # décriraient un jeu à moitié réenregistré, ce qui n'est ni un journal ni un état.
+        assert len(empreintes_doutils(jeu)) == 1, f"{nom} mélange deux schémas d'outils"
+
+        # **Lisible**, vivant ou archivé : c'est la promesse qui n'a pas bougé.
+        for chemin in sorted(repertoire.glob("*.json")):
+            cassette = depuis_json(chemin.read_text(encoding="utf-8"))
+            assert cassette.prises, f"{chemin.name} est vide"
+            assert cassette.entete.prompt_version
+            assert cassette.entete.prompt_empreinte
+
+    assert vivants, (
+        "aucun jeu vivant : le harnais ne pourrait plus rien rejouer, et `make eval` "
+        "n'aurait plus de jeu en vigueur à mesurer"
+    )

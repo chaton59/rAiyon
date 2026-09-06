@@ -95,15 +95,26 @@ eval: ## Rejoue le jeu en vigueur, écrit docs/eval/rapport.<jeu>.md — base re
 	@# evals/cassettes/systeme.v2/ et écrit docs/eval/rapport.v2.md.
 	uv run python scripts/eval.py rejouer
 
-eval-etape12: ## Rejoue le jeu archivé de l'étape 12 et réécrit son rapport
-	@# Étape 13, jalon 0, point B. Sans cette cible, « les cassettes de l'étape 12 sont
-	@# conservées » voudrait seulement dire « pas effacées ». Ce qui est promis est plus
-	@# fort : systeme.v1.md ne changeant pas, le tirage que §7 cite reste
-	@# **reconstituable**. La cible échoue le jour où quelqu'un modifie v1 en place.
+eval-etape12: ## ⛔ ARCHIVÉ depuis le 2026-09-06 — ne se rejoue plus, voir eval.est_archive
+	@# Étape 13, jalon 0, point B : sans cette cible, « les cassettes de l'étape 12 sont
+	@# conservées » voulait seulement dire « pas effacées ».
 	@#
-	@# Elle réécrit docs/eval/rapport.v1-etape12.md, donc `git diff` après coup est la
-	@# vérification : un fichier inchangé veut dire que le jeu se rejoue à l'identique.
-	RAIYON_PROMPT_SYSTEME=systeme.v1 uv run python scripts/eval.py rejouer --jeu v1-etape12
+	@# ⚠️ ÉTAPE 32 — elle ne peut plus tenir cette promesse, et c'est écrit plutôt que
+	@# laissé échouer. L'arrivée de `search_reviews` le 2026-09-06 a changé l'empreinte de
+	@# schéma d'outils : ces cassettes déclarent la précédente, donc les rejouer mesurerait
+	@# un produit qui n'existe plus. `verifier()` refuse, et elle a raison.
+	@#
+	@# La promesse est reformulée, pas abandonnée : CONSERVÉ ET LISIBLE, REJOUABLE JUSQU'AU
+	@# SCHÉMA D'OUTILS DU 2026-09-06. C'est une entrée de journal, pas une fixture vivante —
+	@# le journal dit ce qui a été, l'état dit ce qui est. Ce que `test-int` garantit
+	@# désormais est la lisibilité intégrale du jeu, ce qui était la vraie promesse.
+	@#
+	@# La rendre rejouable est une décision délibérée avec son coût — une campagne —,
+	@# jamais une réparation entreprise parce qu'une cible est rouge.
+	@echo "⛔ Jeu archivé le 2026-09-06 (schéma d'outils antérieur à search_reviews)."
+	@echo "   Conservé et lisible — 'make test-int' le vérifie. Non rejouable sans"
+	@echo "   réenregistrement, qui coûte une campagne et détruirait le tirage que §7 cite."
+	@exit 1
 
 eval-comparer: ## Deux jeux côte à côte — make eval-comparer AVANT=v1 APRES=v2 Q="ce qu'on cherche"
 	@# Rejeu, donc aucune clé API. Les deux jeux sont rejoués dans le **même** processus :

@@ -367,6 +367,50 @@ scénarios qui viennent de l'archive. Le rapport et la comparaison nomment, scé
 scénario, d'où il vient."""
 
 
+def empreintes_doutils(jeu: Jeu) -> frozenset[str]:
+    """Les empreintes de schéma d'outils que les cassettes de ce jeu déclarent."""
+    empreintes = set()
+    for source in jeu.composants:
+        for chemin in sorted(jeu.repertoire(source).glob("*.json")):
+            entete = depuis_json(chemin.read_text(encoding="utf-8")).entete
+            empreintes.add(entete.outils_empreinte)
+    return frozenset(empreintes)
+
+
+def est_archive(jeu: Jeu, empreinte_en_vigueur: str) -> bool:
+    """Ce jeu est-il une **entrée de journal** plutôt qu'une fixture vivante ?
+
+    ### La distinction, et pourquoi elle n'est pas un aménagement (étape 32)
+
+    Un jeu de cassettes enregistré sous un schéma d'outils antérieur **ne peut pas** être
+    rejoué : le préfixe envoyé au modèle n'est plus celui qui a produit ces réponses, et le
+    rejouer mesurerait un produit qui n'existe plus. C'est ce que `verifier()` dit, et elle
+    a raison de le dire.
+
+    Ce qui était faux, c'est la conclusion qu'on en tirait — « il faut réenregistrer ». Un
+    jeu archivé n'est pas une dette : **c'est le journal qui dit ce qui a été, pendant que
+    l'état dit ce qui est**. La promesse de l'étape 13 n'était pas « rejouable pour
+    toujours », elle était « conservé » — ce qui doit rester vrai, et qui l'est : les
+    fichiers sont lisibles, complets, et leur en-tête dit sous quoi ils ont tourné.
+
+    **La formulation exacte est donc : conservé et lisible, rejouable jusqu'au schéma
+    d'outils du 2026-09-06** — la date où `search_reviews` est entré et a changé
+    l'empreinte pour tout le monde.
+
+    ⚠️ **La classe est fermée, pas les cas.** Cette fonction dérive l'état des cassettes
+    elles-mêmes au lieu d'énumérer des noms de jeux : le jour où un septième outil arrivera,
+    `v3` basculera de lui-même du côté archivé, sans qu'une liste soit à tenir à jour. Même
+    geste que `.env.*` à l'étape 31 — on ferme la classe, parce que le prochain cas
+    s'appellera autrement. **Cinq jeux sur six étaient déjà dans cet état** quand la
+    question s'est posée, dont celui de la machine ; deux seulement avaient été remarqués.
+
+    Rendre un jeu rejouable est une **décision délibérée avec son coût** — une campagne —,
+    jamais une réparation qu'on entreprend parce qu'un test est rouge.
+    """
+    declarees = empreintes_doutils(jeu)
+    return bool(declarees) and declarees != {empreinte_en_vigueur}
+
+
 JEUX_DECLARES: dict[str, Jeu] = {LIGNE_DE_BASE.nom: LIGNE_DE_BASE}
 """Les jeux qui ne se déduisent pas de leur nom. **Un seul aujourd'hui**, et c'est bien.
 
