@@ -35,9 +35,10 @@ from raiyon.matching.criteres import Critere, Importance, Operateur, Optimisatio
 from raiyon.matching.moteur import ProduitHorsBudget, ResultatMatching
 from raiyon.matching.relachement import Diagnostic, Motif, Proposition
 from raiyon.tools.etat import EtatSession, MouvementRefuse
-from raiyon.tools.outils import ResultatRecherche, en_tool_result
+from raiyon.tools.outils import ResultatEnregistrement, ResultatRecherche, en_tool_result
+from raiyon.validateur.contexte import contexte_des_messages
 from raiyon.validateur.regles import CodeGrief, Grief
-from raiyon.validateur.validateur import OrigineRejet
+from raiyon.validateur.validateur import OrigineRejet, valider
 
 ECRAN = fabriquer("monitor", 1, prix="142.99")
 AUTRE = fabriquer("monitor", 2, prix="189.99")
@@ -96,11 +97,18 @@ def criteres(*valeurs, budget=None, refuses=()):
 def prise(*evenements, messages=(), **reste):
     """Une prise d'un seul tour. `messages` reste vide : le contexte fourni est alors vide,
     et toute prose citant un produit lèverait un grief — ce qui est exactement ce que
-    plusieurs de ces tests veulent constater."""
+    plusieurs de ces tests veulent constater.
+
+    La coupe vaut `len(messages)` **parce qu'il n'y a qu'un tour** : tous les messages lui
+    appartiennent. Ce n'est pas un raccourci de fixture, c'est la valeur juste dans ce cas,
+    et l'écrire évite d'affaiblir la garde de `_coupe` pour la commodité des tests.
+    """
     return PriseJouee(
         scenario="essai",
         prise=1,
-        tours=(TourJoue("bonjour", tuple(evenements), iterations=1),),
+        tours=(
+            TourJoue("bonjour", tuple(evenements), iterations=1, messages_a_la_fin=len(messages)),
+        ),
         messages=tuple(messages),
         **reste,
     )
@@ -812,3 +820,205 @@ def test_un_client_qui_ne_mesure_rien_laisse_le_cumul_a_zero():
 
     assert enregistreur.usage.appels == 0
     assert enregistreur.en_cassette.__doc__ is not None
+
+
+# --------------------------------------------------------------------------- #
+# 14. La coupe par tour — l'état est destructif (étape 32)
+# --------------------------------------------------------------------------- #
+
+
+def _en_message(resultat):
+    """Un `tool_result` seul dans son message, comme la boucle les persiste."""
+    return {
+        "role": "user",
+        "content": [
+            {
+                "type": "tool_result",
+                "tool_use_id": "tu_1",
+                "content": json.dumps(en_tool_result(resultat), ensure_ascii=False),
+                "is_error": False,
+            }
+        ],
+    }
+
+
+def _budget_enregistre(categorie, budget):
+    """Le `tool_result` de `record_criteria` — **le seul qui porte le budget**.
+
+    Celui de `search_products` ne le porte pas : `ContexteFourni.budget_usd` se lit sur ce
+    que le modèle a vu, et c'est l'enregistrement qui le lui montre.
+    """
+    etat = EtatSession(
+        categorie_courante=categorie,
+        budget_usd=None if budget is None else Decimal(budget),
+    )
+    return _en_message(
+        ResultatEnregistrement(
+            etat=etat,
+            categorie=categorie,
+            criteres=(),
+            budget_usd=etat.budget_usd,
+            optimisation=Optimisation.AUCUNE,
+            mouvements_refuses=(),
+        )
+    )
+
+
+def _ecran_trouve():
+    """Le `tool_result` de `search_products` qui met `ECRAN` et son prix au contexte."""
+    return _en_message(
+        ResultatRecherche(
+            etat=EtatSession(categorie_courante="monitor", budget_usd=Decimal("250")),
+            resultat=ResultatMatching(
+                categorie="monitor",
+                produits=(ECRAN,),
+                traces=(),
+                au_dessus_du_budget=(),
+                candidats_trouves=1,
+            ),
+        )
+    )
+
+
+def test_la_prose_se_relit_contre_le_contexte_de_son_tour_pas_celui_de_la_fin():
+    """**L'état est destructif : le contexte de fin n'est pas un sur-ensemble.**
+
+    Un changement de catégorie remet `budget_usd` à `None` (arbitrage D), et
+    `ContexteFourni.budget_usd` dit que la dernière valeur rencontrée gagne, `null`
+    compris. Une phrase qui cite le budget **à côté d'un produit** — la seule exception de
+    la règle 2, écrite à l'étape 9 — est donc vraie au tour où elle est écrite et fausse
+    relue depuis la fin.
+
+    Le défaut était réel et mesuré : `categorie_efface_budget.3` a rendu le critère nº1
+    rouge sur une phrase que le validateur avait laissé passer à raison.
+    """
+    prose = f"Le {ECRAN.nom} à 142,99 $ tient dans vos 250 $."
+    messages = (
+        _budget_enregistre("monitor", "250"),
+        _ecran_trouve(),
+        # Le tour 2 : le client passe au processeur, et le budget tombe (arbitrage D).
+        _budget_enregistre("cpu", None),
+    )
+    jouee = PriseJouee(
+        scenario="budget_efface",
+        prise=1,
+        tours=(
+            TourJoue("un écran ?", (Texte(prose),), 1, messages_a_la_fin=2),
+            TourJoue("en fait, un processeur", (), 1, messages_a_la_fin=3),
+        ),
+        messages=messages,
+    )
+
+    assert mesurer(jouee).griefs_livres == ()
+
+    # ⚠️ **La contre-épreuve, sans laquelle ce test passerait au vert pour la mauvaise
+    # raison** — il suffirait de retirer « 250 $ » de la prose. Elle constate que le
+    # contexte de fin, lui, accuse : c'est la lecture que l'étape 32 a retirée.
+    contexte_de_la_fin = contexte_des_messages(list(messages))
+    assert [grief.code for grief in valider(prose, contexte_de_la_fin).griefs] == [
+        CodeGrief.PRIX_ETRANGER_AU_PRODUIT
+    ]
+
+
+def test_une_coupe_manquante_est_une_erreur_pas_une_lecture_a_la_fin():
+    """Deviner rétablirait en silence le défaut que la coupe vient de fermer."""
+    jouee = PriseJouee(
+        scenario="essai",
+        prise=1,
+        tours=(TourJoue("un écran ?", (Texte("bonjour"),), 1),),
+        messages=(_budget_enregistre("monitor", "250"),),
+    )
+    with pytest.raises(metriques.CoupeManquante):
+        mesurer(jouee)
+
+
+# --------------------------------------------------------------------------- #
+# 15. « Demande le budget dans le tour où tu livres » (étape 32)
+# --------------------------------------------------------------------------- #
+
+
+def _prise_qui_livre_sans_budget(prose):
+    """Un tour qui montre des produits alors qu'aucun budget n'a été enregistré."""
+    return PriseJouee(
+        scenario="budget_absent",
+        prise=1,
+        tours=(
+            TourJoue(
+                "un écran pour jouer",
+                (criteres(("refresh_rate", "144")), trouves_avec(ECRAN), Texte(prose)),
+                1,
+                messages_a_la_fin=0,
+            ),
+        ),
+        messages=(),
+    )
+
+
+def test_livrer_sans_budget_est_tenu_si_le_budget_est_demande_dans_le_meme_tour():
+    """La formulation réelle de v3, reprise mot pour mot de `budget_absent.1`."""
+    prose = (
+        "Voici trois écrans qui collent à vos critères.\n\n"
+        "Vous avez un budget en tête ? Et la définition vous importe : "
+        "plutôt du 1080p ou vous visez du 1440p ?"
+    )
+    tenues = metriques.mesurer(_prise_qui_livre_sans_budget(prose)).faits
+    assert Attente.BUDGET_DEMANDE_EN_LIVRANT in tenues
+
+
+def test_livrer_sans_budget_et_sans_le_demander_echoue():
+    """**L'attente est plus contraignante que celle qu'elle remplace, et le voici.**
+
+    « Aucune recherche sans budget » se tenait en ne faisant rien. Celle-ci interdit de
+    montrer sans demander : la prose ci-dessous pose une vraie question, utile, et sur autre
+    chose — c'est exactement la manière dont v3 peut échouer, et il ne faut pas que ce test
+    passe au vert sur une prose muette.
+    """
+    prose = "Voici trois écrans qui collent à vos critères.\n\nPlutôt du 1080p ou du 1440p ?"
+    tenues = metriques.mesurer(_prise_qui_livre_sans_budget(prose)).faits
+    assert Attente.BUDGET_DEMANDE_EN_LIVRANT not in tenues
+
+
+def test_le_budget_connu_dispense_de_le_demander():
+    """L'attente ne porte que sur les tours qui livrent **sans** budget en vigueur."""
+    jouee = PriseJouee(
+        scenario="budget_serre",
+        prise=1,
+        tours=(
+            TourJoue(
+                "un écran à 250 dollars",
+                (
+                    criteres(("refresh_rate", "144"), budget="250"),
+                    trouves_avec(ECRAN),
+                    Texte("Voici trois écrans."),
+                ),
+                1,
+                messages_a_la_fin=0,
+            ),
+        ),
+        messages=(),
+    )
+    assert Attente.BUDGET_DEMANDE_EN_LIVRANT in metriques.mesurer(jouee).faits
+
+
+def test_un_repli_ne_demande_jamais_le_budget():
+    """Le message d'un `Repli` est écrit en Python : un tour qui livre sans budget et se
+    replie ne peut pas tenir l'attente, et c'est le bon verdict — le client a vu des
+    produits et n'a pas été interrogé."""
+    jouee = PriseJouee(
+        scenario="budget_absent",
+        prise=1,
+        tours=(
+            TourJoue(
+                "un écran pour jouer",
+                (
+                    criteres(("refresh_rate", "144")),
+                    trouves_avec(ECRAN),
+                    Repli("Je vérifie et je reviens.", 2, (), MotifDeRepli.VALIDATION),
+                ),
+                1,
+                messages_a_la_fin=0,
+            ),
+        ),
+        messages=(),
+    )
+    assert Attente.BUDGET_DEMANDE_EN_LIVRANT not in metriques.mesurer(jouee).faits

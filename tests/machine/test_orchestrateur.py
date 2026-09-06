@@ -177,8 +177,11 @@ def test_letat_se_reenchaine_entre_deux_actions_du_meme_tour(contexte, outils):
 
 
 def test_le_chemin_sans_budget_finit_sur_une_question(contexte, outils):
-    """Sonder, suggérer, demander — et jamais chercher. Les quatre événements sont ceux que
-    `Attente.AUCUNE_RECHERCHE_SANS_BUDGET` et `Attente.QUESTION_POSEE` lisent."""
+    """Sonder, suggérer, demander — et jamais chercher. C'est le chemin que
+    `Attente.AUCUNE_RECHERCHE_SANS_BUDGET` lit.
+
+    ⚠️ `Attente.QUESTION_POSEE` était nommée ici jusqu'à l'étape 32, où elle a été retirée :
+    calculée par les deux lecteurs, lue par personne."""
     client = FauxClient([EXTRACTION_SANS_BUDGET, message(texte("Quel est votre budget ?"))])
 
     evenements, issue = jouer(client, contexte, outils)

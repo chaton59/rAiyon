@@ -181,12 +181,33 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         nom="budget_absent",
         prises=3,
-        intention="l'agent doit demander le budget avant de chercher",
+        # ⚠️ **Attente réécrite le 2026-09-06 (étape 32). L'ancienne est rayée, pas
+        # effacée** — réécrire une exigence pour qu'elle épouse un comportement mesuré doit
+        # rester auditable, faute de quoi « on a décidé » devient « on s'est arrangé ».
+        #
+        # ~~intention = « l'agent doit demander le budget AVANT de chercher »~~
+        # ~~attentes  = {AUCUNE_RECHERCHE_SANS_BUDGET, PRODUITS_CITES}~~
+        #   écrites le 2026-09-01 (étape 12).
+        #
+        # | Date | Fichier | Ce qu'il exigeait |
+        # |---|---|---|
+        # | 2026-09-01 | ce fichier | « demander le budget **avant de chercher** » |
+        # | 2026-09-06 | `prompts/systeme.v3.md` §6 | « Cherchez et montrez, **plutôt que
+        #                de demander** encore » |
+        #
+        # Deux fichiers du dépôt se contredisaient depuis cinq jours. La campagne v3 l'a
+        # fait sortir — 3/3 prises rouges — parce que `make eval` était alors le seul
+        # lecteur de ce champ. C'est v3 qui a raison sur le fond : montrer trois écrans
+        # puis demander le budget fait avancer le client, et rien de faux n'est livré
+        # (critère nº2 à 0, attendu top 3 à 100 %). Ce qui est exigé à la place est **plus
+        # contraignant** : livrer sans demander devient une faute, ce que « ne cherche
+        # pas » ne disait pas. Voir `Attente.BUDGET_DEMANDE_EN_LIVRANT`.
+        intention="si l'agent livre sans budget, il demande le budget dans le même tour",
         tours=(
             "Je cherche un écran pour jouer, 27 pouces au minimum, 144 Hz au moins.",
             "Mon plafond est de 145 dollars.",
         ),
-        attentes=frozenset({Attente.AUCUNE_RECHERCHE_SANS_BUDGET, Attente.PRODUITS_CITES}),
+        attentes=frozenset({Attente.BUDGET_DEMANDE_EN_LIVRANT, Attente.PRODUITS_CITES}),
         attendu=Attendu(
             produit_id="monitor-ba17c6131b",
             justification=(

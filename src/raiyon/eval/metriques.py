@@ -70,6 +70,7 @@ les distingue.
 
 import re
 import statistics
+import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -86,6 +87,7 @@ from raiyon.agent.evenements import (
     Texte,
     TexteRejete,
 )
+from raiyon.api.serialisation import NomEvenement
 from raiyon.matching.relachement import Motif
 from raiyon.validateur.contexte import contexte_des_messages
 from raiyon.validateur.extraction import nombres, phrases
@@ -162,6 +164,45 @@ class Attente(StrEnum):
     Elle reste dans l'énumération parce que le fait est vrai et intéressant — le rapport le
     **publie sans seuil** —, mais l'exigence est `AUCUNE_RECHERCHE_SANS_BUDGET`."""
 
+    BUDGET_DEMANDE_EN_LIVRANT = "budget_demande_en_livrant"
+    """Tout tour qui **livre des produits sans budget en vigueur** demande le budget.
+
+    ### ⚠️ Cette attente en remplace une autre, et la substitution se date (étape 32)
+
+    `budget_absent` portait `AUCUNE_RECHERCHE_SANS_BUDGET`, avec pour intention :
+
+    > ~~« l'agent doit demander le budget **avant de chercher** »~~ — écrite le
+    > **2026-09-01** (étape 12), rayée le **2026-09-06**, conservée ici parce qu'une
+    > exigence réécrite pour épouser un comportement mesuré doit rester auditable.
+
+    Elle contredisait `prompts/systeme.v3.md` §6, écrit cinq jours plus tard :
+
+    | Date | Fichier | Ce qu'il exige |
+    |---|---|---|
+    | 2026-09-01 | `eval/scenario.py` | « l'agent doit demander le budget **avant de chercher** » |
+    | 2026-09-06 | `systeme.v3.md` §6 | « Cherchez et montrez, **plutôt que de demander** » |
+
+    La contradiction a vécu cinq jours et n'est sortie qu'à la campagne v3 — 3,08 $ —,
+    parce que `make eval` était alors le seul lecteur de ce champ. C'est le vrai sujet, et
+    il est traité ailleurs : `scripts/ligne_de_base.py` les lit désormais aussi.
+
+    **Ce qui est exigé maintenant est plus contraignant, pas moins.** « Ne cherche pas » se
+    tient en ne faisant rien ; « demande dans le tour où tu livres » **interdit de montrer
+    sans demander**, et v3 peut y échouer — il suffit qu'il livre trois écrans et enchaîne
+    sur une question de définition.
+
+    ⚠️ **`AUCUNE_RECHERCHE_SANS_BUDGET` n'est pas retirée**, et les deux scénarios qui la
+    portent la gardent. Les deux cas ne sont pas le même : un budget **effacé** peut être
+    reporté en silence sur la catégorie suivante — la seconde source de vérité que §3.10
+    ferme —, alors qu'un budget **jamais donné** n'a rien à reporter. La distinction est
+    déjà écrite dans la docstring de l'autre attente ; celle-ci s'y adosse au lieu de la
+    remplacer.
+
+    ⚠️ **C'est la seule attente qui lit la prose**, et par une heuristique : un segment
+    interrogatif contenant « budget » ou « plafond ». Elle rate une demande formulée
+    autrement (« vous montez jusqu'où ? ») et accepterait une phrase qui nomme le budget
+    sans le demander. Écrit ici plutôt que découvert : voir `_budget_demande_en_livrant`."""
+
     AUCUNE_RECHERCHE_SANS_BUDGET = "aucune_recherche_sans_budget"
     """Aucun `ProduitsTrouves` n'est survenu alors que le budget en vigueur valait `None`.
 
@@ -170,9 +211,6 @@ class Attente(StrEnum):
     changement de catégorie l'a effacé (étape 7, arbitrage D). Le second est le plus
     intéressant — **reporter le budget en silence** sur la nouvelle catégorie serait
     exactement la seconde source de vérité que §3.10 ferme."""
-
-    QUESTION_POSEE = "question_posee"
-    """`ask_clarification` a clos un tour au moins une fois."""
 
     PRODUITS_CITES = "produits_cites"
     """Au moins un `ProduitsTrouves` non vide — le client a vu des produits."""
@@ -206,6 +244,18 @@ class TourJoue:
     evenements: tuple[Evenement, ...]
     iterations: int
 
+    messages_a_la_fin: int | None = None
+    """Combien de messages la conversation comptait **quand ce tour s'est achevé**.
+
+    C'est une coupe dans `PriseJouee.messages`, et elle existe pour une seule raison :
+    situer le **moment de la livraison**. Sans elle, `_griefs_livres` relisait toute la
+    prose contre le contexte de fin de conversation — voir sa docstring, et l'étape 32.
+
+    `None` est réservé aux prises fabriquées sans conversation persistée (les fixtures de
+    `tests/eval/`). C'est **illégal dès que `messages` n'est pas vide**, et `_griefs_livres`
+    le refuse plutôt que de deviner : une coupe manquante n'est pas une coupe à la fin.
+    """
+
 
 @dataclass(frozen=True, slots=True)
 class PriseJouee:
@@ -231,6 +281,15 @@ class PriseJouee:
     """Les rangs de tour que le scénario **déclare** de domaine. Recopié tel quel depuis
     `Scenario` : ce module ne sait pas ce qu'est une question de domaine, il sait publier
     ce qu'on lui a désigné."""
+
+    session_id: uuid.UUID | None = None
+    """La conversation persistée par cette prise, **quand elle en a une**.
+
+    C'est le lien entre une prise mesurée et son journal, et il n'existe que depuis
+    l'étape 32 : sans lui, les deux lecteurs d'attentes ne pourraient pas être comparés sur
+    la même conversation, donc leur accord ne serait pas testable. Voir
+    `attentes_du_journal`. `None` pour les prises fabriquées à la main dans les tests.
+    """
 
     @property
     def evenements(self) -> tuple[Evenement, ...]:
@@ -593,7 +652,7 @@ def mesurer(prise: PriseJouee) -> MesuresDunePrise:
     evenements = prise.evenements
     griefs = _griefs_livres(prise)
     diagnostics = _diagnostics(evenements)
-    tenues = _attentes_tenues(evenements)
+    tenues = _attentes_tenues(prise.tours)
     domaine = _prose_de_domaine(prise)
 
     return MesuresDunePrise(
@@ -723,20 +782,70 @@ def _diagnostics(evenements: Sequence[Evenement]) -> tuple[Motif, ...]:
 
 
 def _griefs_livres(prise: PriseJouee) -> tuple[Grief, ...]:
-    """La prose **livrée**, relue par les mêmes cinq règles, contre le contexte fourni.
+    """La prose **livrée**, relue par les mêmes cinq règles, contre le contexte fourni
+    **au moment où elle a été livrée**.
 
     Deux natures de prose partent au client, et les deux sont ici : le `Texte` d'un
     message et la `question` d'`ask_clarification`. Le message d'un `Repli`, lui, est
     écrit en Python — le valider reviendrait à valider `repli.py` contre lui-même.
+
+    ### ⚠️ La coupe par tour, et pourquoi elle n'est pas un détail (étape 32)
+
+    Cette fonction lisait `contexte_des_messages(prise.messages)` — le contexte de **fin
+    de conversation** — pour toute la prose de la prise. **Le critère nº1 lisait donc du
+    passé avec un contexte du futur**, et il a fini par accuser une phrase vraie :
+
+    > `categorie_efface_budget.3`, tour 1 — « Deux autres modèles dépassent légèrement
+    > **les 250 $** : le MSI G27C4 E3 à 258,00 $ … » → `prix_etranger_au_produit`.
+
+    250 $ était le budget du client, que la règle 2 autorise dans une phrase à produit
+    depuis l'étape 9. Mais ce scénario est celui où changer de catégorie **efface le
+    budget** au tour 2 : `budget_usd` valait `250,00` après 8 messages et `None` après 9.
+    Même texte, contexte de son propre tour : **aucun grief**.
+
+    **La raison générale est plus forte que « le contrat du validateur est par tour » :
+    l'état est destructif.** Le contexte de fin n'est pas un sur-ensemble des contextes de
+    chaque tour, c'est un ensemble **différent** — un changement de catégorie retire le
+    budget, `record_criteria` peut retirer un critère. Tout audit bâti sur « l'état final
+    contient tout ce qui a existé » est faux **par construction** dès qu'un état s'efface,
+    et il l'est du côté qui accuse.
+
+    ⚠️ **Ce n'est pas pour autant un contexte « du tour seul ».** `contexte.py` l'interdit
+    explicitement — un produit rendu au tour 3 et cité au tour 6 est légitime. La coupe est
+    **cumulative, arrêtée au tour de la livraison** : exactement ce que le validateur a vu
+    quand il a laissé passer le texte, ce qui est la seule lecture qui mesure un trou du
+    validateur plutôt qu'une dérive de la conversation.
     """
-    contexte = contexte_des_messages(list(prise.messages))
     griefs: list[Grief] = []
-    for evenement in prise.evenements:
-        if isinstance(evenement, Texte):
-            griefs.extend(valider(evenement.texte, contexte).griefs)
-        elif isinstance(evenement, QuestionPosee):
-            griefs.extend(valider(evenement.question, contexte).griefs)
+    for tour in prise.tours:
+        contexte = contexte_des_messages(list(prise.messages[: _coupe(prise, tour)]))
+        for evenement in tour.evenements:
+            if isinstance(evenement, Texte):
+                griefs.extend(valider(evenement.texte, contexte).griefs)
+            elif isinstance(evenement, QuestionPosee):
+                griefs.extend(valider(evenement.question, contexte).griefs)
     return tuple(griefs)
+
+
+class CoupeManquante(Exception):
+    """Un tour d'une prise à conversation persistée ne sait pas où il s'achève.
+
+    Levée plutôt que rabattue sur la fin de la conversation : **une coupe manquante n'est
+    pas une coupe à la fin**, et deviner rétablirait en silence le défaut de l'étape 32.
+    """
+
+
+def _coupe(prise: PriseJouee, tour: TourJoue) -> int:
+    """Où s'arrêtent les messages de ce tour, ou une erreur — jamais une supposition."""
+    if tour.messages_a_la_fin is not None:
+        return tour.messages_a_la_fin
+    if prise.messages:
+        raise CoupeManquante(
+            f"{prise.scenario}.{prise.prise} : un tour sans `messages_a_la_fin` sur une "
+            f"prise qui porte {len(prise.messages)} message(s) persisté(s). "
+            "Voir `TourJoue.messages_a_la_fin`."
+        )
+    return 0
 
 
 def _refus(prise: PriseJouee) -> tuple[Refus, ...]:
@@ -790,15 +899,20 @@ def _prose_de_domaine(prise: PriseJouee) -> tuple[tuple[int, tuple[str, ...]], .
     )
 
 
-def _attentes_tenues(evenements: Sequence[Evenement]) -> frozenset[Attente]:
-    """Ce que les événements de la prise constatent. Aucune lecture de prose ici."""
+def _attentes_tenues(tours: Sequence[TourJoue]) -> frozenset[Attente]:
+    """Ce que la prise constate.
+
+    ⚠️ **Prend les tours et non les événements à plat depuis l'étape 32** :
+    `BUDGET_DEMANDE_EN_LIVRANT` porte sur *le tour où la livraison a lieu*, et un agrégat
+    plat ne sait pas dire « dans le même tour ». Toutes les autres restent des lectures
+    d'événements, et une seule lit la prose — celle-là, qui le dit.
+    """
+    evenements = [evenement for tour in tours for evenement in tour.evenements]
     tenues: set[Attente] = set()
     produits_cites = False
     for evenement in evenements:
         if isinstance(evenement, QuestionSuggeree) and evenement.budget is not None:
             tenues.add(Attente.BESOIN_DE_BUDGET)
-        elif isinstance(evenement, QuestionPosee):
-            tenues.add(Attente.QUESTION_POSEE)
         elif isinstance(evenement, ProduitsTrouves):
             if evenement.resultat.produits:
                 produits_cites = True
@@ -815,7 +929,112 @@ def _attentes_tenues(evenements: Sequence[Evenement]) -> frozenset[Attente]:
         tenues.add(Attente.CRITERE_TENU)
     if _aucune_recherche_sans_budget(evenements):
         tenues.add(Attente.AUCUNE_RECHERCHE_SANS_BUDGET)
+    if _budget_demande_en_livrant(tours):
+        tenues.add(Attente.BUDGET_DEMANDE_EN_LIVRANT)
     return frozenset(tenues)
+
+
+# --------------------------------------------------------------------------- #
+# Le second lecteur des attentes — depuis le journal (étape 32)
+# --------------------------------------------------------------------------- #
+
+
+def attentes_du_journal(
+    lignes: Sequence[tuple[int, str, Mapping[str, Any]]],
+) -> frozenset[Attente]:
+    """Les mêmes attentes, lues sur `evenements_tour` — **le second lecteur**.
+
+    ### ⚠️ Pourquoi ce lecteur existe (étape 32)
+
+    `Scenario.attentes` n'avait qu'un lecteur, `make eval`, et il exige une campagne
+    enregistrée : **3,08 $ et une campagne** pour lire un champ. Une exigence dont la seule
+    vérification est aussi chère **sera violée en silence — pas par négligence, par
+    économie**. Elle l'a été : la contradiction entre `budget_absent` et §6 de `systeme.v3`
+    a vécu cinq jours et n'est sortie qu'à la campagne.
+
+    Ce lecteur-ci ne coûte rien. Il lit le journal qu'une conversation écrit en passant —
+    `essais.py`, `eval-live`, ou un rejeu — et `scripts/ligne_de_base.py` le publie à côté
+    de `→reco` et des replis. La prochaine contradiction se verra au premier rejeu.
+
+    ⚠️ **Deux lecteurs, une seule vérité.** Ils doivent rendre le même ensemble sur la même
+    conversation, et c'est un test qui le tient — `test_les_deux_lecteurs_dattentes_saccordent`
+    rejoue une cassette, lit le résultat des deux côtés et compare. Sans lui, ce module
+    porterait deux définitions de la conformité, ce qui est pire qu'une définition chère.
+
+    Les lignes sont attendues **ordonnées** par `(tour_client, rang)`, et portent le rang
+    du tour, le genre et la charge — exactement ce que `evenements_tour` stocke.
+
+    Les genres viennent de `NomEvenement`, **pas d'une liste recopiée ici** : le
+    vocabulaire du journal a déjà un seul propriétaire, et `raiyon.api.serialisation` est
+    pur — `raiyon.observation` l'importe déjà pour écrire ce que celui-ci relit.
+    """
+    tenues: set[Attente] = set()
+    produits_cites = False
+    budget_connu = False
+    budget_pose = False
+    budget_efface = False
+    refuses: set[str] = set()
+    valeurs: dict[str, str] = {}
+    critere_tenu = True
+    recherche_sans_budget = False
+    livraisons_sans_budget: set[int] = set()
+    prose: dict[int, list[str]] = {}
+
+    for tour, genre, charge in lignes:
+        if genre == NomEvenement.CRITERES:
+            budget = charge.get("budget_usd")
+            budget_connu = budget is not None
+            if budget_connu:
+                budget_pose = True
+            elif budget_pose:
+                budget_efface = True
+            courantes = {
+                str(critere["champ"]): f"{critere['operateur']}:{critere['valeur']}"
+                for critere in charge.get("criteres", [])
+            }
+            for champ in refuses:
+                if champ in valeurs and courantes.get(champ) != valeurs[champ]:
+                    critere_tenu = False
+            valeurs.update(courantes)
+            if charge.get("mouvements_refuses"):
+                tenues.add(Attente.MOUVEMENT_REFUSE)
+                refuses.update(str(refus["champ"]) for refus in charge["mouvements_refuses"])
+        elif genre == NomEvenement.PRODUITS:
+            if charge.get("produits"):
+                produits_cites = True
+                tenues.add(Attente.PRODUITS_CITES)
+                if not budget_connu:
+                    livraisons_sans_budget.add(tour)
+            else:
+                tenues.add(Attente.ZERO_RESULTAT)
+            if not budget_connu:
+                recherche_sans_budget = True
+        elif genre == NomEvenement.QUESTION_SUGGEREE:
+            if charge.get("budget") is not None:
+                tenues.add(Attente.BESOIN_DE_BUDGET)
+        elif genre == NomEvenement.QUESTION:
+            prose.setdefault(tour, []).append(str(charge.get("question", "")))
+        elif genre == NomEvenement.MESSAGE:
+            prose.setdefault(tour, []).append(str(charge.get("texte", "")))
+        elif genre == NomEvenement.REPLI:
+            prose.setdefault(tour, []).append(str(charge.get("message", "")))
+
+    if not produits_cites:
+        tenues.add(Attente.AUCUN_PRODUIT_CITE)
+    if budget_efface:
+        tenues.add(Attente.BUDGET_EFFACE)
+    if critere_tenu:
+        tenues.add(Attente.CRITERE_TENU)
+    if not recherche_sans_budget:
+        tenues.add(Attente.AUCUNE_RECHERCHE_SANS_BUDGET)
+    if all(_demande_le_budget(prose.get(tour, [])) for tour in livraisons_sans_budget):
+        tenues.add(Attente.BUDGET_DEMANDE_EN_LIVRANT)
+    return frozenset(tenues)
+
+
+# --------------------------------------------------------------------------- #
+# Les attentes, lues sur les événements du harnais
+# --------------------------------------------------------------------------- #
 
 
 def _aucune_recherche_sans_budget(evenements: Sequence[Evenement]) -> bool:
@@ -832,6 +1051,63 @@ def _aucune_recherche_sans_budget(evenements: Sequence[Evenement]) -> bool:
         elif isinstance(evenement, ProduitsTrouves) and not budget_connu:
             return False
     return True
+
+
+SEGMENTS_INTERROGATIFS = re.compile(r"[^.!?\n]*\?")
+"""Ce qui précède un « ? » depuis la fin de phrase précédente.
+
+`extraction.phrases()` ne convient pas : elle **coupe sur** le « ? », donc elle le retire,
+et une attente qui doit distinguer une question d'une affirmation ne peut pas s'en servir.
+"""
+
+MOTS_DU_BUDGET = ("budget", "plafond")
+"""Deux mots, et pas plus. Élargir à « prix » ou « combien » attraperait « combien de
+pouces ? » et « quel prix vous semble juste pour cette dalle ? » — la seconde est bien une
+demande de budget, et c'est le faux négatif assumé : mieux vaut une attente qui rate une
+formulation qu'une attente qui se croit tenue."""
+
+
+def _budget_demande_en_livrant(tours: Sequence[TourJoue]) -> bool:
+    """Un tour qui livre des produits sans budget en vigueur demande-t-il le budget ?
+
+    Écrite à l'étape 32 en remplacement de `AUCUNE_RECHERCHE_SANS_BUDGET` **sur le seul
+    scénario `budget_absent`** — voir `Attente.BUDGET_DEMANDE_EN_LIVRANT` pour la
+    contradiction datée qui l'a provoquée, et pourquoi c'est plus contraignant.
+
+    Le budget est suivi comme dans `_aucune_recherche_sans_budget` : `CriteresMisAJour`
+    porte l'état entier. Le manquement est constaté **au moment de la livraison**, donc un
+    `record_criteria` qui arrive après la recherche dans le même tour ne l'efface pas.
+
+    ⚠️ **Seule attente à lire la prose, et c'est une heuristique.** Elle demande un segment
+    interrogatif portant « budget » ou « plafond ». Un `Repli` compte comme prose du tour :
+    son texte est écrit en Python et ne demandera jamais le budget, donc un tour qui livre
+    sans budget et se replie échoue — ce qui est le bon verdict.
+    """
+    budget_connu = False
+    for tour in tours:
+        livre_sans_budget = False
+        for evenement in tour.evenements:
+            if isinstance(evenement, CriteresMisAJour):
+                budget_connu = evenement.budget_usd is not None
+            elif (
+                isinstance(evenement, ProduitsTrouves)
+                and evenement.resultat.produits
+                and not budget_connu
+            ):
+                livre_sans_budget = True
+        if livre_sans_budget and not _demande_le_budget(prose_livree(tour.evenements)):
+            return False
+    return True
+
+
+def _demande_le_budget(lignes: Sequence[str]) -> bool:
+    """Un segment interrogatif de cette prose porte-t-il « budget » ou « plafond » ?"""
+    return any(
+        mot in segment.casefold()
+        for ligne in lignes
+        for segment in SEGMENTS_INTERROGATIFS.findall(ligne)
+        for mot in MOTS_DU_BUDGET
+    )
 
 
 def _budget_efface(evenements: Sequence[Evenement]) -> bool:

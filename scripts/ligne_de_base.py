@@ -39,6 +39,8 @@ from sqlalchemy.orm import Session
 
 from raiyon.db.engine import get_sessionmaker
 from raiyon.db.models import AppelModele, EvenementTour
+from raiyon.eval.metriques import Attente, attentes_du_journal
+from raiyon.eval.scenario import ScenarioInconnu, par_nom
 from raiyon.observation import cout_estime_usd
 
 GENRE_PRODUITS = "products_found"
@@ -97,6 +99,9 @@ def _mesurer(base: Session, identifiant: uuid.UUID) -> dict[str, Any]:
     ]
     return {
         "tours": len(tours),
+        "attentes_tenues": attentes_du_journal(
+            [(evenement.tour_client, evenement.genre, evenement.charge) for evenement in evenements]
+        ),
         "appels": len(appels),
         "jetons_sortie": sum(appel.jetons_sortie for appel in appels),
         "jetons_entree": sum(appel.jetons_entree for appel in appels),
@@ -142,6 +147,48 @@ def _nombre(valeur: float) -> str:
     return str(int(valeur)) if float(valeur).is_integer() else f"{valeur:.1f}"
 
 
+def _conformite(label: str, mesures: Sequence[dict[str, Any]]) -> tuple[str, dict[str, int]]:
+    """La conformité aux attentes du scénario que le label nomme, prise par prise.
+
+    ### ⚠️ Pourquoi cette colonne existe (étape 32)
+
+    `Scenario.attentes` n'avait **qu'un lecteur**, `make eval`, et une exigence dont la
+    seule vérification demande un jeu de cassettes enregistré sera violée en silence — pas
+    par négligence, par économie. Elle l'a été : l'intention de `budget_absent`
+    (« demander le budget avant de chercher », 2026-09-01) contredisait §6 de `systeme.v3`
+    (« cherchez et montrez », 2026-09-06) pendant cinq jours, et il a fallu une campagne à
+    3,08 $ pour que quiconque lise le champ.
+
+    ⚠️ **Le liage se fait par le label**, et c'est délibérément faible : un label qui ne
+    nomme aucun scénario rend `—`, jamais une conformité inventée. Le `—` est **le
+    résultat le plus important de cette colonne** — il dit « cette conversation n'est
+    adossée à aucune exigence », ce qui est précisément l'état dans lequel les vingt-quatre
+    conversations d'essai ont toujours été, sans que rien ne le dise. Un scénario qui
+    porterait une attente qu'aucun harnais n'exerce se verrait de la même manière ; le
+    contrôle statique, lui, est dans `tests/eval/test_scenarios.py`.
+
+    Rend le libellé de colonne et le compte des attentes non tenues, par nom.
+    """
+    try:
+        exigees = par_nom(label).attentes
+    except ScenarioInconnu:
+        return "—", {}
+    if not exigees:
+        return "0 exig.", {}
+    manquees: dict[str, int] = {}
+    conformes = 0
+    for mesure in mesures:
+        tenues: frozenset[Attente] = mesure["attentes_tenues"]
+        absentes = exigees - tenues
+        if absentes:
+            for attente in absentes:
+                manquees[attente.value] = manquees.get(attente.value, 0) + 1
+        else:
+            conformes += 1
+    marque = "✅" if conformes == len(mesures) else "❌"
+    return f"{conformes}/{len(mesures)}{marque}", manquees
+
+
 def _grouper(lignes: Sequence[tuple[str, uuid.UUID, dict[str, Any]]]) -> dict[str, list[dict]]:
     """Les mesures par label, dans l'ordre d'apparition. Un label répété = plusieurs prises."""
     groupes: dict[str, list[dict[str, Any]]] = {}
@@ -185,6 +232,7 @@ def main() -> int:
         "prises",
         "→reco",
         "replis",
+        "attentes",
         "$/reco",
         "coût $",
         "appels",
@@ -194,14 +242,18 @@ def main() -> int:
     )
     print(
         f"| {entetes[0]:<24} | {entetes[1]:>5} | {entetes[2]:>10} | {entetes[3]:>6} | "
-        f"{entetes[4]:>6} | {entetes[5]:>6} | {entetes[6]:>8} | {entetes[7]:>11} | "
-        f"{entetes[8]:>7} | {entetes[9]}"
+        f"{entetes[4]:>8} | {entetes[5]:>6} | {entetes[6]:>6} | {entetes[7]:>8} | "
+        f"{entetes[8]:>11} | {entetes[9]:>7} | {entetes[10]}"
     )
     print("  (min/méd/max sur les prises ; « = » quand toutes les prises s'accordent)")
     print("  ⚠️ $/reco est le coût normalisé : une version qui ne recommande pas est toujours")
     print("     moins chère, et le coût brut seul dit alors l'inverse de ce qui s'est passé.")
-    largeurs = (26, 7, 12, 8, 8, 8, 10, 13, 9, 26)
+    print("  ⚠️ attentes : « — » veut dire que le label ne nomme aucun scénario, donc que")
+    print("     cette conversation n'est adossée à aucune exigence. C'est une information.")
+    largeurs = (26, 7, 12, 8, 10, 8, 8, 10, 13, 9, 26)
     print("|".join("-" * largeur for largeur in largeurs))
+    manquements: dict[str, dict[str, int]] = {}
+    sans_scenario: list[str] = []
     for label, mesures in _grouper(lignes).items():
         griefs_cumules: Counter[str] = Counter()
         for mesure in mesures:
@@ -224,9 +276,14 @@ def main() -> int:
         livrees = len(mesures) - sans_reco
         par_reco = "—" if not livrees else f"{cout / livrees:.4f}"
         replis = sum(sum(mesure["replis"].values()) for mesure in mesures)
+        conformite, manquees = _conformite(label, mesures)
+        if manquees:
+            manquements[label] = manquees
+        elif conformite == "—":
+            sans_scenario.append(label)
         print(
             f"| {label:<24} | {len(mesures):>5} | {reco:>10} | {replis:>6} | "
-            f"{par_reco:>6} | {cout:>6.3f} | "
+            f"{conformite:>8} | {par_reco:>6} | {cout:>6.3f} | "
             f"{_amplitude([float(m['appels']) for m in mesures]):>8} | "
             f"{_amplitude([m['latence_mediane'] for m in mesures]):>11} | "
             f"{_amplitude(par_prise):>7} | {detail}"
@@ -250,6 +307,18 @@ def main() -> int:
     print(f"        griefs (diagnostic) : {dict(tous_griefs) or '—'}")
     if tous_replis:
         print(f"        replis par motif    : {dict(tous_replis)}")
+    if manquements:
+        print("\n⛔ ATTENTES NON TENUES — une exigence du dépôt qu'une conversation a violée :")
+        for label, manquees in manquements.items():
+            detail_attentes = ", ".join(f"{nom} x{n}" for nom, n in sorted(manquees.items()))
+            print(f"        {label:<26} {detail_attentes}")
+    if sans_scenario:
+        # ⚠️ Écrit même quand tout est vert : une conversation qu'aucune exigence ne
+        # couvre ne peut pas échouer, et c'est exactement ce qui la rend invisible.
+        print(
+            f"\n⚠️  {len(sans_scenario)} conversation(s) adossée(s) à aucun scénario, donc "
+            f"à aucune attente : {', '.join(sans_scenario)}"
+        )
     print("\nURLs :")
     for label, identifiant, _ in lignes:
         print(f"  {label:<26} http://127.0.0.1:8000/journal.html#{identifiant}")

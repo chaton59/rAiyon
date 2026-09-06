@@ -5,9 +5,12 @@ promesses. Un attendu sans justification passerait toutes les autres suites au v
 rendrait la métrique nº4 inexploitable le jour où elle chuterait.
 """
 
+import inspect
+
 import pytest
 
 from raiyon.catalogue.pipeline import FICHIER_SEED, lire_seed
+from raiyon.eval import metriques
 from raiyon.eval.metriques import Attente
 from raiyon.eval.scenario import (
     PAR_NOM,
@@ -163,13 +166,38 @@ def test_les_deux_scenarios_de_budget_portent_linvariant_et_non_le_nom_de_loutil
 
     Le §5 nommait `BesoinDeBudget`. Écrite ainsi, l'attente a échoué sur deux scénarios où
     l'agent s'était pourtant bien conduit : il sonde le catalogue puis pose la question en
-    texte, sans passer par `suggest_next_question`. L'exigence porte donc sur l'invariant —
-    **aucune recherche sans budget connu** — et le passage par l'outil reste une
-    observation publiée sans seuil.
+    texte, sans passer par `suggest_next_question`. L'exigence porte donc sur l'invariant,
+    et le passage par l'outil reste une observation publiée sans seuil.
+
+    ⚠️ **Les deux scénarios ne portent plus le même invariant depuis l'étape 32**, et c'est
+    l'objet de la moitié basse de ce test. La leçon d'origine, elle, ne bouge pas : ni l'un
+    ni l'autre n'exige un outil.
     """
     for nom in ("budget_absent", "categorie_efface_budget"):
-        assert Attente.AUCUNE_RECHERCHE_SANS_BUDGET in PAR_NOM[nom].attentes
         assert Attente.BESOIN_DE_BUDGET not in PAR_NOM[nom].attentes
+
+
+def test_un_budget_efface_et_un_budget_jamais_donne_nexigent_pas_la_meme_chose():
+    """La séparation de l'étape 32, et **la raison** qui la rend défendable.
+
+    **« Jamais eu de budget » et « en avait un, effacé » sont deux états différents, et seul
+    le second porte un risque : celui d'une valeur périmée reportée en silence** sur la
+    catégorie suivante — la seconde source de vérité que §3.10 ferme. `categorie_efface_budget`
+    garde donc `AUCUNE_RECHERCHE_SANS_BUDGET` ; `budget_absent` passe à
+    `BUDGET_DEMANDE_EN_LIVRANT`, parce qu'un budget jamais donné n'a rien à reporter et que
+    §6 de `systeme.v3` demande de montrer d'abord.
+
+    ⚠️ **Harmoniser les deux serait du rangement qui détruit de l'information.** Deux
+    scénarios qui portent la même attente se lisent plus vite ; ils cesseraient de dire que
+    les deux situations n'appellent pas la même garantie. Ce test existe pour que ce
+    rangement-là échoue, parce que la seule autre trace de la distinction serait un
+    commentaire que la relecture ne visite pas.
+    """
+    assert Attente.AUCUNE_RECHERCHE_SANS_BUDGET in PAR_NOM["categorie_efface_budget"].attentes
+    assert Attente.BUDGET_DEMANDE_EN_LIVRANT not in PAR_NOM["categorie_efface_budget"].attentes
+
+    assert Attente.BUDGET_DEMANDE_EN_LIVRANT in PAR_NOM["budget_absent"].attentes
+    assert Attente.AUCUNE_RECHERCHE_SANS_BUDGET not in PAR_NOM["budget_absent"].attentes
 
 
 def test_aucun_scenario_nexige_un_appel_doutil_particulier():
@@ -203,3 +231,81 @@ def test_un_scenario_inconnu_liste_les_noms_valides():
     assert "budget_serre" in str(erreur.value)
     assert "categorie_efface_budget" in str(erreur.value)
     assert "question_de_domaine" in str(erreur.value)
+
+
+# --------------------------------------------------------------------------- #
+# L'index des attentes est un test de ce qu'il indexe (étape 32)
+# --------------------------------------------------------------------------- #
+
+ATTENTES_PUBLIEES_SANS_SEUIL = {
+    Attente.BESOIN_DE_BUDGET: (
+        "publiée comme observation dans le rapport, jamais exigée : elle mesure quel outil "
+        "l'agent a choisi, ce que la première exécution du harnais a appris à ne pas faire"
+    ),
+}
+
+ATTENTES_CALCULEES_SANS_LECTEUR: dict[Attente, str] = {}
+"""Vide, et **c'est une case, pas un oubli** (étape 32).
+
+`QUESTION_POSEE` l'a occupée le temps d'un jalon : calculée par les deux lecteurs, lue par
+personne — aucun scénario ne la portait, aucun rapport ne la publiait. Elle a été
+**retirée**, pas tolérée : une valeur produite et jamais lue finit par être interprétée un
+jour par quelqu'un qui suppose qu'elle sert. Voir §9 — c'est `SEPARATEUR_DE_BLOCS` en
+version calcul.
+
+La case reste ouverte pour que le prochain cas ait un endroit où être écrit **avec sa
+raison**, plutôt que d'être glissé dans un scénario pour faire passer le test.
+"""
+
+
+def test_chaque_attente_est_exigee_publiee_ou_declaree_inutilisee():
+    """**La version exécutable de « un index est un test de ce qu'il indexe ».**
+
+    Une attente qu'aucun scénario ne porte ne peut échouer nulle part : elle ne coûte rien,
+    ne dit rien, et rien ne la dénonce. C'est la forme silencieuse du défaut de l'étape 32,
+    où un champ n'avait qu'un lecteur cher — ici, il n'en aurait aucun.
+
+    Les trois cases sont exclusives, et une attente neuve n'en occupe aucune : ce test
+    échoue alors, et **c'est en le faisant passer qu'on est forcé de dire à quoi elle
+    sert**. C'est le seul moment où quelqu'un y pensera.
+    """
+    portees = {attente for scenario in SCENARIOS for attente in scenario.attentes}
+    declarees = set(ATTENTES_PUBLIEES_SANS_SEUIL) | set(ATTENTES_CALCULEES_SANS_LECTEUR)
+
+    sans_case = set(Attente) - portees - declarees
+    assert not sans_case, (
+        "attente(s) que rien n'exige et que rien ne déclare : "
+        f"{sorted(a.value for a in sans_case)}. "
+        "L'ajouter à un scénario, ou la déclarer dans ATTENTES_PUBLIEES_SANS_SEUIL / "
+        "ATTENTES_CALCULEES_SANS_LECTEUR avec sa raison."
+    )
+    # Une déclaration périmée est aussi trompeuse qu'une absence : si un scénario finit par
+    # porter l'attente, la case « personne ne la lit » ment.
+    doublons = portees & declarees
+    assert not doublons, (
+        f"déclarée inutilisée mais portée par un scénario : {sorted(a.value for a in doublons)}"
+    )
+
+
+def test_les_deux_lecteurs_dattentes_couvrent_le_meme_vocabulaire():
+    """Aucune attente n'est calculable d'un côté seulement.
+
+    L'accord des deux lecteurs est vérifié sur des conversations réelles
+    (`tests/integration/test_eval.py`), mais un tel test ne lie que les chemins que ses
+    scénarios empruntent — la contre-épreuve de l'étape 32 l'a montré en cassant une branche
+    sans faire échouer quoi que ce soit. Ce contrôle-ci est statique et exhaustif : il lit
+    le corps des deux fonctions et exige que chaque membre y figure.
+
+    Grossier exprès. Il ne prouve pas que les deux lectures **coïncident** — c'est le rôle
+    de l'autre —, seulement qu'aucune n'a été oubliée, ce qui est précisément l'erreur qu'un
+    ajout à l'énumération provoque.
+    """
+    lecteurs = {
+        "harnais": inspect.getsource(metriques._attentes_tenues),
+        "journal": inspect.getsource(metriques.attentes_du_journal),
+    }
+    manquantes = {
+        nom: sorted(a.name for a in Attente if f"Attente.{a.name}" not in source)
+        for nom, source in lecteurs.items()
+    }
+    assert not any(manquantes.values()), f"attente(s) absente(s) d'un lecteur : {manquantes}"

@@ -105,13 +105,25 @@ def jouer(
         evenements, issue = jouer_un_tour(
             base, conversation, message_client, client=client, depot=depot, reglages=reglages
         )
-        tours.append(TourJoue(message_client, evenements, issue.iterations))
+        # ⚠️ **L'historique est relu à chaque tour, et pas seulement à la fin** (étape 32).
+        # La longueur seule est retenue : c'est la coupe qui situe le moment de la
+        # livraison, et sans elle le critère nº1 relit du passé avec un contexte du futur.
+        # Une requête de plus par tour, dans le harnais et nulle part ailleurs.
+        tours.append(
+            TourJoue(
+                message_client,
+                evenements,
+                issue.iterations,
+                messages_a_la_fin=len(historique_de(base, conversation.id)),
+            )
+        )
 
     return PriseJouee(
         scenario=scenario.nom,
         prise=prise,
         tours=tuple(tours),
         messages=tuple(historique_de(base, conversation.id)),
+        session_id=conversation.id,
         attendu=None if scenario.attendu is None else scenario.attendu.produit_id,
         attentes=scenario.attentes,
         diagnostic_attendu=scenario.diagnostic_attendu,
