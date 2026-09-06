@@ -12,7 +12,14 @@ Purs : ni base, ni conteneur, ni clé API. Ils lisent un fichier de texte.
 import re
 from pathlib import Path
 
-from raiyon.config import PROMPT_SYSTEME_PAR_DEFAUT
+from raiyon.config import PROMPT_SYSTEME_PAR_DEFAUT, cles_reconnues
+
+HORS_CONFIGURATION = frozenset({"POSTGRES_PORT"})
+"""Ce que `docker-compose.yml` lit et que `Settings` n'a aucune raison de connaître.
+
+Nommé plutôt que deviné par le préfixe : une variable sans `RAIYON_` est justement le
+cas où l'on veut être explicite, `ANTHROPIC_API_KEY` étant dans la même situation et
+devant, elle, rester reconnue."""
 
 ENV_EXAMPLE = Path(__file__).resolve().parents[1] / ".env.example"
 """Résolu depuis ce fichier, jamais depuis le `cwd` : un test qui ne trouve sa cible que
@@ -52,4 +59,26 @@ def test_la_cle_api_reste_commentee_pour_que_son_absence_soit_dite():
     assert actives == [], (
         f"{ENV_EXAMPLE.name} porte une ligne ANTHROPIC_API_KEY active : {actives}. "
         "La laisser commentée — voir le test pour la raison."
+    )
+
+
+def test_toutes_les_variables_de_lexemple_sont_reconnues():
+    """Une variable d'exemple que `Settings` ignore est un réglage qui n'existe pas.
+
+    `verifier_cles_inconnues()` protège `.env` — le fichier réel — et ne regarde jamais
+    l'exemple. Une variable ajoutée ici et oubliée dans `config.py` traverserait donc
+    `make check` sans un mot, et `make install` la copierait dans chaque clone frais.
+    C'est le même motif que les deux divergences citées en tête de module, sur le seul
+    fichier qui décide de ce qu'un clone frais sert.
+    """
+    declarees = {
+        ligne.split("=", 1)[0].strip().removeprefix("export ").strip()
+        for ligne in _lignes()
+        if "=" in ligne and not ligne.strip().startswith("#")
+    }
+    reconnues = cles_reconnues() | HORS_CONFIGURATION
+
+    assert declarees <= reconnues, (
+        f"{ENV_EXAMPLE.name} déclare {sorted(declarees - reconnues)}, "
+        "que Settings ne sait pas lire."
     )

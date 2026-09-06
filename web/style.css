@@ -556,3 +556,415 @@ main {
     font-size: 0.75rem;
     color: var(--doux);
 }
+
+/* --------------------------------------------------------------------------- */
+/* Le journal (étape 17) — page de développement, servie par journal.html        */
+/*                                                                              */
+/* Elle réutilise les mêmes variables que l'interface produit : un second jeu de */
+/* couleurs ferait diverger les deux pages au premier ajustement, et la seule    */
+/* chose qui les distingue est la densité — le journal montre des faits, pas une */
+/* conversation.                                                                 */
+/* --------------------------------------------------------------------------- */
+
+body.journal {
+    display: block;
+}
+
+.avertissement {
+    margin: 0.5rem 0 0;
+    padding: 0.4rem 0.6rem;
+    border-left: 3px solid var(--alerte);
+    background: var(--fond-2);
+    color: var(--alerte);
+    font-size: 0.82rem;
+}
+
+.journal-corps {
+    /* ⚠️ `main` est une grille à deux colonnes pour l'interface produit. Sans ce
+       `display: block`, la page du journal en hériterait et toute la chronologie se
+       rendrait dans une colonne de 440 px — constaté à l'écran, pas deviné. */
+    display: block;
+    padding: 1.25rem 1.5rem 4rem;
+    max-width: 1100px;
+}
+
+.retour {
+    margin: 0 0 1rem;
+    font-size: 0.87rem;
+}
+
+.journal-corps a {
+    color: var(--accent);
+}
+
+/* La liste ------------------------------------------------------------------ */
+
+.tableau {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.87rem;
+}
+
+.tableau th,
+.tableau td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--trait);
+    text-align: left;
+}
+
+.tableau th {
+    color: var(--doux);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tableau .nombre {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Une session d'avant l'instrumentation : ses chiffres disent « non mesuré », et
+   la ligne entière est atténuée pour qu'on ne la lise pas comme une session vide. */
+.tableau tr.non-mesuree td {
+    color: var(--doux);
+}
+
+/* L'en-tête de session ------------------------------------------------------ */
+
+#entete-session h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-all;
+}
+
+.sous-titre {
+    margin: 0.2rem 0 1rem;
+    color: var(--doux);
+    font-size: 0.85rem;
+}
+
+.faits {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.fait {
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--trait);
+    border-radius: var(--rayon);
+    background: var(--fond-2);
+}
+
+.fait .cle {
+    display: block;
+    color: var(--doux);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.fait .valeur {
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Le cache lu est le seul chiffre de l'en-tête qui démontre quelque chose plutôt
+   que de le décrire : l'arbitrage 7 se constate là, ou nulle part. */
+.fait.bon .valeur {
+    color: var(--accent);
+}
+
+.comptes {
+    margin-bottom: 1rem;
+}
+
+.comptes h3 {
+    margin: 0 0 0.35rem;
+    color: var(--doux);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.puces {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.87rem;
+}
+
+.puces .compte {
+    color: var(--doux);
+    font-variant-numeric: tabular-nums;
+}
+
+.puces li.refus code {
+    color: var(--refus);
+}
+
+.puces li.alerte code {
+    color: var(--alerte);
+}
+
+.note {
+    margin: 0.35rem 0 0;
+    color: var(--doux);
+    font-size: 0.78rem;
+    max-width: 72ch;
+}
+
+.doux {
+    color: var(--doux);
+    font-size: 0.83rem;
+}
+
+/* La chronologie ------------------------------------------------------------ */
+
+.tour {
+    margin-bottom: 1.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--trait);
+    border-radius: var(--rayon);
+}
+
+.titre-tour {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin: 0 0 0.6rem;
+    font-size: 0.9rem;
+}
+
+.titre-tour .numero {
+    font-weight: 600;
+}
+
+.titre-tour .doux {
+    font-size: 0.78rem;
+}
+
+.etiquette {
+    padding: 0.05rem 0.35rem;
+    border: 1px solid var(--alerte);
+    border-radius: 3px;
+    color: var(--alerte);
+    font-size: 0.72rem;
+}
+
+.message .qui,
+.sortie .qui,
+.raisonnement .qui,
+.moitie .qui {
+    display: block;
+    margin-bottom: 0.15rem;
+    color: var(--doux);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.message.client {
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.65rem;
+    border-left: 3px solid var(--accent);
+    background: var(--fond-2);
+}
+
+.message .texte,
+.sortie .texte,
+.raisonnement .texte {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.appel {
+    margin: 0 0 0.6rem;
+    padding: 0.6rem;
+    border: 1px solid var(--trait);
+    border-radius: var(--rayon);
+    background: var(--fond-2);
+}
+
+.barre-appel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+}
+
+.barre-appel .iteration {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.jeton {
+    padding: 0.05rem 0.4rem;
+    border: 1px solid var(--trait);
+    border-radius: 3px;
+    background: var(--fond-3);
+    color: var(--doux);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.jeton.stop {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ⚠️ La distinction visuelle demandée : un `stop_reason` qui n'est ni `end_turn`
+   ni `tool_use` est une génération coupée au milieu d'un message. C'est ce qui a
+   rendu `refusal` visible, et c'est le serveur qui décide du drapeau. */
+.jeton.interrompu {
+    border-color: var(--refus);
+    color: var(--refus);
+    font-weight: 600;
+}
+
+.jeton.bon {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.jeton.latence {
+    color: var(--texte);
+}
+
+/* Une largeur, pas un graphique : elle existe pour qu'un appel à 20 846 ms au
+   milieu d'appels à 4 654 ms se voie sans qu'on lise les chiffres. */
+.jauge {
+    height: 3px;
+    margin-bottom: 0.5rem;
+    background: var(--fond-3);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.jauge .remplissage {
+    height: 100%;
+    background: var(--accent);
+}
+
+.jauge .remplissage.interrompu {
+    background: var(--refus);
+}
+
+.raisonnement {
+    margin-bottom: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    border-left: 2px solid var(--trait);
+    font-size: 0.87rem;
+}
+
+.sortie {
+    margin-bottom: 0.5rem;
+}
+
+/* ⚠️ Le texte refusé porte la même forme qu'un texte livré : sans cette bordure et
+   sans la mention qui l'accompagne, la chronologie se lirait comme si le client avait
+   reçu deux messages. */
+.sortie.refusee {
+    padding: 0.45rem 0.6rem;
+    border-left: 3px solid var(--refus);
+    background: var(--fond-3);
+}
+
+.sortie.refusee .qui {
+    color: var(--refus);
+}
+
+.sortie.refusee .texte {
+    color: var(--doux);
+}
+
+.jeton.refuse {
+    border-color: var(--refus);
+    color: var(--refus);
+}
+
+.outil {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    border: 1px dashed var(--trait);
+    border-radius: var(--rayon);
+}
+
+/* Un outil refusé : le répartiteur a rendu une erreur, rien n'a bougé. Sans cette
+   bordure, il se lit exactement comme un appel qui a réussi. */
+.outil.refuse {
+    border-style: solid;
+    border-color: var(--refus);
+}
+
+.outil.refuse .nom-outil {
+    color: var(--refus);
+}
+
+.barre-outil {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.nom-outil {
+    color: var(--accent);
+    font-size: 0.85rem;
+}
+
+.barre-outil .doux {
+    font-size: 0.72rem;
+}
+
+.brut {
+    margin: 0;
+    padding: 0.4rem 0.5rem;
+    max-height: 16rem;
+    overflow: auto;
+    border-radius: 4px;
+    background: var(--fond);
+    color: var(--doux);
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+@media (max-width: 800px) {
+    .outil {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Les événements qui ne sont pas des appels : le refus et le repli ---------- */
+
+.evenement {
+    margin: 0 0 0.6rem;
+    padding: 0.6rem;
+    border-radius: var(--rayon);
+    background: var(--fond-2);
+}
+
+.evenement.rejet {
+    border: 1px solid var(--refus);
+}
+
+.evenement.repli {
+    border: 1px solid var(--alerte);
+}
+
+.evenement .texte {
+    margin: 0.3rem 0 0;
+    white-space: pre-wrap;
+}
+
+.puces .extrait {
+    color: var(--refus);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

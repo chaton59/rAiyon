@@ -138,6 +138,7 @@ from raiyon.agent.session import (
     lire_session,
     tour,
 )
+from raiyon.api import journal
 from raiyon.api.prose import prose_de
 from raiyon.api.schemas import (
     ErreurExposee,
@@ -162,6 +163,7 @@ from raiyon.api.verrou import verrouiller_le_tour
 from raiyon.catalogue.schemas import LIBELLES_CATEGORIE
 from raiyon.config import ConfigurationError, Settings, get_settings
 from raiyon.db.engine import get_sessionmaker
+from raiyon.journal import configurer_journal
 from raiyon.matching.depot import DepotSql
 from raiyon.tools.schema_outils import schema_des_outils
 
@@ -247,7 +249,12 @@ async def duree_de_vie(application: FastAPI) -> AsyncIterator[None]:
     Une clé absente est une erreur de configuration, pas un incident de requête : la
     laisser passer donnerait un serveur qui répond `200` à `/health` et échoue au premier
     message, avec un message que personne ne lit au bon moment.
+
+    ⚠️ **Le journal est configuré en premier**, avant même la clé : c'est le seul endroit
+    d'où un `api.demarrage_impossible` peut atteindre un fichier. Configuré après, il
+    n'aurait rien à dire du seul échec qui empêche le serveur d'exister.
     """
+    journal = configurer_journal()
     try:
         client = ClientAnthropic()
         prompt = prompt_systeme()
@@ -267,6 +274,7 @@ async def duree_de_vie(application: FastAPI) -> AsyncIterator[None]:
         prompt=prompt.version,
         empreinte=prompt.empreinte,
         strict=client.strict,
+        journal=None if journal is None else str(journal),
     )
     yield
 
@@ -439,6 +447,70 @@ def relire_une_session(identifiant: uuid.UUID, fabrique: Fabrique) -> SessionExp
             for parole in prose_de(historique)
         ],
     )
+
+
+# --------------------------------------------------------------------------- #
+# Le journal — **`dev` seulement**, et le 404 est la garde, pas un message
+# --------------------------------------------------------------------------- #
+
+MESSAGE_JOURNAL_ABSENT = (
+    "Le journal n'existe que dans l'environnement de développement "
+    "(RAIYON_APP_ENV=dev). Il expose des conversations entières."
+)
+
+
+def journal_ouvert(partagees: Partagees) -> None:
+    """Lève un 404 hors `dev`. **Une dépendance, pas un `if` dans chaque route.**
+
+    ⚠️ **404 et non 403 : la garde doit dire que la route n'existe pas**, pas qu'elle
+    existe et se refuse. Un 403 sur `/journal/{uuid}` confirmerait à qui le demande qu'une
+    session porte cet identifiant — c'est peu, et c'est déjà plus que rien.
+
+    Ces deux routes rendent des conversations entières, avec la prose du client et les
+    arguments exacts de chaque appel d'outil. Rien de tout cela n'a à exister sur un
+    serveur qui ne sert pas à observer, et la seule façon de s'en assurer est de ne pas
+    laisser le choix à la configuration d'aval.
+
+    *Alternative écartée — ne pas monter les routes hors `dev`.* Plus radical, et la
+    table des routes cesserait de dépendre uniquement du code : `routes_publiques()` — que
+    le test de l'arbitrage L compare à une liste — rendrait deux résultats différents selon
+    l'environnement, et ce test ne dirait plus rien.
+    """
+    if partagees.reglages.app_env != "dev":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, MESSAGE_JOURNAL_ABSENT)
+
+
+JournalOuvert = Annotated[None, Depends(journal_ouvert)]
+
+
+@app.get("/journal")
+def lister_le_journal(_: JournalOuvert, fabrique: Fabrique) -> list[dict[str, Any]]:
+    """Les sessions, les plus récentes d'abord, avec leurs totaux.
+
+    Le type de retour est un `dict` nu et non un modèle Pydantic, contrairement au reste de
+    l'API : cette page n'a pas de consommateur tiers à qui promettre un contrat, elle a un
+    seul lecteur qui est la page d'à côté. Un schéma figé ici coûterait une classe par
+    forme sans rien garantir de plus que ce que `journal.py` construit déjà.
+    """
+    with fabrique() as base:
+        return journal.sessions(base)
+
+
+@app.get("/journal/{identifiant}")
+def lire_le_journal(identifiant: uuid.UUID, _: JournalOuvert, fabrique: Fabrique) -> dict[str, Any]:
+    """La chronologie complète d'une session : en-tête agrégé, puis les tours.
+
+    ⚠️ **Rend 200 pour une session d'avant l'étape 17**, avec ses tours et sans ses
+    mesures. C'est le cas nominal pour les 71 860 tours déjà en base : la page dit « non
+    mesuré » là où les colonnes manquent, au lieu de rendre une erreur ou d'afficher zéro.
+    """
+    with fabrique() as base:
+        chronologie = journal.chronologie(base, identifiant)
+    if chronologie is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, f"aucune session {identifiant} — vérifier l'identifiant."
+        )
+    return chronologie
 
 
 @app.get("/health")

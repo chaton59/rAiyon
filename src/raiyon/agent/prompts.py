@@ -168,6 +168,27 @@ class GriefMalForme(Exception):
     """`grief.v1.md` ne porte pas sa marque d'insertion. Non rattrapable au runtime."""
 
 
+def prefixe_de_reprise() -> str:
+    """Ce par quoi commence tout message de reprise : le gabarit **avant** sa marque.
+
+    Dérivé du fichier, jamais recopié. `message_de_grief()` construit son texte en
+    remplaçant `MARQUE_DES_GRIEFS` dans ce même gabarit : le préfixe est donc exact au
+    caractère près, et il le reste si l'étape 13 réécrit le corps du message.
+
+    ⚠️ **Il vivait dans `api/prose.py` jusqu'à l'étape 21, et il a trois lecteurs.**
+    `prose.py` masque la reprise au rechargement ; `api/journal.py` s'en sert pour ne pas
+    compter un grief comme un tour client ; et `validateur/contexte.py` en dépend depuis le
+    jalon 2 pour une raison bien plus lourde — **exclure la reprise de la provenance
+    « parole du client »**. Un message de reprise cite les extraits refusés : les admettre
+    rendrait le validateur auto-annulant, mesuré à 18 griefs sur 19.
+
+    Il remonte donc à côté du gabarit qu'il décode, plutôt que d'obliger le validateur à
+    importer `raiyon.api`.
+    """
+    gabarit = charger(GRIEF_V1)
+    return gabarit.split(MARQUE_DES_GRIEFS, 1)[0].strip()
+
+
 def message_de_grief(lignes: Sequence[str]) -> str:
     """Le message de reprise, griefs insérés, et il loggue la version employée.
 

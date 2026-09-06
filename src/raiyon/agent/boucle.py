@@ -180,6 +180,7 @@ from raiyon.orchestration.contrat import (
     ROLE_CLIENT,
     IssueDuTour,
     TourProduit,
+    signaler_si_interrompue,
 )
 from raiyon.tools.erreurs import OutilRefuse
 from raiyon.tools.etat import EtatSession
@@ -262,6 +263,20 @@ def repondre(
         tours.append(TourProduit(ROLE_ASSISTANT, reponse.blocs))
 
         message = depouiller(reponse.blocs)
+        # ⚠️ **Ce contrôle vivait plus bas, sous `if not message.appels`, et c'est ce qui a
+        # laissé passer `refusal`** : le message coupé de l'étape 17 portait trois
+        # `tool_use`, donc il n'atteignait jamais la branche. Une génération interrompue
+        # n'a pourtant rien à voir avec le fait qu'elle ait produit des appels d'outils —
+        # elle peut être coupée **dans** leurs arguments, ce qui est précisément ce qu'on
+        # a observé. Il est donc pris sur chaque réponse, avant tout branchement.
+        signaler_si_interrompue(
+            logueur,
+            "boucle.generation_interrompue",
+            reponse.fin,
+            iteration=iteration,
+            outils_du_message=[str(appel.get("name")) for appel in message.appels],
+            consequence="aucun : la boucle poursuit son chemin, l'appel est compté",
+        )
         verdict = valider(message.texte, fourni) if message.texte else VERDICT_SANS_GRIEF
 
         if verdict.griefs:
@@ -346,14 +361,9 @@ def repondre(
             yield Texte(message.texte)
 
         if not message.appels:
-            if reponse.fin == "max_tokens":
-                # 2 048 jetons devraient suffire largement (arbitrage 12) ; une
-                # troncature est donc un signal, pas une fatalité à absorber en silence.
-                logueur.warning(
-                    "boucle.reponse_tronquee",
-                    iteration=iteration,
-                    consequence="le dernier message part au client tel quel, incomplet",
-                )
+            # ⚠️ Le `WARNING` de troncature était ici jusqu'à l'étape 17 — voir le
+            # commentaire de `signaler_si_interrompue()` plus haut, qui explique pourquoi
+            # l'y laisser rendait `refusal` invisible.
             logueur.info("boucle.fin_de_tour", iterations=iteration, fin=reponse.fin)
             return IssueDuTour(etat, tuple(tours), iteration, tuple(outils_appeles))
 

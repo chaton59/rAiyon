@@ -71,6 +71,7 @@ from raiyon.db.engine import get_sessionmaker
 from raiyon.eval.client import ClientEnregistreur
 from raiyon.eval.executeur import Reglages, jouer_un_tour
 from raiyon.eval.metriques import prose_livree
+from raiyon.journal import configurer_journal
 from raiyon.matching.depot import DepotSql
 from raiyon.orchestration import orchestrations
 from raiyon.tools.schema_outils import schema_des_outils
@@ -259,6 +260,7 @@ def main() -> int:
         help="qui conduit le tour ; « deux » rejoue chaque conversation des deux côtés",
     )
     arguments = analyseur.parse_args()
+    configurer_journal()
 
     try:
         conversations = _retenues(arguments.conversation)

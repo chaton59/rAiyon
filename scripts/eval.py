@@ -75,6 +75,7 @@ from raiyon.eval.executeur import Reglages, jouer, jouer_un_tour
 from raiyon.eval.metriques import Mesures, MesuresDunePrise, agreger, mesurer, prose_livree
 from raiyon.eval.rapport import rendre
 from raiyon.eval.scenario import SCENARIOS, Scenario, ScenarioInconnu, par_nom
+from raiyon.journal import configurer_journal
 from raiyon.matching.depot import DepotSql
 from raiyon.orchestration import orchestrations
 from raiyon.tools.schema_outils import schema_des_outils
@@ -520,6 +521,7 @@ def main() -> int:
     live.add_argument("--personas", nargs="*", default=None, help="par leur nom ; tous par défaut")
 
     arguments = analyseur.parse_args()
+    configurer_journal()
     try:
         if arguments.mode == "rejouer":
             return _rejouer(arguments.scenario, arguments.jeu)

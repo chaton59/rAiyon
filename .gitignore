@@ -11,4 +11,6 @@ htmlcov/
 data/raw/*
 !data/raw/SOURCE.md
 !data/raw/CHECKSUMS.sha256
+# Journal JSONL d'exploitation (RAIYON_JOURNAL_JSONL)
+data/journal/
 .DS_Store

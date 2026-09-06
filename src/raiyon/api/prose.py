@@ -94,8 +94,14 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from raiyon.agent.prompts import GRIEF_V1, MARQUE_DES_GRIEFS, charger
+from raiyon.agent.prompts import prefixe_de_reprise
 from raiyon.tools.schema_outils import NOM_PRECISION
+
+__all__ = ["Interlocuteur", "Parole", "porte_une_reprise", "prefixe_de_reprise", "prose_de"]
+"""`prefixe_de_reprise` est réexporté : il vivait ici jusqu'à l'étape 21 et trois modules
+l'importaient de ce chemin. Il a déménagé dans `agent/prompts.py`, à côté du gabarit qu'il
+décode, parce que `validateur/contexte.py` en a besoin et n'a pas à importer `raiyon.api`
+pour l'obtenir."""
 
 ROLE_API_CLIENT = "user"
 """⚠️ Les `tool_result` portent ce rôle aussi : il n'existe pas de rôle « outil » dans
@@ -195,29 +201,32 @@ def _a_ete_refuse(historique: Sequence[Mapping[str, Any]], rang: int) -> bool:
     futur `return` anticipé rouvrirait le trou sans bruit ; `empiler_la_reprise()` porte
     l'avertissement du côté où il se lit.
 
-    Le grief est cherché dans **tous** les blocs `text` du message suivant, pas seulement
-    dans le premier : quand le message refusé portait des `tool_use`, leurs résultats
-    passent devant (l'API exige les `tool_result` appairés avant tout autre contenu
-    utilisateur) et le grief les suit.
+    La reconnaissance d'un message de reprise vit dans `porte_une_reprise()`, publique
+    depuis l'étape 17 : `api/journal.py` pose la même question pour marquer, dans la
+    chronologie, l'appel dont le texte n'a jamais atteint le client.
     """
     suivant = historique[rang + 1] if rang + 1 < len(historique) else None
     if suivant is None or suivant.get("role") != ROLE_API_CLIENT:
         return False
-    blocs: Sequence[Mapping[str, Any]] = suivant.get("content") or ()
+    return porte_une_reprise(suivant.get("content") or ())
+
+
+def porte_une_reprise(blocs: Sequence[Mapping[str, Any]]) -> bool:
+    """Ces blocs de rôle `user` portent-ils un message de reprise ?
+
+    Publique depuis l'étape 17, parce que `api/journal.py` pose **exactement** la même
+    question : quel appel modèle a produit un texte que le validateur a refusé ? Deux
+    lecteurs, une seule règle — l'écrire deux fois donnerait deux réponses le jour où le
+    gabarit de grief change, et une seule des deux serait corrigée.
+
+    Le grief est cherché dans **tous** les blocs `text`, pas seulement le premier : quand le
+    message refusé portait des `tool_use`, leurs résultats passent devant (l'API exige les
+    `tool_result` appairés avant tout autre contenu utilisateur) et le grief les suit.
+    """
     return any(
         bloc.get("type") == "text" and _est_un_message_de_reprise(str(bloc.get("text", "")).strip())
         for bloc in blocs
     )
-
-
-def prefixe_de_reprise() -> str:
-    """Ce par quoi commence tout message de reprise : le gabarit **avant** sa marque.
-
-    Dérivé du fichier, jamais recopié. `message_de_grief()` construit son texte en
-    remplaçant `MARQUE_DES_GRIEFS` dans ce même gabarit : le préfixe est donc exact au
-    caractère près, et il le reste si l'étape 13 réécrit le corps du message.
-    """
-    return charger(GRIEF_V1).split(MARQUE_DES_GRIEFS, 1)[0].strip()
 
 
 def _est_un_message_de_reprise(texte: str) -> bool:

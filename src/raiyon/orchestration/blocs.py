@@ -210,10 +210,17 @@ def depouiller(blocs: Sequence[dict[str, Any]]) -> Message:
     voir avec le produit.
 
     ⚠️ **La première moitié est fausse, et les cassettes de l'étape 12 le prouvent.**
-    L'arbitrage 12 décrit ce qu'on **demande** — aucun `thinking` n'est activé dans
-    `client_anthropic.py` — et non ce qu'on **reçoit** : `claude-sonnet-5` émet des blocs
-    `thinking`, avec leur `signature`, sans qu'on les sollicite. La décision n'est pas
-    renversée, sa portée l'est ; la ligne est barrée plutôt qu'effacée.
+    L'arbitrage 12 décrivait ce qu'on croyait **demander** et non ce qu'on **recevait** :
+    `claude-sonnet-5` émettait des blocs `thinking`, avec leur `signature`, sans qu'on les
+    sollicite. La ligne est barrée plutôt qu'effacée.
+
+    ⚠️ **Et depuis l'étape 17, la phrase « aucun `thinking` n'est activé » est fausse deux
+    fois.** Elle l'était déjà comme description du reçu ; elle l'est devenue comme
+    description du demandé, `client_anthropic.py` envoyant désormais
+    `thinking={"type": "adaptive", "display": "summarized"}`. Le raisonnement adaptatif
+    était **actif par défaut depuis le premier appel du projet** — ce qui a changé n'est
+    pas son existence mais sa visibilité. Ce module continue d'ignorer ces blocs, et c'est
+    toujours le bon comportement.
 
     Conséquence directe, et c'est le correctif de l'étape 12 : un message qui ne porte
     **que** de tels blocs n'est plus une hypothèse d'école. `repondre()` le clôt désormais

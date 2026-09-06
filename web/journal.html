@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>rAiyon — journal</title>
+    <link rel="stylesheet" href="/style.css" />
+    <!--
+      Même montage que `index.html` : modules ES natifs, servis tels quels par
+      `StaticFiles`, pas d'étape de compilation, et la **même** feuille de style — les
+      classes du journal vivent dans `style.css`, à la suite de celles du produit.
+
+      ⚠️ Cette page n'existe qu'en `RAIYON_APP_ENV=dev`. Le fichier, lui, est servi
+      partout : c'est l'API qui rend 404, et la page le dit alors clairement plutôt que
+      de rester vide. La garde est côté serveur, jamais ici.
+    -->
+    <script type="module" src="/journal.js"></script>
+  </head>
+  <body class="journal">
+    <header class="entete">
+      <h1>rAiyon — journal</h1>
+      <p class="promesse">
+        Ce que le système a <strong>réellement</strong> fait : un appel modèle par ligne,
+        ses jetons, sa latence, son <code>stop_reason</code>, les arguments exacts de
+        chaque outil, et les refus du validateur à leur rang.
+      </p>
+      <p class="avertissement">
+        Page de développement. Elle affiche des conversations entières et n'existe pas
+        hors <code>RAIYON_APP_ENV=dev</code>.
+      </p>
+    </header>
+
+    <main class="journal-corps">
+      <p class="vide" id="attente">Chargement…</p>
+
+      <!-- La liste des sessions. Masquée dès qu'une session est ouverte. -->
+      <section id="liste" hidden aria-label="Sessions">
+        <!--
+          ⚠️ Une session à plusieurs appels et zéro jeton n'est pas une mesure ratée :
+          c'est un rejeu de cassette ou un test, qui exécute la pile entière sans
+          appeler l'API. Le dire ici évite de le rediagnostiquer à chaque lecture.
+        -->
+        <p class="note">
+          Une session peut porter des appels et <strong>zéro jeton</strong> : c'est un
+          rejeu de cassette ou un test — la pile tourne en entier, l'API n'est pas
+          appelée, et un rejeu ne consomme rien. « non mesuré » désigne l'autre cas :
+          une conversation antérieure à l'instrumentation, dont les appels n'ont jamais
+          été enregistrés.
+        </p>
+        <table class="tableau">
+          <thead>
+            <tr>
+              <th scope="col">Ouverte le</th>
+              <th scope="col">Tours</th>
+              <th scope="col">Appels</th>
+              <th scope="col" class="nombre">Jetons entrée</th>
+              <th scope="col" class="nombre">Jetons sortie</th>
+              <th scope="col" class="nombre">Replis</th>
+              <th scope="col" class="nombre">Griefs</th>
+              <th scope="col">Statut</th>
+            </tr>
+          </thead>
+          <tbody id="sessions"></tbody>
+        </table>
+      </section>
+
+      <!-- La chronologie d'une session. -->
+      <section id="session" hidden aria-label="Chronologie">
+        <p class="retour"><a href="#" id="retour">← toutes les sessions</a></p>
+        <div id="entete-session"></div>
+        <div id="chronologie"></div>
+      </section>
+    </main>
+  </body>
+</html>

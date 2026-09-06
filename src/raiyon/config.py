@@ -141,7 +141,22 @@ class Settings(BaseSettings):
     orchestration: Literal["agent", "machine"] = "agent"
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    """⚠️ **Déclarée depuis l'étape 2, et lue par personne jusqu'à l'étape 17.** Le dépôt
+    n'appelait pas `structlog.configure()` : il tournait sur les défauts du paquet, qui ne
+    filtrent rien. `raiyon.journal.configurer_journal()` la consomme désormais, et une
+    variable de configuration cesse d'annoncer un effet qu'elle n'avait pas."""
+
+    journal_jsonl: Path | None = None
+    """Où écrire le journal JSONL, **en plus du terminal**. `None` : terminal seul.
+
+    Un chemin relatif est résolu depuis le répertoire de lancement, comme tout le reste de
+    la configuration. Le répertoire parent est créé s'il manque — un journal qui refuse de
+    démarrer parce qu'un dossier n'existe pas ferait perdre précisément la session qu'on
+    voulait observer."""
+
     app_env: Literal["dev", "test", "prod"] = "dev"
+    """⚠️ **Depuis l'étape 17, elle décide aussi de l'existence des routes `/journal`.**
+    Elles exposent des conversations entières : hors `dev`, elles rendent 404."""
 
 
 def cles_reconnues() -> frozenset[str]:

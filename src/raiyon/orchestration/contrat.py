@@ -45,6 +45,27 @@ et la seule où l'on peut le dire au client sans lui montrer de mécanique inter
 ⚠️ Elle ne cite aucun chiffre et aucun produit : elle n'a pas de contexte fourni à
 respecter, puisqu'elle est rendue quand le modèle n'a rien produit du tout."""
 
+FINS_INTERROMPUES: dict[str, str] = {
+    "max_tokens": "le plafond de jetons a coupé la génération",
+    "refusal": "un classificateur de sécurité a interrompu la génération",
+}
+"""Les `stop_reason` qui disent **une génération coupée au milieu d'un message**.
+
+⚠️ **Les deux sont la même famille, et le dépôt n'en testait qu'un.** `max_tokens` était
+surveillé depuis l'étape 8 ; `refusal` ne l'était par personne, et il est arrivé — une
+fois, au premier tir réel de l'étape 17 : 453 jetons, 20,8 secondes, et un
+`ask_clarification` dont les arguments étaient `{}`. **Un appel d'outil coupé dans ses
+arguments a exactement la forme d'une troncature**, et c'est ce qui rattache les deux.
+
+Rien n'est traité différemment : les deux restent opaques pour l'orchestration, qui
+continue son chemin comme avant. Ils sont **nommés et comptés**, ce qui est tout ce que
+l'étape 17 demande — et ce qui manquait pour que la seconde soit seulement visible.
+
+*Alternative écartée — replier sur `refusal`.* Elle changerait le comportement sur la foi
+d'une occurrence. Ici la boucle s'est rattrapée seule : le répartiteur a refusé l'argument
+manquant et le modèle a corrigé au tour suivant. Décider d'un repli demande de savoir à
+quelle fréquence ça arrive, ce que la colonne `stop_reason` d'`appels_modele` dira."""
+
 ROLE_ASSISTANT = "assistant"
 ROLE_CLIENT = "user"
 """⚠️ Les `tool_result` portent le rôle `user` dans l'API Anthropic : il n'existe pas de
@@ -67,3 +88,28 @@ class IssueDuTour:
     tours: tuple[TourProduit, ...]
     iterations: int
     outils_appeles: tuple[str, ...]
+
+
+def signaler_si_interrompue(
+    logueur: Any,  # noqa: ANN401 — un `structlog.BoundLogger`, sans faire entrer le type ici
+    evenement: str,
+    fin: str,
+    *,
+    consequence: str,
+    **champs: Any,  # noqa: ANN401 — les champs libres d'une ligne structlog
+) -> None:
+    """Un `WARNING` quand la génération a été coupée, et rien sinon. **Aucun effet de bord.**
+
+    Le logueur est passé par l'appelant plutôt que créé ici : c'est son nom de module qui
+    doit apparaître dans la ligne, sans quoi `boucle.` et `machine.` se confondraient dans
+    un journal où l'on cherche justement laquelle des deux a été coupée.
+    """
+    if fin not in FINS_INTERROMPUES:
+        return
+    logueur.warning(
+        evenement,
+        fin=fin,
+        cause=FINS_INTERROMPUES[fin],
+        consequence=consequence,
+        **champs,
+    )

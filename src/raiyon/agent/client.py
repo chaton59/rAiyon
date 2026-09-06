@@ -31,9 +31,40 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-MAX_TOKENS = 2048
-"""Arbitrage 12 : une recommandation de trois produits avec son pourquoi tient largement
-dedans, et un plafond bas borne le coût d'une itération qui part en boucle."""
+MAX_TOKENS = 6144
+"""Le plafond de sortie d'un appel. **Il borne aussi le raisonnement**, depuis l'étape 17.
+
+⚠️ **Il valait 2 048, et l'arbitrage 12 le justifiait par « une recommandation de trois
+produits avec son pourquoi tient largement dedans ».** La phrase était vraie de la prose
+et fausse de l'appel : sur `claude-sonnet-5`, le raisonnement adaptatif est actif par
+défaut, il est **facturé sur `max_tokens`**, et il n'était pas visible — `display` valant
+`omitted`, les blocs `thinking` revenaient avec un texte vide et une signature. Le
+plafond était donc partagé entre une prose mesurée et un raisonnement qu'on ne voyait pas.
+
+Deux prises de `evals/cassettes/systeme.machine.v1/` le montrent noir sur blanc :
+`desserrage_refuse.1` prise 6 et `desserrage_refuse.3` prise 5 portent **un bloc
+`thinking` et rien d'autre**, avec `fin=max_tokens`. C'est-à-dire une troncature survenue
+**pendant le raisonnement**, avant le premier caractère de réponse — et c'est exactement
+ce que `MotifDeRepli.REPONSE_VIDE` comptait sans pouvoir le nommer.
+
+6 144 est mesuré, pas choisi. Sur les 191 appels réels enregistrés en cassette, la moyenne
+est de 242 jetons de sortie et la cassette la plus bavarde tourne à 421 par appel ; le
+plus gros message assistant du jeu fait ~1 200 jetons. Le plafond laisse donc un facteur
+cinq au-dessus du pire cas observé, et la troncature redevient un signal plutôt qu'un
+régime de fonctionnement."""
+
+
+EFFORT_NON_FIXE = "defaut"
+"""Ce qu'on écrit dans `appels_modele.effort` quand la requête ne fixe pas `effort`.
+
+⚠️ **La chaîne, jamais `NULL`.** Un `NULL` dirait « on ne sait pas » ; ici on sait très
+bien — on n'a rien envoyé, et le modèle a appliqué son défaut. Séparer les deux états est
+tout l'objet de la colonne : c'est ce qui permettra de comparer des populations d'appels
+réels le jour où l'arbitrage `effort` se posera, au lieu de retomber sur trois tirages.
+
+Elle vit ici, dans le module du contrat, parce que **deux modules la lisent** — le client
+réel qui la déclare et l'observation qui l'écrit — et qu'une valeur écrite deux fois est
+le motif que ce dépôt a déjà payé trois fois."""
 
 
 @dataclass(frozen=True, slots=True)

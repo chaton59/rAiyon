@@ -1,4 +1,5 @@
-"""Modèles SQLAlchemy : `produits`, `sessions`, `tours_conversation`.
+"""Modèles SQLAlchemy : `produits`, `sessions`, `tours_conversation`, et les deux tables
+d'observation de l'étape 17 — `appels_modele`, `evenements_tour`.
 
 Le schéma applique la décision §3.3 : des colonnes typées et indexées pour ce qui
 est commun à tout produit, un JSONB `specs` pour ce qui est propre a la catégorie.
@@ -209,4 +210,152 @@ class TourConversation(Base):
         # Toutes les lectures partent d'une session ; la FK ne crée pas d'index
         # côté Postgres, et son absence ferait aussi ramer les DELETE en cascade.
         Index("ix_tours_conversation_session_id", "session_id"),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# L'observation — étape 17. Deux tables qui décrivent un tour sans le rejouer
+# --------------------------------------------------------------------------- #
+
+DISPLAY_THINKING = ("summarized", "omitted")
+"""Les deux seules valeurs que l'API accepte pour `thinking.display`. **Mesuré**, pas lu.
+
+Une valeur inventée rend un 400 qui les énumère lui-même :
+`thinking.adaptive.display: Input should be 'summarized', 'omitted'`. La liste est donc
+close du côté de l'API, et la contrainte le dit du côté de la base — c'est ce qui empêche
+qu'un `raw` ou un `full` supposé s'installe dans la colonne sans jamais avoir été envoyé.
+"""
+
+
+class AppelModele(Base):
+    """Un appel au modèle : ce qu'il a coûté, combien de temps, et **sous quelle config**.
+
+    ### Une ligne par appel, pas une par tour (§3.9)
+
+    Un tour client fait entre un et huit appels — la garde d'itérations en décide. Cumuler
+    au tour perdrait exactement ce qu'on cherche : quelle **itération** a coûté cher, quelle
+    itération a été tronquée, à quel moment le cache a cessé d'être lu. `tour_client` et
+    `iteration` rendent la ligne replaçable dans la conversation sans jointure.
+
+    ### `effort` et `display` sont dans la table, et ce n'est pas de la décoration
+
+    ⚠️ **C'est ce qui rend l'arbitrage `effort` décidable plus tard.** Il n'est pas fixé
+    aujourd'hui, et il ne pouvait pas l'être : trois tirages `low`/`medium`/`high` sur un
+    même message ont rendu 165, 280 et 187 jetons — du bruit. Fixer sur cette base referait
+    la faute que l'étape 17 vient de consigner.
+
+    Sans ces deux colonnes, la question resterait indécidable pour toujours : on ne pourrait
+    pas séparer les populations d'une campagne, et on retomberait sur trois tirages. Avec
+    elles, la comparaison devient une requête sur du trafic réel.
+
+    `effort` vaut `defaut` quand la requête ne le fixe pas — la chaîne, pas `NULL`. Un
+    `NULL` dirait « on ne sait pas », alors qu'on sait très bien : on n'a rien envoyé, et le
+    modèle a appliqué son défaut. Les deux états sont différents et la distinction est
+    précisément l'objet de la colonne.
+
+    ### Ce que la table ne porte pas
+
+    Ni prompt, ni messages, ni blocs de réponse. Ils vivent déjà dans `tours_conversation`,
+    et les recopier ici ferait une seconde persistance de la conversation — avec deux
+    copies libres de diverger. `empreinte_systeme` suffit à dire *quel préfixe* a été
+    envoyé, ce qui est la seule question qu'on pose vraiment à un appel passé.
+    """
+
+    __tablename__ = "appels_modele"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    tour_client: Mapped[int] = mapped_column(Integer, nullable=False)
+    """Le `numero` de la ligne du message client, comme le jeton de parole du §3.17."""
+
+    iteration: Mapped[int] = mapped_column(Integer, nullable=False)
+    """Le rang de l'appel **dans le tour**, à partir de 1. Borné par `max_agent_iterations`."""
+
+    modele: Mapped[str] = mapped_column(Text, nullable=False)
+    empreinte_systeme: Mapped[str] = mapped_column(String(64), nullable=False)
+    """L'empreinte du prompt système envoyé. La même que celle de `/health` et des cassettes.
+
+    Elle répond à la seule question qu'on pose à un appel vieux d'une semaine : « est-ce
+    que celui-là tournait sur le prompt d'aujourd'hui ? ». Stocker le texte y répondrait
+    aussi, en multipliant 8,6 Ko par appel."""
+
+    effort: Mapped[str] = mapped_column(String(16), nullable=False, server_default=text("'defaut'"))
+    display: Mapped[str] = mapped_column(String(16), nullable=False)
+    stop_reason: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    jetons_entree: Mapped[int] = mapped_column(Integer, nullable=False)
+    jetons_sortie: Mapped[int] = mapped_column(Integer, nullable=False)
+    cache_ecrit: Mapped[int] = mapped_column(Integer, nullable=False)
+    cache_lu: Mapped[int] = mapped_column(Integer, nullable=False)
+    """Les quatre compteurs d'`Usage`, à plat. Aplatis plutôt qu'en JSONB : ce sont
+    exactement les colonnes qu'on agrège (`sum`, `avg`), et un JSONB obligerait chaque
+    requête du tableau de bord à les extraire une par une."""
+
+    latence_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    """Le temps de l'appel, mesuré **autour** de lui par le décorateur. Il inclut donc les
+    reprises internes du SDK — c'est ce qu'on veut : c'est le temps que le client a attendu,
+    pas celui que l'API déclare."""
+
+    horodatage: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("iteration >= 1", name="iteration_positive"),
+        CheckConstraint("latence_ms >= 0", name="latence_positive"),
+        CheckConstraint(f"display IN ({_liste_sql(DISPLAY_THINKING)})", name="display_connu"),
+        # Toutes les lectures du tableau de bord partent d'une session et lisent dans
+        # l'ordre du tour. L'index porte donc les deux colonnes, dans cet ordre.
+        Index("ix_appels_modele_session_tour", "session_id", "tour_client", "iteration"),
+    )
+
+
+class EvenementTour(Base):
+    """Un événement émis par l'orchestration, **dans l'ordre où il a été émis**.
+
+    ### `rang` porte l'ordre, et il n'est pas déductible
+
+    L'horodatage ne suffit pas : deux événements d'un même message d'outils tombent dans la
+    même milliseconde, et un `ORDER BY horodatage` rendrait alors un ordre arbitraire — donc
+    une timeline qui montre le sondage avant les critères une fois sur deux. `rang` est
+    compté par le drainage, à partir de 1, sur le tour.
+
+    ### `genre` et `charge` sont **exactement** ce que le fil SSE envoie
+
+    Ils viennent de `nom_et_donnees()`, la fonction que `raiyon.api.serialisation` emploie
+    déjà pour fabriquer une trame. Ce n'est pas seulement de la réutilisation de code : cela
+    fait que **la timeline relue et le direct montrent la même chose**. Une seconde
+    sérialisation aurait fini par diverger de la première, et le tableau de bord aurait
+    décrit une conversation légèrement différente de celle qui a eu lieu.
+
+    C'est aussi ce qui donne l'exhaustivité gratuitement : `nom_et_donnees()` se termine par
+    un `assert_never`, donc un neuvième type d'événement fera échouer `make typecheck` avant
+    d'être silencieusement absent de la table.
+
+    ⚠️ **`genre` n'a pas de contrainte de liste**, contrairement à `role` ou à `statut`. Le
+    vocabulaire est fermé côté Python (`NomEvenement`) et vérifié par mypy ; le recopier en
+    SQL créerait une seconde liste à tenir à jour, et le jour où elles divergeraient c'est
+    la migration qui gagnerait contre le type — l'inverse de ce qu'on veut.
+    """
+
+    __tablename__ = "evenements_tour"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    tour_client: Mapped[int] = mapped_column(Integer, nullable=False)
+    rang: Mapped[int] = mapped_column(Integer, nullable=False)
+    genre: Mapped[str] = mapped_column(String(32), nullable=False)
+    charge: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    horodatage: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("rang >= 1", name="rang_positif"),
+        UniqueConstraint("session_id", "tour_client", "rang", name="uq_evenements_tour_rang"),
+        Index("ix_evenements_tour_session_tour", "session_id", "tour_client", "rang"),
     )

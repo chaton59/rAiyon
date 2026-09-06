@@ -20,6 +20,7 @@ import sys
 
 from raiyon.agent.client_anthropic import ClientAnthropic
 from raiyon.config import ConfigurationError
+from raiyon.journal import configurer_journal
 from raiyon.tools.schema_outils import champs_du_schema, schema_des_outils
 
 MESSAGE = (
@@ -38,6 +39,7 @@ def main() -> int:
     )
     arguments = analyseur.parse_args()
 
+    configurer_journal()
     outils = schema_des_outils(strict=not arguments.sans_strict)
     try:
         client = ClientAnthropic()

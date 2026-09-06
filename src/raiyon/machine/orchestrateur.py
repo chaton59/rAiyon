@@ -135,6 +135,7 @@ from raiyon.orchestration.contrat import (
     ROLE_CLIENT,
     IssueDuTour,
     TourProduit,
+    signaler_si_interrompue,
 )
 from raiyon.tools.erreurs import OutilRefuse
 from raiyon.tools.etat import EtatSession
@@ -236,6 +237,19 @@ def repondre_machine(
     reponse = client.repondre(systeme=systeme, outils=outils_extraction, messages=messages)
     appels_modele += 1
     extraction = depouiller(reponse.blocs)
+    # ⚠️ **La machine ne surveillait ni l'un ni l'autre** — la boucle d'agent surveillait au
+    # moins `max_tokens` depuis l'étape 8. Une extraction coupée au milieu de ses arguments
+    # produit un `record_criteria` incomplet, donc un état amputé, donc une recommandation
+    # fondée sur des critères que le client n'a pas vus disparaître. Ici, c'est le tour le
+    # plus coûteux à laisser silencieux des deux.
+    signaler_si_interrompue(
+        logueur,
+        "machine.generation_interrompue",
+        reponse.fin,
+        phase="extraction",
+        outils_du_message=[str(appel.get("name")) for appel in extraction.appels],
+        consequence="aucun : l'orchestration poursuit son chemin, l'appel est compté",
+    )
 
     if not extraction.appels:
         logueur.info(
@@ -350,6 +364,14 @@ def repondre_machine(
         reponse = client.repondre(systeme=systeme, outils=outils_extraction, messages=messages)
         appels_modele += 1
         redigee = depouiller(reponse.blocs)
+        signaler_si_interrompue(
+            logueur,
+            "machine.generation_interrompue",
+            reponse.fin,
+            phase="redaction",
+            tentative=regenerations + 1,
+            consequence="aucun : le texte part au validateur tel quel, possiblement tronqué",
+        )
         if redigee.appels:
             logueur.info(
                 "machine.outil_appele_a_la_redaction",

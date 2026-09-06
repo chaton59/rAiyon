@@ -38,27 +38,74 @@ payer deux appels pour une erreur qui ne va pas se résoudre.
 
 `make fumee` exerce ce chemin sans la boucle, et dit quel mode a été retenu.
 
-### Deux réglages tranchés au plus simple (arbitrage 12)
+### Le raisonnement : adaptatif, résumé, borné par `max_tokens` (étape 17)
 
-* **Pas de thinking étendu en v1.** Avec le tool use, les blocs `thinking` doivent être
-  réinjectés verbatim et persistés ; ça alourdit l'historique pour un raisonnement qui
-  tient en deux lignes. À rouvrir à l'étape 13 si la métrique nº4 plafonne.
-* **On ne fixe pas `temperature`.** Le défaut du modèle. Le dépôt s'est déjà fait prendre
-  à supposer que `temperature=0` donnait du déterminisme ; on ne le suppose plus, et on
-  ne le revendique nulle part.
+```python
+thinking = {"type": "adaptive", "display": "summarized"}
+```
+
+⚠️ **Cette section disait exactement l'inverse, et c'est le quatrième précédent de
+capacité supposée sans être mesurée — le premier à être inversé.** Elle annonçait « pas
+de thinking étendu en v1 » (arbitrage 12), au motif que les blocs `thinking` alourdiraient
+l'historique. La phrase était fausse **dès le premier appel du projet**, et pour une
+raison qu'aucune relecture ne pouvait attraper : sur `claude-sonnet-5`, le raisonnement
+adaptatif est **actif par défaut**, et le défaut de `display` est `omitted`. L'API
+renvoyait donc des blocs `{"thinking": "", "signature": "…"}` — du raisonnement réel,
+facturé sur `max_tokens`, réinjecté dans l'historique, et **vide à la lecture**.
+
+Les 160 blocs `thinking` de `evals/cassettes/` en portent la preuve : tous signés, tous
+sans une lettre de texte. Le dépôt payait le raisonnement, le transportait, et croyait
+l'avoir désactivé.
+
+Les trois précédents étaient des capacités **absentes** qu'on avait crues présentes —
+`smt` à l'étape 3, `temperature=0` à l'étape 5, `nom_fr` à l'étape 5. Celui-ci est
+l'inverse : une capacité **présente** qu'on avait crue absente. La leçon ne change pas de
+camp — ce qui n'est pas mesuré n'est pas connu — mais elle vaut désormais dans les deux
+sens, et un commentaire qui dit « on n'utilise pas X » est une affirmation à vérifier au
+même titre qu'un « X marche ».
+
+**Ce qui est vrai, et mesuré le 2026-09-04 :**
+
+* `{"type": "enabled", "budget_tokens": N}` est **refusé** par ce modèle — HTTP 400,
+  *« "thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive"
+  and "output_config.effort" to control thinking behavior. »* Le budget de jetons de
+  raisonnement n'existe plus comme paramètre ; la borne dure qui reste est `MAX_TOKENS`.
+* `display: "summarized"` est ce qui rend le texte non vide. C'est un **résumé produit par
+  l'API**, jamais la trace brute du modèle — le dashboard de l'étape 17 l'écrit à l'écran,
+  et ce module ne prétend pas le contraire.
+* `output_config.effort` n'est **pas** fixé : son défaut est `high`, et trois mesures à
+  `low` / `medium` / `high` sur le même message ont rendu 165, 280 et 187 jetons de
+  sortie — soit du bruit, sur cette charge. Le fixer serait remplacer un pari non mesuré
+  par un autre. C'est le levier à ouvrir si la métrique nº4 bouge, et pas avant.
+
+### On ne fixe pas non plus `temperature` (arbitrage 12, celui-là tient)
+
+Le défaut du modèle. Le dépôt s'est déjà fait prendre à supposer que `temperature=0`
+donnait du déterminisme ; on ne le suppose plus, et on ne le revendique nulle part.
 """
 
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import anthropic
 import structlog
-from anthropic.types import MessageParam, ToolParam
+from anthropic.types import MessageParam, ThinkingConfigParam, ToolParam
 
-from raiyon.agent.client import MAX_TOKENS, ReponseLLM, Usage
+from raiyon.agent.client import EFFORT_NON_FIXE, MAX_TOKENS, ReponseLLM, Usage
 from raiyon.config import cle_api, get_settings
 
 logueur = structlog.get_logger(__name__)
+
+DISPLAY: Literal["summarized"] = "summarized"
+"""Le mode d'affichage du raisonnement, **et le maximum que l'API accorde**.
+
+Nommé à part parce que deux endroits le lisent : la requête ci-dessous, et la propriété
+`display` que l'observation écrit dans `appels_modele`. Une valeur écrite deux fois est le
+motif que ce dépôt a déjà payé trois fois."""
+
+THINKING: ThinkingConfigParam = {"type": "adaptive", "display": DISPLAY}
+"""Le raisonnement demandé à chaque appel. **`display` est le seul champ qui change quelque
+chose** — l'adaptatif tournait déjà, en silence. Voir la docstring du module."""
 
 
 def sans_strict(outils: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -102,6 +149,37 @@ class ClientAnthropic:
         """Le mode retenu. `make fumee` et les logs de la boucle l'affichent."""
         return not self._replie
 
+    # Trois lectures publiques, ajoutées à l'étape 17 pour `ClientJournalisant`. Elles
+    # décrivent **la requête qui part**, et c'est ce qui les rend légitimes : le décorateur
+    # ne les devine pas, il les lit sur celui qui les envoie. Hors du `Protocol` — la
+    # boucle n'en a que faire, et un client de cassette n'a rien à en dire.
+
+    @property
+    def modele(self) -> str:
+        """L'identifiant de modèle réellement envoyé, défaut de configuration résolu."""
+        return self._modele
+
+    @property
+    def effort(self) -> str:
+        """`defaut` tant que `output_config.effort` n'est pas fixé — et il ne l'est pas.
+
+        ⚠️ **Ce n'est pas un réglage déguisé.** Trois tirages `low`/`medium`/`high` sur un
+        même message ont rendu 165, 280 et 187 jetons de sortie : du bruit. Fixer sur cette
+        base referait la faute que la docstring du module vient de consigner. La colonne
+        `appels_modele.effort` existe pour rendre la question décidable sur du trafic réel,
+        et cette propriété est ce qui la remplit honnêtement en attendant."""
+        return EFFORT_NON_FIXE
+
+    @property
+    def display(self) -> str:
+        """`summarized` — et c'est le maximum que l'API accorde. **Mesuré.**
+
+        Une valeur inventée rend un 400 qui énumère la liste close :
+        `thinking.adaptive.display: Input should be 'summarized', 'omitted'`. Il n'existe
+        donc pas de mode plus bavard à demander, et le résumé de 130 à 175 caractères qu'on
+        observe est le plafond du modèle, pas un réglage à pousser."""
+        return DISPLAY
+
     def repondre(
         self,
         *,
@@ -133,6 +211,10 @@ class ClientAnthropic:
         message = self._client.messages.create(
             model=self._modele,
             max_tokens=self._max_tokens,
+            # ⚠️ **Explicite parce qu'il était déjà actif**, pas pour l'activer : voir la
+            # docstring du module. Le seul effet réel de cette ligne est `display`, qui
+            # fait arriver un résumé lisible là où le texte revenait vide.
+            thinking=THINKING,
             # Le **seul** point de coupe du cache. Le préfixe couvert est
             # `tools` + `system` : les cinq définitions d'outils sont dedans.
             system=[{"type": "text", "text": systeme, "cache_control": {"type": "ephemeral"}}],

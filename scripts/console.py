@@ -57,6 +57,7 @@ from raiyon.catalogue.schemas import LIBELLES_CATEGORIE, Categorie
 from raiyon.config import ConfigurationError, get_settings
 from raiyon.db.engine import get_sessionmaker
 from raiyon.db.models import SessionConversation
+from raiyon.journal import configurer_journal
 from raiyon.matching.attributs import ATTRIBUTS
 from raiyon.matching.criteres import Critere
 from raiyon.matching.depot import DepotSql
@@ -75,6 +76,10 @@ def main() -> int:
         "--trace", action="store_true", help="affiche les arguments d'appel et les tool_result"
     )
     arguments = analyseur.parse_args()
+
+    # Avant tout le reste : un `ClientAnthropic()` qui lève doit laisser une trace dans le
+    # fichier, pas seulement dans le terminal qu'on va fermer.
+    configurer_journal()
 
     try:
         client = ClientAnthropic()
