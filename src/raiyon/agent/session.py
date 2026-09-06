@@ -75,6 +75,7 @@ from sqlalchemy.orm import Session
 
 from raiyon.agent.client import ClientLLM
 from raiyon.agent.evenements import Evenement
+from raiyon.avis.cache import DepotAvisSql, ttl_des_avis
 from raiyon.db.models import (
     AppelModele,
     EvenementTour,
@@ -215,7 +216,20 @@ def tour(
             historique=historique,
             message_client=message_client,
             etat=etat,
-            contexte=ContexteOutils(depot=depot, tour_client=numero, tolerance=tolerance),
+            contexte=ContexteOutils(
+                depot=depot,
+                tour_client=numero,
+                tolerance=tolerance,
+                # ⚠️ **Le cache d'avis vit dans la session SQLAlchemy du tour** : ses
+                # écritures héritent donc de l'atomicité de l'arbitrage 9, comme les
+                # lignes de conversation et les tables d'observation. Un tour qui plante
+                # ne laisse pas un cache à moitié rempli.
+                depot_avis=DepotAvisSql(session, ttl=ttl_des_avis()),
+                # ⚠️ **`fournisseur` reste `None` : hors ligne** (étape 27). L'implémentation
+                # réseau n'existe pas encore, et son absence n'est pas un manque — c'est ce
+                # qui garantit qu'aucune exécution ne sort. Le jour où elle entrera, elle
+                # sera construite **ici**, sous condition de clé, et nulle part ailleurs.
+            ),
             max_iterations=max_iterations,
             max_regenerations=max_regenerations,
         ),

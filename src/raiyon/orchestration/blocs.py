@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from raiyon.agent.evenements import (
+    AvisConsultes,
     CriteresMisAJour,
     Evenement,
     ProduitsTrouves,
@@ -51,6 +52,7 @@ from raiyon.agent.prompts import message_de_grief
 from raiyon.orchestration.contrat import ROLE_CLIENT, TourProduit
 from raiyon.tools.erreurs import OutilRefuse
 from raiyon.tools.outils import (
+    ResultatAvis,
     ResultatEnregistrement,
     ResultatOutil,
     ResultatQuestion,
@@ -184,6 +186,17 @@ def evenement_de(resultat: ResultatOutil) -> Evenement | None:
         )
     if isinstance(resultat, ResultatRecherche):
         return ProduitsTrouves(resultat.resultat)
+    if isinstance(resultat, ResultatAvis):
+        # `etat_cache` est **passé**, jamais reconstruit depuis `depuis_le_cache` : le
+        # booléen écraserait `perime` en `absent`, et c'est justement la distinction que
+        # le journal doit compter.
+        return AvisConsultes(
+            requete_normalisee=resultat.requete_normalisee,
+            nombre=len(resultat.avis),
+            depuis_le_cache=resultat.depuis_le_cache,
+            etat_cache=resultat.etat_cache.value,
+            latence_ms=resultat.latence_ms,
+        )
     return None
 
 

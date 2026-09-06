@@ -13,6 +13,7 @@ from raiyon.catalogue.schemas import CATEGORIES
 from raiyon.matching.attributs import ATTRIBUTS, Role
 from raiyon.matching.criteres import CHAMPS_A_CHAMP_DEDIE, Importance, Operateur, Optimisation
 from raiyon.tools.outils import (
+    ArgumentsAvis,
     ArgumentsCle,
     ArgumentsCritere,
     ArgumentsEnregistrement,
@@ -20,6 +21,7 @@ from raiyon.tools.outils import (
     ArgumentsSondage,
 )
 from raiyon.tools.schema_outils import (
+    NOM_AVIS,
     NOM_ENREGISTRER,
     NOM_PRECISION,
     NOM_QUESTION,
@@ -107,22 +109,42 @@ def test_les_enumerations_du_schema_viennent_des_enumeres_python():
 
 
 # --------------------------------------------------------------------------- #
-# Les cinq outils, et ce qu'ils exposent
+# Les six outils, et ce qu'ils exposent
 # --------------------------------------------------------------------------- #
 
 
-def test_les_cinq_outils_portent_les_noms_du_paragraphe_3_7():
+def test_les_six_outils_portent_les_noms_du_paragraphe_3_7():
+    """⚠️ **Cinq jusqu'à l'étape 27**, six depuis — §3.7 en décrivait quatre.
+
+    Le compte est dans le nom du test exprès : c'est lui qui a échoué quand
+    `search_reviews` est entré, et c'est ce qu'on veut d'un test de cadrage — il force à
+    dire qu'un outil de plus est une décision, pas un ajout.
+    """
     assert set(SCHEMA) == {
         NOM_ENREGISTRER,
         NOM_SONDER,
         NOM_QUESTION,
         NOM_RECHERCHER,
         NOM_PRECISION,
+        NOM_AVIS,
     }
     assert NOM_SONDER == "probe_catalog"
     assert NOM_QUESTION == "suggest_next_question"
     assert NOM_RECHERCHER == "search_products"
     assert NOM_PRECISION == "ask_clarification"
+    assert NOM_AVIS == "search_reviews"
+
+
+def test_la_recherche_davis_ne_prend_quune_requete_libre():
+    """Aucun `produit_id` : un lien produit serait un fait dont le modèle est seul auteur.
+
+    Aucun `categorie` non plus — la recherche d'avis ne lit pas l'état des critères et
+    n'a pas de sous-catalogue. C'est le seul outil du projet dans ce cas.
+    """
+    proprietes = SCHEMA[NOM_AVIS]["input_schema"]["properties"]
+
+    assert set(proprietes) == {"requete"}
+    assert SCHEMA[NOM_AVIS]["input_schema"]["required"] == ["requete"]
 
 
 def test_les_outils_de_recherche_ne_prennent_aucun_critere():
@@ -155,6 +177,7 @@ def test_le_schema_et_les_modeles_pydantic_declarent_les_memes_proprietes():
         (NOM_ENREGISTRER, ArgumentsEnregistrement),
         (NOM_SONDER, ArgumentsSondage),
         (NOM_PRECISION, ArgumentsPrecision),
+        (NOM_AVIS, ArgumentsAvis),
     ]
     for nom, modele in paires:
         assert set(SCHEMA[nom]["input_schema"]["properties"]) == set(modele.model_fields)

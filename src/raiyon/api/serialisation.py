@@ -79,6 +79,7 @@ from typing import Any, assert_never
 
 from raiyon.agent.evenements import (
     LIBELLES_MOTIF_DE_REPLI,
+    AvisConsultes,
     CriteresMisAJour,
     Evenement,
     ProduitsTrouves,
@@ -104,7 +105,7 @@ Donnees = dict[str, Any]
 
 
 class NomEvenement(StrEnum):
-    """Les dix noms du fil. **Fermé** : le front n'a pas d'autre vocabulaire à connaître.
+    """Les onze noms du fil. **Fermé** : le front n'a pas d'autre vocabulaire à connaître.
 
     Les huit premiers viennent de l'union `Evenement` ; les deux derniers appartiennent à
     l'API (arbitrage F). Ils vivent dans la même énumération parce qu'ils voyagent dans le
@@ -115,6 +116,7 @@ class NomEvenement(StrEnum):
     SONDAGE = "catalog_probe"
     QUESTION_SUGGEREE = "suggested_question"
     PRODUITS = "products_found"
+    AVIS = "reviews_consulted"
     QUESTION = "question"
     MESSAGE = "message"
     TEXTE_REJETE = "text_rejected"
@@ -216,6 +218,17 @@ def nom_et_donnees(evenement: Evenement) -> tuple[NomEvenement, Donnees]:
         return NomEvenement.QUESTION_SUGGEREE, _question_suggeree(evenement)
     if isinstance(evenement, ProduitsTrouves):
         return NomEvenement.PRODUITS, _produits_trouves(evenement)
+    if isinstance(evenement, AvisConsultes):
+        # ⚠️ **Ni titre, ni extrait, ni URL** — voir `AvisConsultes`. Le fil décrit l'acte
+        # de chercher, jamais ce que les pages disent : y verser du texte de tiers le
+        # ferait entrer, non encadré, dans le tableau de bord et dans `evenements_tour`.
+        return NomEvenement.AVIS, {
+            "requete": evenement.requete_normalisee,
+            "nombre": evenement.nombre,
+            "depuis_le_cache": evenement.depuis_le_cache,
+            "etat_cache": evenement.etat_cache,
+            "latence_ms": evenement.latence_ms,
+        }
     if isinstance(evenement, QuestionPosee):
         return NomEvenement.QUESTION, {
             "question": evenement.question,

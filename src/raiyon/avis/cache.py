@@ -62,6 +62,19 @@ from raiyon.db.models import EXTRAIT_MAX_CARACTERES, AvisProduit
 
 logueur = structlog.get_logger(__name__)
 
+
+def ttl_des_avis() -> timedelta:
+    """La fraîcheur en vigueur : `RAIYON_AVIS_TTL_HEURES`, en `timedelta`.
+
+    Une fonction plutôt qu'une constante de module : `get_settings()` est en cache mais
+    lit l'environnement au premier appel, et une constante figerait la valeur à l'import —
+    donc avant que les tests aient neutralisé l'environnement.
+    """
+    from raiyon.config import get_settings
+
+    return timedelta(hours=get_settings().avis_ttl_heures)
+
+
 SOURCE_FABRIQUE = "fabrique"
 """La provenance qui ne périme pas. Écrite ici **et** dans `SOURCES_AVIS`, parce que le
 schéma déclare le vocabulaire et que cette couche déclare celle des deux qui a un

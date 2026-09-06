@@ -42,6 +42,37 @@ répondent à l'une répondent en général à l'autre, puisqu'elles comparent l
 Ce n'est pas une preuve, c'est un pari, et il est écrit ici pour que le journal le
 mesure — l'étape 27 trace la clé de chaque recherche, donc les collisions se comptent.
 
+### 🔴 La limite qui coûtera le plus cher : la clé n'est pas tolérante au sous-ensemble
+
+⚠️ **Le curseur est relevé sur l'ORDRE des mots, pas sur leur NOMBRE.** C'est une
+qualification importante de tout ce qui précède, et elle a été constatée en branchant
+l'outil sur le seed réel, pas déduite :
+
+| Formulation | Clé |
+|---|---|
+| « ASRock Phantom Gaming PG27FRS1A avis » | `asrock avis gaming pg27frs1a phantom` |
+| « avis ASRock PG27FRS1A » | `asrock avis pg27frs1a` |
+| « ASRock PG27FRS1A avis utilisateurs » | `asrock avis pg27frs1a utilisateurs` |
+
+Trois demandes identiques, **trois clés**. Un mot de plus ou de moins suffit, et le modèle
+formule librement — donc c'est le mode de miss le plus probable en pratique, très loin
+devant les collisions du tri.
+
+**Ce n'est pas corrigé ici, et le motif est daté.** La parade est un appariement par
+recouvrement — un cache touché quand les jetons de la requête sont *inclus* dans ceux
+d'une entrée, ou au-delà d'un seuil de Jaccard. C'est un **second mécanisme** avec son
+seuil à calibrer, et le calibrer suppose de savoir à quelle fréquence le cas arrive.
+
+Or ce chiffre existera bientôt et ne coûte rien : l'étape 28 compte les `ABSENT`, et un
+`ABSENT` hors ligne **nomme la clé** que le modèle a formulée. Après une campagne, on
+saura si le modèle produit dix formulations pour un produit ou toujours la même — et donc
+s'il faut un appariement flou, ou simplement quelques fixtures de plus. Poser le seuil
+avant ce chiffre serait le poser à l'intuition, ce que ce dépôt refuse ailleurs.
+
+⚠️ **Atténuation immédiate, et elle est dans le prompt** : la description de
+`search_reviews` demande de nommer le produit **tel que le catalogue l'écrit**, ce qui
+concentre les formulations. Ça réduit la dispersion, ça ne la ferme pas.
+
 ### Ce qui a été refusé, et pourquoi
 
 * **Retrait des mots vides.** « est-ce que », « le », « de » ne pèsent rien dans le tri

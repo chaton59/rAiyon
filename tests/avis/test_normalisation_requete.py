@@ -69,6 +69,27 @@ class TestCeQuiNeDoitPasFusionner:
     def test_un_mot_de_plus_change_la_cle(self):
         assert normaliser("avis écran gaming") != normaliser("avis écran")
 
+    def test_la_cle_nest_pas_tolerante_au_sous_ensemble(self):
+        """🔴 **La limite qui coûtera le plus cher, constatée plutôt que découverte.**
+
+        Le curseur est relevé sur l'**ordre** des mots, pas sur leur **nombre**. Trois
+        façons de demander le même avis donnent trois clés, et le modèle formule librement :
+        c'est le mode de miss le plus probable en pratique, très loin devant les collisions
+        du tri.
+
+        Trouvé en branchant l'outil sur le seed réel — « ASRock Phantom Gaming PG27FRS1A
+        avis » est dans le seed, « avis ASRock PG27FRS1A » manque. La parade est un
+        appariement par recouvrement, avec un seuil ; le seuil attend le chiffre que
+        l'étape 28 produira en comptant les `ABSENT`, qui nomment la clé formulée.
+        """
+        cles = {
+            normaliser("ASRock Phantom Gaming PG27FRS1A avis"),
+            normaliser("avis ASRock PG27FRS1A"),
+            normaliser("ASRock PG27FRS1A avis utilisateurs"),
+        }
+
+        assert len(cles) == 3
+
 
 def test_le_tri_fusionne_les_comparatives_et_cest_le_pari_assume():
     """🔴 **Le faux positif nommé dans la docstring du module.**

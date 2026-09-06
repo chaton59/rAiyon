@@ -48,6 +48,7 @@ from scenarios import ECRAN_144, jouer
 from outils_de_test import TOLERANCE, DepotEnMemoire, ecrans
 from produits_de_test import fabriquer
 from raiyon.agent.evenements import (
+    AvisConsultes,
     CriteresMisAJour,
     MotifDeRepli,
     ProduitsTrouves,
@@ -174,7 +175,7 @@ ECRAN = fabriquer("monitor", 1, prix="129.99", marque="MSI")
 
 
 def un_de_chaque() -> list[str]:
-    """Une trame de chacun des dix noms — les huit du domaine, `error` et `done`.
+    """Une trame de chacun des onze noms — les neuf du domaine, `error` et `done`.
 
     Elles sont construites à la main plutôt que jouées : un tour réel ne produit pas
     `fallback` **et** `message`, ni `question` **et** `products_found`. Les propriétés 1 et
@@ -248,6 +249,15 @@ def un_de_chaque() -> list[str]:
             )
         ),
         QuestionPosee(question="Vous jouez plutôt en 1440p ou en 4K ?", champ_vise="largeur_px"),
+        # ⚠️ Aucun titre, aucun extrait, aucune URL : cet événement décrit **l'acte**
+        # de chercher, jamais ce que les pages disent. Voir `AvisConsultes`.
+        AvisConsultes(
+            requete_normalisee="asrock avis pg27frs1a",
+            nombre=2,
+            depuis_le_cache=True,
+            etat_cache="trouve",
+            latence_ms=0,
+        ),
         Texte(PROSE_MULTILIGNE),
         TexteRejete(
             texte="Celui-ci est à 230 $.",
@@ -301,9 +311,13 @@ def test_une_trame_est_un_event_un_data_et_une_ligne_vide(rendu):
     assert isinstance(json.loads(correspondance["donnees"]), dict)
 
 
-def test_les_dix_noms_du_fil_sont_couverts():
-    """Le décor lui-même est vérifié : un onzième nom ajouté à `NomEvenement` sans trame
-    d'exemple ferait passer les tests ci-dessus **sans jamais l'exercer**."""
+def test_les_onze_noms_du_fil_sont_couverts():
+    """Le décor lui-même est vérifié : un douzième nom ajouté à `NomEvenement` sans
+    trame d'exemple ferait passer les tests ci-dessus **sans jamais l'exercer**.
+
+    ⚠️ Dix jusqu'à l'étape 27 ; `reviews_consulted` est le onzième. Ce test a échoué à
+    son arrivée — c'est son travail, et c'est pourquoi le compte est dans son nom.
+    """
     noms = {rendu.split("\n")[0].removeprefix("event: ") for rendu in un_de_chaque()}
 
     assert noms == {nom.value for nom in NomEvenement}

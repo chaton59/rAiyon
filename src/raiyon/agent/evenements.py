@@ -145,6 +145,37 @@ class ProduitsTrouves:
 
 
 @dataclass(frozen=True, slots=True)
+class AvisConsultes:
+    """Une recherche d'avis a eu lieu (étape 27). **Aucun contenu de page n'y entre.**
+
+    ⚠️ **Cet événement décrit l'acte, pas ce qu'il a rendu.** Il porte la requête, l'état
+    du cache, le nombre de résultats et la latence — de quoi mesurer —, et **ni titre, ni
+    extrait, ni URL**. Deux raisons, et la seconde est la plus forte :
+
+    * le fil SSE et `evenements_tour` sont relus par le tableau de bord et par
+      `prose_cote_a_cote.py` ; y verser du texte de tiers ferait entrer du contenu non
+      encadré dans des pages qui n'ont aucun encadrement à offrir ;
+    * ce serait une **seconde persistance** du contenu web, à côté d'`avis_produit`, avec
+      deux copies libres de diverger. La table dit ce que le cache contient, l'événement
+      dit ce que le tour a demandé.
+
+    Ce que le client voit à l'écran vient donc de la prose du modèle, pas de cet événement.
+    C'est délibéré : le web apporte des opinions, et une opinion se raconte, elle ne
+    s'affiche pas en carte comme un produit.
+
+    `depuis_le_cache` est le hit/miss du journal. `etat_cache` porte la nuance —
+    `absent` n'est pas `perime`, et la première dit « fixture manquante » quand la seconde
+    dit « frontière de TTL ».
+    """
+
+    requete_normalisee: str
+    nombre: int
+    depuis_le_cache: bool
+    etat_cache: str
+    latence_ms: int
+
+
+@dataclass(frozen=True, slots=True)
 class QuestionPosee:
     """`ask_clarification` a été appelé : **le tour est clos**.
 
@@ -295,6 +326,7 @@ Evenement = (
     | Sondage
     | QuestionSuggeree
     | ProduitsTrouves
+    | AvisConsultes
     | QuestionPosee
     | Texte
     | TexteRejete

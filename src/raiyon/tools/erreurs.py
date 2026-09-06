@@ -68,6 +68,33 @@ class CodeRefus(StrEnum):
     """Un champ cité hors critère — la projection d'un sondage, la cible d'une
     demande de précision — n'existe pas dans la catégorie courante."""
 
+    TROP_DAVIS_DANS_UN_TOUR = "trop_davis_dans_un_tour"
+    """Une seconde recherche d'avis dans le même message du client (étape 27).
+
+    La borne vaut 1, comme la recherche de produits, mais **pour un autre motif** : chaque
+    appel fait entrer du texte de tiers dans la fenêtre, donc de la surface d'injection.
+    Le geste attendu du modèle est de reformuler une requête qui couvre le besoin en une
+    fois, pas de réessayer."""
+
+    REQUETE_VIDE = "requete_vide"
+    """La requête d'avis ne contient aucun mot cherchable — « ??? » n'est pas une recherche.
+
+    Refusée ici plutôt qu'en base : la contrainte `requete_non_vide` d'`avis_produit` est
+    le filet, mais elle rendrait un message de contrainte SQL là où le modèle a besoin de
+    savoir quoi corriger."""
+
+    AVIS_HORS_LIGNE = "avis_hors_ligne"
+    """🔴 **Le miss bruyant** : rien en cache, et aucune recherche en ligne disponible.
+
+    Ce n'est **pas** « rien trouvé ». Un résultat vide se confondrait avec une recherche
+    qui a eu lieu et n'a rien rendu : le scénario continuerait, le modèle rédigerait sans
+    avis, et la campagne mesurerait autre chose que ce qu'elle annonce — sans erreur et
+    sans message. Le refus, lui, se compte par code dans le rapport d'éval et **nomme la
+    clé normalisée à écrire** dans `data/seed/avis.jsonl`.
+
+    C'est donc autant un message pour le modèle qu'un diagnostic pour qui répare une
+    campagne, et c'est le seul code du registre dans ce cas."""
+
     OUTIL_INCONNU = "outil_inconnu"
     """Le nom d'outil appelé n'existe pas. Ajouté à l'étape 8 avec le répartiteur.
 

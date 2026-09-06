@@ -77,6 +77,37 @@ logueur = structlog.get_logger(__name__)
 # créerait un second endroit où le nom d'un champ de produit peut changer — exactement
 # ce que ce bloc de constantes existe pour éviter.
 CLE_OK = "ok"
+CLE_FAITS_DU_CATALOGUE = "faits_du_catalogue"
+"""🔴 **La déclaration qui fait entrer une charge utile dans le contexte** (étape 27).
+
+Une charge qui ne la porte pas à `True` ne fournit **aucun** fait. C'est l'exclusion du
+contenu web du §3.18, et elle est écrite comme une **adhésion explicite**, pas comme une
+liste d'exceptions.
+
+### Pourquoi l'adhésion plutôt que l'exclusion, et l'asymétrie qui tranche
+
+L'écriture inverse — « le web déclare `faits_du_catalogue: false` et le reste entre par
+défaut » — est plus courte et se lit mieux. Elle échoue du mauvais côté :
+
+| Écriture | Un futur outil dont on oublie la déclaration |
+|---|---|
+| Exclusion (`false` à poser) | son contenu devient **citable** — hallucination, en silence |
+| Adhésion (`true` à poser) | ses faits ne sont **pas** citables — du texte vrai est refusé |
+
+Le second est un faux positif : il se voit dans la prose refusée, dans le taux de rejet
+par code, et il se corrige en une ligne. Le premier est un trou silencieux dans la seule
+garantie que le §2 promet. C'est exactement la règle que `_decoder()` applique déjà à un
+`tool_result` illisible : **jugé sans lui, donc plus sévèrement, jamais plus laxement.**
+
+⚠️ **Elle est lue par clé, jamais par nom d'outil** — la règle du module tient. Le nom de
+l'outil n'apparaît nulle part dans le `tool_result`, et s'y fier reviendrait à faire
+dépendre le validateur d'un protocole qu'il ne contrôle pas.
+
+`tests/validateur/test_exclusion_du_web.py` est la garde : il construit une charge d'avis
+qui **porte tout ce qu'il faut pour polluer** — des comptages, un prix, un identifiant —
+et exige qu'elle ne fournisse rien. Il échoue si la déclaration est ajoutée à la branche
+`ResultatAvis` d'`en_tool_result()`."""
+
 CLE_PRODUITS = "produits"
 CLE_AU_DESSUS_DU_BUDGET = "au_dessus_du_budget"
 ROLE_CLIENT = "user"
@@ -349,10 +380,25 @@ def contexte_des_resultats(
 
     C'est la porte d'entrée des tests : un dictionnaire suffit, il n'y a ni base, ni
     clé, ni SDK dans le chemin.
+
+    ⚠️ **Les deux conditions d'entrée sont ici, et pas dans `_charges_utiles()`** (étape 27).
+    La première rédaction avait mis la garde `faits_du_catalogue` dans `_charges_utiles()`,
+    qui est sur le chemin des **messages** ; `contexte_des_resultats()` est l'autre porte,
+    celle des charges déjà décodées, et elle passait à côté. `test_exclusion_du_web` l'a
+    dit tout de suite — les deux chemins ne rendaient pas le même contexte pour la même
+    charge, ce qui est précisément la divergence que ce module refuse ailleurs.
+
+    Elles vivent donc au **seul point par lequel tout passe** : `contexte_des_messages()`
+    délègue ici, et un futur troisième appelant en hériterait sans rien savoir.
     """
     accumulateur = _Accumulateur()
     for charge in charges:
         if charge.get(CLE_OK) is not True:
+            continue
+        if charge.get(CLE_FAITS_DU_CATALOGUE) is not True:
+            # L'adhésion explicite du §3.18 : une charge qui ne se déclare pas source de
+            # faits n'en fournit aucun. Voir `CLE_FAITS_DU_CATALOGUE` pour l'asymétrie qui
+            # fait préférer l'adhésion à l'exclusion.
             continue
         accumulateur.absorber(charge)
     return accumulateur.figer(

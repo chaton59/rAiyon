@@ -64,6 +64,7 @@ const LIBELLES = {
     catalog_probe: "sondage du catalogue",
     suggested_question: "question suggérée",
     products_found: "produits trouvés",
+    reviews_consulted: "avis consultés",
     question: "question posée",
     message: "message livré",
     text_rejected: "texte refusé par le validateur",

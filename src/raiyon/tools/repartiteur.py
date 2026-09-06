@@ -44,20 +44,25 @@ deux choses.
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
 import structlog
 from pydantic import ValidationError
 
+from raiyon.avis.cache import DepotAvis
+from raiyon.avis.fournisseur import Fournisseur
 from raiyon.matching.depot import DepotProduits
 from raiyon.tools.erreurs import CodeRefus, OutilRefuse
 from raiyon.tools.etat import EtatSession
 from raiyon.tools.outils import (
+    ArgumentsAvis,
     ArgumentsEnregistrement,
     ArgumentsPrecision,
     ArgumentsSondage,
     ResultatOutil,
+    chercher_des_avis_web,
     demander_precision,
     enregistrer_criteres,
     question_suivante,
@@ -65,6 +70,7 @@ from raiyon.tools.outils import (
     sonder_catalogue,
 )
 from raiyon.tools.schema_outils import (
+    NOM_AVIS,
     NOM_ENREGISTRER,
     NOM_PRECISION,
     NOM_QUESTION,
@@ -74,8 +80,15 @@ from raiyon.tools.schema_outils import (
 
 logueur = structlog.get_logger(__name__)
 
-NOMS: tuple[str, ...] = (NOM_ENREGISTRER, NOM_SONDER, NOM_QUESTION, NOM_RECHERCHER, NOM_PRECISION)
-"""Les cinq noms, dans l'ordre du schéma. Un test vérifie qu'ils correspondent
+NOMS: tuple[str, ...] = (
+    NOM_ENREGISTRER,
+    NOM_SONDER,
+    NOM_QUESTION,
+    NOM_RECHERCHER,
+    NOM_PRECISION,
+    NOM_AVIS,
+)
+"""Les six noms, dans l'ordre du schéma. Un test vérifie qu'ils correspondent
 exactement à ceux que `schema_des_outils()` déclare : une divergence rendrait un outil
 annoncé au modèle et injoignable, ou l'inverse."""
 
@@ -96,6 +109,31 @@ class ContexteOutils:
     depot: DepotProduits
     tour_client: int
     tolerance: Decimal | None = None
+
+    depot_avis: DepotAvis | None = None
+    """Le cache d'avis (étape 27). `None` : `search_reviews` est **injoignable**.
+
+    Un contexte sans cache refuse l'outil au lieu de lever : les cinq autres outils
+    continuent de fonctionner, et une session construite avant l'étape 27 — dans un test,
+    dans un script — ne casse pas parce qu'un sixième outil existe ailleurs."""
+
+    fournisseur: Fournisseur | None = None
+    """Le récupérateur réseau. `None` — le défaut — veut dire **hors ligne**.
+
+    ⚠️ **Le mode hors ligne est l'absence d'un objet, pas un drapeau.** Les tests, les
+    campagnes d'éval et `make check` sont donc hors ligne par construction, sans variable
+    à poser ni à se rappeler. Un mode hors ligne qui s'active par configuration s'oublie ;
+    celui-ci ne peut pas l'être — il faut délibérément construire un fournisseur.
+
+    Hors ligne, un miss du cache est **bruyant** : `AVIS_HORS_LIGNE`, pas un résultat vide.
+    Voir `raiyon.avis.fournisseur` pour pourquoi la distinction décide de tout."""
+
+    maintenant: datetime | None = None
+    """L'instant qui décide de la péremption. `None` : `datetime.now(UTC)`.
+
+    Injectable pour la même raison que `tolerance` : un test qui doit franchir un TTL de
+    24 h ne peut pas attendre 24 h, et le seul autre moyen serait d'écrire des lignes
+    antidatées — ce qui testerait l'antidatage plutôt que la règle."""
 
 
 def executer(
@@ -151,6 +189,20 @@ def _appeler(
         )
     if nom == NOM_PRECISION:
         return demander_precision(etat, ArgumentsPrecision(**arguments))
+    if nom == NOM_AVIS:
+        if contexte.depot_avis is None:
+            raise OutilRefuse(
+                CodeRefus.AVIS_HORS_LIGNE,
+                "la recherche d'avis n'est pas disponible dans cette session.",
+            )
+        return chercher_des_avis_web(
+            etat,
+            ArgumentsAvis(**arguments),
+            depot=contexte.depot_avis,
+            fournisseur=contexte.fournisseur,
+            tour_client=contexte.tour_client,
+            maintenant=contexte.maintenant or datetime.now(UTC),
+        )
 
     raise OutilRefuse(
         CodeRefus.OUTIL_INCONNU,

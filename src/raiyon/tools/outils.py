@@ -43,12 +43,17 @@ JSON, et il n'existe qu'un endroit où une clé du protocole peut changer de nom
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, fields, is_dataclass, replace
+from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import assert_never
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from raiyon.avis.cache import Avis, DepotAvis, EtatCache
+from raiyon.avis.encadrement import encadrer_les_avis
+from raiyon.avis.fournisseur import Fournisseur
+from raiyon.avis.recherche import AvisHorsLigne, RequeteVide, chercher_des_avis
 from raiyon.catalogue.schemas import Categorie
 from raiyon.matching.attributs import ATTRIBUTS
 from raiyon.matching.criteres import Critere, Importance, Operateur, Optimisation
@@ -72,6 +77,7 @@ from raiyon.tools.etat import (
     EtatSession,
     MouvementRefuse,
     Recherche,
+    RecherchesDavis,
     fusionner,
 )
 from raiyon.tools.schema_outils import champs_utilisables
@@ -90,6 +96,14 @@ from raiyon.tools.schema_outils import champs_utilisables
 # les unités, et quels champs vivent dans quelle catégorie. Un test vérifie que les deux
 # faces déclarent exactement les mêmes propriétés, ce qui ferme la divergence sans faire
 # dépendre l'une de l'autre.
+
+
+AVIS_PAR_MESSAGE = 1
+"""Recherches d'avis autorisées par message du client (étape 27).
+
+Même chiffre que la recherche de produits, **motif différent** : là-bas c'est « un
+composant à la fois » (arbitrage K), ici c'est la surface d'injection et le jeton qu'un
+second appel doublerait. Voir `chercher_des_avis_web()` pour l'arbitrage complet."""
 
 
 class _Arguments(BaseModel):
@@ -126,6 +140,19 @@ class ArgumentsSondage(_Arguments):
 class ArgumentsPrecision(_Arguments):
     question: str = Field(min_length=1)
     champ_vise: str | None = None
+
+
+class ArgumentsAvis(_Arguments):
+    """Une requête libre, et rien d'autre.
+
+    ⚠️ **Pas de `produit_id`**, alors que le cache en porte un. Il serait commode — le
+    modèle sait quel produit il regarde — et ce serait un champ dont le **modèle est le
+    seul auteur**, écrit dans une colonne de faits. §2 dit l'inverse : un lien produit
+    affirme qu'une recherche libre porte sur ce produit-là, et rien ne le vérifie. Le
+    `produit_id` du cache reste donc posé par le seed, écrit à la main et relu.
+    """
+
+    requete: str = Field(min_length=1)
 
 
 # --------------------------------------------------------------------------- #
@@ -234,12 +261,48 @@ class ResultatPrecision:
     terminal: bool = True
 
 
+@dataclass(frozen=True, slots=True)
+class ResultatAvis:
+    """Des avis web, et **structurellement aucun fait de catalogue** (étape 27).
+
+    Aucun champ de cette classe ne porte d'identifiant produit, de prix, ni de comptage de
+    catalogue — et un test le constate **sur le type**, comme pour `ResultatSondage` : une
+    exécution ne prouve que le jeu de données qu'on lui a donné.
+
+    ⚠️ **C'est la seule sortie du projet qui porte du texte que le projet n'a pas écrit.**
+    D'où deux propriétés qui ne se lisent pas dans les champs et qui vivent dans
+    `en_tool_result()` : le contenu part **encadré** (`raiyon.avis.encadrement`), et la
+    charge utile ne déclare pas `faits_du_catalogue`, donc rien n'en entre dans le
+    `ContexteFourni` (§3.18).
+    """
+
+    etat: EtatSession
+    requete_normalisee: str
+    avis: tuple[Avis, ...]
+    etat_cache: EtatCache
+    latence_ms: int
+
+    terminal: bool = False
+
+    @property
+    def depuis_le_cache(self) -> bool:
+        """Le hit/miss du journal, **dérivé de `etat_cache` et jamais stocké à côté**.
+
+        ⚠️ La première rédaction portait les deux en champs, et `blocs.py` reconstruisait
+        l'état du cache depuis le booléen — ce qui écrasait `perime` en `absent`. C'est la
+        règle générale du dépôt appliquée ici : partout où l'on re-dérive une information
+        depuis une autre qui en sait moins, on se trompe. Une seule source, une propriété.
+        """
+        return self.etat_cache is EtatCache.TROUVE
+
+
 ResultatOutil = (
     ResultatEnregistrement
     | ResultatSondage
     | ResultatQuestion
     | ResultatRecherche
     | ResultatPrecision
+    | ResultatAvis
 )
 
 
@@ -418,6 +481,82 @@ def demander_precision(etat: EtatSession, arguments: ArgumentsPrecision) -> Resu
     return ResultatPrecision(etat=etat, question=arguments.question, champ_vise=champ)
 
 
+def chercher_des_avis_web(
+    etat: EtatSession,
+    arguments: ArgumentsAvis,
+    *,
+    depot: DepotAvis,
+    fournisseur: Fournisseur | None,
+    tour_client: int,
+    maintenant: datetime,
+) -> ResultatAvis:
+    """Le sixième outil. **Ne touche ni au catalogue, ni à l'état des critères.**
+
+    ### La borne : une recherche d'avis par message du client
+
+    Même borne que `search_products`, et **le motif n'est pas le même**. Là-bas, elle vient
+    de « un composant à la fois » (arbitrage K) ; ici, elle vient de ce que chaque appel
+    fait entrer dans la fenêtre : du **texte de tiers**, c'est-à-dire de la surface
+    d'injection et du jeton. Deux appels doublent les deux, dans un tour qui ne peut de
+    toute façon porter qu'une recommandation.
+
+    ⚠️ **Ce n'est pas une borne de coût.** L'argument économique a été mesuré et il est
+    faux (§3.18) : 81 recherches valent 0,40 $. Une borne posée « pour économiser » aurait
+    été une borne sans raison, et la première mesure l'aurait fait sauter.
+
+    *Alternative écartée — deux appels, pour permettre de comparer deux produits.* C'est le
+    besoin réel qui la justifierait, et il se sert autrement : une requête « X vs Y avis »
+    couvre les deux, et la description de l'outil le dit. Si l'étape 28 montre le modèle
+    buter sur cette borne, elle est une constante — mais on ne relâche pas d'avance une
+    garde qui protège la surface d'injection, sur une gêne supposée.
+
+    Le compteur est **incrémenté même quand l'appel échoue** en aval : il compte ce que le
+    modèle a demandé, pas ce qui a réussi. Sans quoi un miss hors ligne rendrait la borne
+    gratuite, et un tour pourrait enchaîner les refus.
+    """
+    precedentes = etat.avis_du_tour
+    deja = precedentes.compte if precedentes and precedentes.tour_client == tour_client else 0
+    if deja >= AVIS_PAR_MESSAGE:
+        raise OutilRefuse(
+            CodeRefus.TROP_DAVIS_DANS_UN_TOUR,
+            "une recherche d'avis a déjà eu lieu dans ce message du client. "
+            "Une seule par message : formuler une requête qui couvre le besoin en une "
+            "fois, ou reprendre au message suivant.",
+        )
+    apres = replace(etat, avis_du_tour=RecherchesDavis(tour_client, deja + 1))
+
+    try:
+        trouvaille = chercher_des_avis(
+            arguments.requete,
+            depot=depot,
+            fournisseur=fournisseur,
+            maintenant=maintenant,
+        )
+    except RequeteVide as vide:
+        raise OutilRefuse(
+            CodeRefus.REQUETE_VIDE,
+            f"{arguments.requete!r} ne contient aucun mot cherchable. Formuler la "
+            "recherche avec le nom du produit ou le sujet voulu.",
+        ) from vide
+    except AvisHorsLigne as hors_ligne:
+        # 🔴 Le miss bruyant du mode hors ligne. Le message nomme la clé **normalisée** :
+        # c'est exactement ce qu'il faut écrire dans `data/seed/avis.jsonl`.
+        raise OutilRefuse(
+            CodeRefus.AVIS_HORS_LIGNE,
+            f"aucun avis en cache pour la requête normalisée "
+            f"{hors_ligne.requete_normalisee!r}, et aucune recherche en ligne n'est "
+            "disponible dans cette exécution.",
+        ) from hors_ligne
+
+    return ResultatAvis(
+        etat=apres,
+        requete_normalisee=trouvaille.requete_normalisee,
+        avis=trouvaille.avis,
+        etat_cache=trouvaille.etat_cache,
+        latence_ms=trouvaille.latence_ms,
+    )
+
+
 def _categorie_courante(etat: EtatSession) -> Categorie:
     """Un tour, une catégorie — et elle est obligatoire (arbitrage K de l'étape 6)."""
     if etat.categorie_courante is None:
@@ -470,10 +609,24 @@ def en_tool_result(resultat: ResultatOutil | OutilRefuse) -> dict[str, object]:
     """
     if isinstance(resultat, OutilRefuse):
         return {"ok": False, "erreur": resultat.code.value, "message": resultat.message}
+    if isinstance(resultat, ResultatAvis):
+        # ⚠️ **Cette branche ne déclare PAS `faits_du_catalogue`, et c'est l'exclusion du
+        # §3.18 elle-même.** Le validateur ne lit que les charges qui la portent à `True` :
+        # rien de ce que le web rend n'est donc citable comme un fait. Voir
+        # `tests/validateur/test_exclusion_du_web.py`, qui échoue si on la rétablit ici.
+        rappel, encadres = encadrer_les_avis(resultat.avis)
+        return {
+            "ok": True,
+            "avertissement": rappel,
+            "requete": resultat.requete_normalisee,
+            "nombre": len(encadres),
+            "avis": encadres,
+        }
     if isinstance(resultat, ResultatEnregistrement):
         return _charge(
             {
                 "ok": True,
+                "faits_du_catalogue": True,
                 "categorie": resultat.categorie,
                 "criteres": list(resultat.criteres),
                 "budget_usd": resultat.budget_usd,
@@ -485,6 +638,7 @@ def en_tool_result(resultat: ResultatOutil | OutilRefuse) -> dict[str, object]:
         return _charge(
             {
                 "ok": True,
+                "faits_du_catalogue": True,
                 "categorie": resultat.categorie,
                 "budget_usd": resultat.budget_usd,
                 "dans_le_budget": resultat.dans_le_budget,
@@ -498,6 +652,7 @@ def en_tool_result(resultat: ResultatOutil | OutilRefuse) -> dict[str, object]:
         return _charge(
             {
                 "ok": True,
+                "faits_du_catalogue": True,
                 "categorie": resultat.categorie,
                 "candidats": resultat.candidats,
                 "budget": resultat.budget,
@@ -509,6 +664,7 @@ def en_tool_result(resultat: ResultatOutil | OutilRefuse) -> dict[str, object]:
         return _charge(
             {
                 "ok": True,
+                "faits_du_catalogue": True,
                 "categorie": moteur.categorie,
                 "candidats_trouves": moteur.candidats_trouves,
                 "produits": [produit.model_dump(mode="json") for produit in moteur.produits],

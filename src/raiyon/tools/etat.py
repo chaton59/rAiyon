@@ -210,6 +210,20 @@ class Recherche:
 
 
 @dataclass(frozen=True, slots=True)
+class RecherchesDavis:
+    """Combien de recherches d'avis ce message du client a déjà consommées (étape 27).
+
+    ⚠️ **Un compteur, pas un booléen**, alors que la borne vaut 1. Le journal veut savoir
+    si le modèle a **essayé** deux fois, pas seulement qu'il a été refusé une fois : c'est
+    ce chiffre qui dira à quelle fréquence la borne serre, et donc s'il faut la rediscuter.
+    Un booléen répondrait « oui, refusé » sans jamais dire combien.
+    """
+
+    tour_client: int
+    compte: int
+
+
+@dataclass(frozen=True, slots=True)
 class EtatSession:
     """Ce que le client a dit, indexé par catégorie. Aucune notion de panier.
 
@@ -243,6 +257,18 @@ class EtatSession:
 
     recherche_du_tour: Recherche | None = None
     """Garde de tour, **non persistée** — voir la docstring du module."""
+
+    avis_du_tour: RecherchesDavis | None = None
+    """Les recherches d'avis déjà faites dans ce message du client (étape 27).
+
+    Garde de tour, **non persistée** pour la même raison que `recherche_du_tour` : une
+    valeur périmée refuserait une recherche légitime au tour suivant.
+
+    ⚠️ **Elle porte son `tour_client`, elle ne se remet pas à zéro.** Il n'existe pas de
+    `nouveau_tour()` dans ce projet, et en écrire un pour ce champ créerait un second
+    mécanisme d'expiration à côté de celui que `recherche_du_tour` emploie déjà. La garde
+    compare le tour porté au tour courant : un état d'un tour précédent est simplement
+    ignoré, comme celui d'une recherche de produits."""
 
     def criteres_de(self, categorie: Categorie) -> tuple[Critere, ...]:
         """Les critères déclarés pour cette catégorie, dans l'ordre de déclaration."""
