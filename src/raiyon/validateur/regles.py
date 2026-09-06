@@ -51,6 +51,7 @@ from enum import StrEnum
 
 from raiyon.validateur.contexte import ContexteFourni
 from raiyon.validateur.extraction import (
+    Montant,
     canonique,
     identifiants,
     jetons,
@@ -96,6 +97,40 @@ class Grief:
     code: CodeGrief
     extrait: str
     correction: str
+
+    arrondi: bool = False
+    """L'extrait est-il un entier à moins d'un dollar **au-dessus** d'un montant fourni ?
+
+    ⚠️ **Purement instrumental. Ce champ ne change aucune décision** — un grief marqué
+    `arrondi` est refusé exactement comme les autres, et c'est le point.
+
+    ### Pourquoi il existe (étape 21, jalon 2)
+
+    Une tolérance d'arrondi a été proposée et **écartée**. Elle admettait un entier `M` s'il
+    existait un montant fourni `P` tel que `P ≤ M < P + 1` — borne directionnelle, jamais de
+    sous-estimation, pour que « 110 $ » passe sur un produit à 109,99 $ sans que « 109 $ »
+    passe jamais.
+
+    Elle a été refusée sur son propre argument : la formulation la plus fréquente est celle
+    qui attache le montant à un produit nommé, donc **la tolérance servait le plus là où le
+    risque se concentre**. On ne relâche pas d'abord à cet endroit-là. Et le coût mesuré du
+    statu quo est un appel de régénération occasionnel — une occurrence sur quatre
+    conversations —, ce qui ne paie pas une sémantique d'intervalle dans un validateur bâti
+    tout entier sur l'égalité exacte.
+
+    Trois autres objections, consignées pour ne pas les redécouvrir :
+
+    * le chiffre arrondi n'est plus **retapable** — c'est la raison d'être de §3 sur les
+      noms verbatim, appliquée aux prix ;
+    * il crée un nombre **absent du catalogue**, donc invérifiable par égalité, alors que
+      toute la mécanique du validateur repose là-dessus ;
+    * il peut **retourner un verdict de budget** : « ils tiennent tous sous 110 $ » est vrai
+      à 109,99 $, et ment pour un client dont le plafond est à 109,50 $.
+
+    Ce champ est ce qui a été fait **à la place** : compter. La prochaine campagne dira le
+    taux réel de griefs de cette forme, et la question « à quelle fréquence le modèle
+    écrit-il *le MSI à 110 $* ? » aura un chiffre au lieu d'une intuition. Le jour où ce
+    chiffre justifierait la tolérance, la borne et ses objections sont écrites ici."""
 
     def en_ligne(self) -> str:
         """La ligne telle qu'elle part au modèle dans le message de reprise."""
@@ -227,11 +262,19 @@ def regle_montants(texte: str, contexte: ContexteFourni) -> tuple[Grief, ...]:
             # voir §7. L'argument de sûreté est structurel : cette branche admet déjà
             # `valeurs_refusees`, **écrites par le modèle** ; y admettre des écarts
             # **écrits par le moteur** est strictement plus sûr que ce qui s'y trouve.
+            # ⚠️ **`montants_du_client` est ici et NULLE PART AILLEURS** (étape 21,
+            # jalon 2). Dans la branche `nommes`, un montant que le client a prononcé
+            # autoriserait « ce produit est à 300 $ » — le validateur perdrait sa
+            # propriété centrale, qu'aucun prix de produit ne vient d'ailleurs que du
+            # moteur. L'argument de sûreté est le même que pour `valeurs_refusees`, qui
+            # est déjà là et qui est **écrite par le modèle** : une parole du client y est
+            # strictement plus sûre.
             autorises = (
                 set(contexte.prix.values())
                 | set(contexte.agregats)
                 | set(contexte.valeurs_refusees)
                 | set(contexte.hors_budget.values())
+                | set(contexte.montants_du_client)
             )
             code = CodeGrief.MONTANT_NON_FOURNI
             correction = (
@@ -240,8 +283,37 @@ def regle_montants(texte: str, contexte: ContexteFourni) -> tuple[Grief, ...]:
             )
         for montant in trouves:
             if montant.valeur not in autorises:
-                griefs.append(Grief(code, montant.extrait, correction))
+                griefs.append(
+                    Grief(
+                        code,
+                        montant.extrait,
+                        correction,
+                        arrondi=_est_un_arrondi(montant, contexte),
+                    )
+                )
     return _uniques(griefs)
+
+
+def _est_un_arrondi(montant: Montant, contexte: ContexteFourni) -> bool:
+    """L'extrait est-il un entier à moins d'un dollar au-dessus d'un montant fourni ?
+
+    ⚠️ **Ne décide de rien.** C'est l'instrumentation de la tolérance écartée — voir
+    `Grief.arrondi`. La forme reconnue est exactement celle que la tolérance aurait admise,
+    de sorte que le compteur mesure ce que la décision aurait coûté ou rapporté.
+
+    La comparaison porte sur **tous** les montants connus, branche `nommes` comprise : la
+    question à laquelle ce compteur doit répondre est « à quelle fréquence le modèle
+    arrondit-il le prix d'un produit ? », et la restreindre aux agrégats la manquerait.
+    """
+    if montant.valeur != montant.valeur.to_integral_value():
+        return False
+    fournis = (
+        set(contexte.prix.values())
+        | set(contexte.agregats)
+        | set(contexte.hors_budget.values())
+        | set(contexte.montants_du_client)
+    )
+    return any(fourni <= montant.valeur < fourni + 1 for fourni in fournis)
 
 
 # --------------------------------------------------------------------------- #

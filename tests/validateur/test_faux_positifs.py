@@ -9,6 +9,8 @@ produit d'un tour précédent, annoncer une fourchette, écrire un prix à la fr
 S'il ne passait pas, ce serait le validateur qu'il faudrait corriger, pas le modèle.
 """
 
+from decimal import Decimal
+
 import pytest
 from contexte_de_test import SCEPTRE, contexte_apres_sondage, contexte_complet
 
@@ -233,8 +235,11 @@ def test_la_reprise_ne_fournit_jamais_un_fait(contexte):
     from raiyon.validateur.contexte import contexte_des_messages
 
     reprise = message_de_grief(["- **montant_non_fourni** — « 4242 $ » : ne pas le citer."])
+    # ⚠️ **Le seul endroit qui porte 4242 est la reprise.** Le tour client parle d'autre
+    # chose : sinon le test passerait par la provenance `montants_du_client` de l'étape 21,
+    # et ne dirait plus rien de la reprise — qui est ce qu'il garde.
     messages = [
-        {"role": "user", "content": [{"type": "text", "text": "Un écran à 4242 dollars."}]},
+        {"role": "user", "content": [{"type": "text", "text": "Un écran, budget 300 $."}]},
         {"role": "user", "content": [{"type": "text", "text": reprise}]},
     ]
 
@@ -242,9 +247,53 @@ def test_la_reprise_ne_fournit_jamais_un_fait(contexte):
 
     assert fourni.agregats == frozenset()
     assert fourni.valeurs_refusees == frozenset()
+    assert Decimal("4242") not in fourni.montants_du_client
     # `sans_grief` affirme l'absence de grief ; ici on en veut un, donc on lit le verdict.
     verdict = valider("Je vous propose un modèle à 4242 $.", fourni)
     assert not verdict.valide, (
-        "un nombre écrit dans un message `user` — tour client ou message de reprise — "
-        "n'est jamais un fait fourni. Voir la docstring."
+        "un nombre écrit dans un message de reprise n'est jamais un fait fourni : la "
+        "reprise cite les extraits refusés, et les admettre annulerait le validateur."
     )
+
+
+def test_un_montant_que_le_client_a_ecrit_est_un_fait_fourni(contexte):
+    """⚠️ **Le faux positif structurel fermé au jalon 2 de l'étape 21.**
+
+    Mesuré en conversation réelle : le client dit « je dirais 300 $ », le modèle répond
+    « D'accord, 300 $ pour démarrer », et le validateur refuse. `record_criteria` rend
+    pourtant `budget_usd`, mais **une itération trop tard** — `fourni` est calculé avant
+    l'appel modèle, donc accuser réception d'un budget est impossible au tour où le client
+    l'énonce, quoi que fasse le modèle.
+    """
+    from raiyon.validateur.contexte import contexte_des_messages
+
+    fourni = contexte_des_messages(
+        [{"role": "user", "content": [{"type": "text", "text": "je dirais 300 $"}]}]
+    )
+
+    assert fourni.montants_du_client == frozenset({Decimal("300")})
+    # ⚠️ La provenance reste **séparée** : elle n'est pas versée dans `agregats`. C'est
+    # l'arbitrage B — les faits sont rangés par d'où ils viennent, pas par ce qu'ils valent.
+    assert fourni.agregats == frozenset()
+    assert valider("D'accord, 300 $ pour démarrer.", fourni).valide
+
+
+def test_un_montant_du_client_ne_devient_pas_le_prix_dun_produit(contexte):
+    """⚠️ **La garde de l'option A, et elle n'est pas négociable.**
+
+    Sans elle, un client qui dit « 300 $ » autorise « ce produit est à 300 $ », et le
+    validateur perd sa propriété centrale : aucun prix de produit ne vient d'ailleurs que
+    du moteur. Les montants du client n'entrent donc que dans la branche agrégat.
+
+    `contexte` porte des produits fournis ; on en nomme un et on lui colle le montant du
+    client, qui n'est pas son prix.
+    """
+    from dataclasses import replace
+
+    fourni = replace(contexte, montants_du_client=frozenset({Decimal("300")}))
+    produit = next(iter(fourni.produits.values()))
+
+    verdict = valider(f"Le {produit.nom} est à 300 $.", fourni)
+
+    assert not verdict.valide
+    assert [grief.code.value for grief in verdict.griefs] == ["prix_etranger_au_produit"]

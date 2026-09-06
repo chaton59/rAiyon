@@ -140,6 +140,25 @@ class Settings(BaseSettings):
     # `prompt_systeme` qui nomme un fichier dont la liste s'allonge.
     orchestration: Literal["agent", "machine"] = "agent"
 
+    validation: Literal["bloquante", "avertissement"] = "bloquante"
+    """Ce que le validateur fait d'un grief — cf. PROJET.md §3.11, étape 21 jalon 2.
+
+    * `bloquante` (défaut) : un grief déclenche une régénération, puis le repli sur
+      template. C'est le niveau 2 de §3.11, et c'est le comportement depuis l'étape 9.
+    * `avertissement` : **les règles tournent quand même**, produisent leurs griefs, les
+      loguent et les écrivent dans `evenements_tour` — mais le texte part au client et
+      aucune régénération n'est demandée.
+
+    ⚠️ **`avertissement` ne désactive pas le validateur, il le rend observable sans le
+    laisser agir.** La distinction est le tout : un validateur éteint ne produit aucune
+    mesure, et c'est précisément la mesure qui a montré que deux des trois griefs de la
+    campagne v3 étaient des défauts de règle et non des fautes du modèle.
+
+    Le défaut reste `bloquante` **parce que la mesure le dit** : sur ces trois griefs, un
+    seul était un vrai positif — une affirmation de connaissance générale qu'aucun outil ne
+    fondait — et il justifie à lui seul de ne pas relâcher la garde. Le drapeau existe pour
+    que l'arbitrage puisse se renverser sans commit, pas parce qu'il devrait l'être."""
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     """⚠️ **Déclarée depuis l'étape 2, et lue par personne jusqu'à l'étape 17.** Le dépôt
     n'appelait pas `structlog.configure()` : il tournait sur les défauts du paquet, qui ne

@@ -279,7 +279,12 @@ def repondre(
         )
         verdict = valider(message.texte, fourni) if message.texte else VERDICT_SANS_GRIEF
 
-        if verdict.griefs:
+        # ⚠️ **`bloque`, pas `griefs`** (étape 21, jalon 2). En mode `avertissement`, les
+        # règles tournent, produisent leurs griefs et les font compter — mais le texte part
+        # au client et rien n'est régénéré. Le signalement vit donc dans `_signaler()`,
+        # avant ce branchement, pour être émis dans les deux modes.
+        yield from _signaler(verdict, message.texte, OrigineRejet.TEXTE, iteration, regenerations)
+        if verdict.bloque:
             regenerations += 1
             yield TexteRejete(message.texte, verdict.griefs, regenerations, OrigineRejet.TEXTE)
             _journaliser_le_rejet(
@@ -392,7 +397,10 @@ def repondre(
             if executions.question is not None
             else VERDICT_SANS_GRIEF
         )
-        if verdict_question.griefs:
+        yield from _signaler(
+            verdict_question, question_posee, OrigineRejet.QUESTION, iteration, regenerations
+        )
+        if verdict_question.bloque:
             regenerations += 1
             yield TexteRejete(
                 question_posee,
@@ -449,6 +457,33 @@ def repondre(
     )
     yield Repli(PHRASE_DE_REPLI, iteration, tuple(outils_appeles), MotifDeRepli.MAX_ITERATIONS)
     return IssueDuTour(etat, tuple(tours), iteration, tuple(outils_appeles))
+
+
+def _signaler(
+    verdict: Verdict, texte: str, origine: OrigineRejet, iteration: int, regenerations: int
+) -> Generator[Evenement, None, None]:
+    """Le mode `avertissement` : des griefs comptés, un texte livré quand même.
+
+    ⚠️ **Ne fait rien en mode bloquant**, où le `TexteRejete` est émis par la branche de
+    régénération avec son numéro de tentative. Émettre ici aussi le compterait deux fois.
+
+    Le `bloquant=False` porté par l'événement est ce qui empêche le tableau de bord de
+    mentir : la page marque un texte rejeté « jamais lu par le client », et en avertissement
+    il l'a été.
+
+    `tentative` vaut `regenerations` inchangé — aucune tentative n'est consommée, puisque
+    aucune régénération n'est demandée. C'est un compteur de régénérations, pas de griefs.
+    """
+    if not verdict.griefs or verdict.bloque:
+        return
+    logueur.warning(
+        "boucle.grief_signale",
+        origine=origine.value,
+        iteration=iteration,
+        codes=[grief.code.value for grief in verdict.griefs],
+        consequence="aucune : RAIYON_VALIDATION=avertissement, le texte part au client",
+    )
+    yield TexteRejete(texte, verdict.griefs, regenerations, origine, bloquant=False)
 
 
 def _journaliser_le_rejet(

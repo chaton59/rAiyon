@@ -337,6 +337,11 @@ def _texte_rejete(evenement: TexteRejete) -> Donnees:
     return {
         "origine": evenement.origine.value,
         "tentative": evenement.tentative,
+        # ⚠️ **Sans lui, le même événement décrirait deux situations opposées.** En mode
+        # bloquant le texte n'a jamais atteint le client ; en `avertissement` il l'a atteint,
+        # et le grief n'est qu'un signalement. Le tableau de bord marque « jamais lu par le
+        # client » — il lui faut de quoi ne pas le dire à tort.
+        "bloquant": evenement.bloquant,
         "griefs": [_grief(grief) for grief in evenement.griefs],
     }
 
@@ -522,6 +527,10 @@ def _grief(grief: Grief) -> Donnees:
         "code": grief.code.value,
         "extrait": grief.extrait,
         "correction": grief.correction,
+        # Instrumentation de la tolérance d'arrondi **écartée** (étape 21, jalon 2). Il ne
+        # change aucune décision ; il passe par le fil pour atterrir dans `evenements_tour`,
+        # où une campagne pourra le compter. Voir `Grief.arrondi`.
+        "arrondi": grief.arrondi,
     }
 
 

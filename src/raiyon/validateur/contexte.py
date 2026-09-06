@@ -64,7 +64,7 @@ import structlog
 from pydantic import ValidationError
 
 from raiyon.catalogue.schemas import ProduitEnBase
-from raiyon.validateur.extraction import canonique, en_decimal
+from raiyon.validateur.extraction import canonique, en_decimal, montants
 
 logueur = structlog.get_logger(__name__)
 
@@ -79,6 +79,11 @@ logueur = structlog.get_logger(__name__)
 CLE_OK = "ok"
 CLE_PRODUITS = "produits"
 CLE_AU_DESSUS_DU_BUDGET = "au_dessus_du_budget"
+ROLE_CLIENT = "user"
+"""⚠️ Les `tool_result` portent ce rôle aussi : il n'existe pas de rôle « outil » dans
+l'API. C'est pourquoi `montants_des_messages_client()` écarte d'abord les blocs qui en
+portent un, avant même de regarder le texte."""
+
 CLE_PRODUIT = "produit"
 CLE_ECART = "ecart_usd"
 CLE_ID = "id"
@@ -163,6 +168,40 @@ class ContexteFourni:
     indétectable ; les jeter entièrement interdirait de dire ce que le catalogue
     contient, qui est la raison d'être de `probe_catalog` (§3.7)."""
 
+    montants_du_client: frozenset[Decimal] = frozenset()
+    """Les montants que le **client** a écrits dans ses propres messages (étape 21, jalon 2).
+
+    ### Le faux positif que ça ferme, et il est structurel
+
+    Mesuré sur une conversation réelle : le client dit « je dirais 300 $ », le modèle
+    répond « D'accord, 300 $ pour démarrer » — et le validateur refuse, parce qu'aucun
+    `tool_result` n'a encore rendu 300.
+
+    `record_criteria` **rend pourtant `budget_usd`**, et il entre dans `agregats`. Le
+    budget n'est donc pas absent du contexte : il y arrive **une itération trop tard**.
+    Et comme `fourni` est calculé *avant* l'appel modèle — c'est l'arbitrage B, les faits
+    que le modèle avait sous les yeux —, même un modèle qui enregistrerait et parlerait
+    dans le même message serait refusé. **Accuser réception d'un budget est structurellement
+    impossible au tour où le client l'énonce**, quoi que fasse le modèle.
+
+    ### La garde, et elle n'est pas négociable
+
+    ⚠️ **Ces montants n'entrent que dans la branche agrégat de la règle 2.** Jamais dans
+    `prix_etranger_au_produit` : sinon un client qui dit « 300 $ » autorise « ce produit
+    est à 300 $ », et le validateur perd sa propriété centrale — aucun prix de produit ne
+    vient d'ailleurs que du moteur.
+
+    ⚠️ **Et les messages de reprise en sont exclus.** Un message de reprise est un bloc
+    `user` de la même forme qu'un tour client, et il **cite les extraits refusés** : les
+    admettre rendrait le validateur auto-annulant. Mesuré à l'étape 13 : 18 griefs sur 19
+    disparaissaient. `test_la_reprise_ne_fournit_jamais_un_fait` est la garde, et elle vaut
+    toujours — cette provenance-ci est celle qu'elle décrivait comme « la rédaction naïve
+    de l'alternative écartée », et elle n'est pas naïve précisément parce qu'elle exclut la
+    reprise.
+
+    *Précédent* : `valeurs_refusees` sont admises dans la même branche et sont **écrites par
+    le modèle**. Des montants écrits par le client y sont strictement plus sûrs."""
+
     valeurs_refusees: frozenset[Decimal] = frozenset()
     """Les valeurs qu'un **mouvement refusé** portait (étape 13, jalon 1).
 
@@ -246,22 +285,65 @@ def contexte_des_messages(messages: Sequence[Mapping[str, Any]]) -> ContexteFour
     `valeurs_des_mouvements_refuses`, et la docstring du module pour pourquoi la règle
     « par clé, jamais par nom d'outil » y survit.
 
-    ⚠️ **Aucune provenance ne se lit dans le texte d'un message `user`, et c'est une
-    interdiction, pas un oubli.** Le message de reprise de l'étape 9 est un bloc `user`
-    qui **cite les extraits refusés** : en tirer des faits rendrait le validateur
-    auto-annulant — mesuré, 18 griefs sur 19 disparaissaient. Voir le test de régression
-    `test_la_reprise_ne_fournit_jamais_un_fait`.
+    ⚠️ **Une seule provenance se lit dans le texte d'un message `user`, et elle est
+    étroitement gardée** (étape 21, jalon 2). Le message de reprise de l'étape 9 est un
+    bloc `user` de la **même forme** qu'un tour client, et il **cite les extraits refusés** :
+    en tirer des faits rendrait le validateur auto-annulant — mesuré, 18 griefs sur 19
+    disparaissaient. `montants_du_client` l'exclut donc explicitement, et
+    `test_la_reprise_ne_fournit_jamais_un_fait` reste la garde qui le vérifie.
+
+    La phrase « aucune provenance ne se lit dans le texte d'un message `user` » figurait ici
+    jusqu'à l'étape 21. Elle est remplacée plutôt que nuancée : ce qui la fondait n'était pas
+    « le texte du client est sale », c'était « le texte du client est **indiscernable** de la
+    reprise ». Depuis que `prefixe_de_reprise()` les sépare, l'interdiction porte sur la
+    reprise seule.
     """
     return contexte_des_resultats(
         _charges_utiles(messages),
         valeurs_refusees=valeurs_des_mouvements_refuses(messages),
+        montants_du_client=montants_des_messages_client(messages),
     )
+
+
+def montants_des_messages_client(messages: Sequence[Mapping[str, Any]]) -> frozenset[Decimal]:
+    """Les montants écrits par le client, **hors messages de reprise et hors `tool_result`**.
+
+    Les trois exclusions, dans l'ordre où elles comptent :
+
+    1. un bloc portant un `tool_result` n'est pas une parole du client — les `tool_result`
+       voyagent sous le rôle `user`, il n'existe pas de rôle « outil » ;
+    2. un message commençant par le préfixe de reprise est écrit **pour le modèle** par
+       `grief.v1.md`, et il cite les extraits que le validateur vient de refuser ;
+    3. tout le reste est du texte que le client a réellement tapé.
+
+    ⚠️ **Le point 2 est la garde entière.** Sans lui, un nombre refusé au tour n redevient
+    citable au tour n+1 par le message qui le refusait.
+    """
+    from raiyon.agent.prompts import prefixe_de_reprise
+
+    prefixe = prefixe_de_reprise()
+    trouves: set[Decimal] = set()
+    for message in messages:
+        if message.get("role") != ROLE_CLIENT:
+            continue
+        blocs: Sequence[Mapping[str, Any]] = message.get("content") or ()
+        if any(bloc.get("type") == "tool_result" for bloc in blocs):
+            continue
+        for bloc in blocs:
+            if bloc.get("type") != "text":
+                continue
+            texte = str(bloc.get("text", ""))
+            if prefixe and texte.strip().startswith(prefixe):
+                continue
+            trouves.update(montant.valeur for montant in montants(texte))
+    return frozenset(trouves)
 
 
 def contexte_des_resultats(
     charges: Iterable[Mapping[str, Any]],
     *,
     valeurs_refusees: frozenset[Decimal] = frozenset(),
+    montants_du_client: frozenset[Decimal] = frozenset(),
 ) -> ContexteFourni:
     """Le contexte fourni, à partir des charges utiles déjà décodées.
 
@@ -273,7 +355,9 @@ def contexte_des_resultats(
         if charge.get(CLE_OK) is not True:
             continue
         accumulateur.absorber(charge)
-    return accumulateur.figer(valeurs_refusees=valeurs_refusees)
+    return accumulateur.figer(
+        valeurs_refusees=valeurs_refusees, montants_du_client=montants_du_client
+    )
 
 
 def valeurs_des_mouvements_refuses(
@@ -394,12 +478,22 @@ class _Accumulateur:
         self.agregats: set[Decimal] = set()
         self.budget: Decimal | None = None
 
-    def figer(self, *, valeurs_refusees: frozenset[Decimal] = frozenset()) -> ContexteFourni:
-        """Les provenances accumulées, plus celle qui ne s'accumule pas.
+    def figer(
+        self,
+        *,
+        valeurs_refusees: frozenset[Decimal] = frozenset(),
+        montants_du_client: frozenset[Decimal] = frozenset(),
+    ) -> ContexteFourni:
+        """Les provenances accumulées, plus les deux qui ne s'accumulent pas.
 
         `valeurs_refusees` ne passe pas par `absorber()` : elle ne se lit pas dans une
         charge utile mais dans l'appariement d'une requête et de son résultat, ce qui est
         hors de portée d'un accumulateur qui reçoit des charges une par une.
+
+        `montants_du_client` non plus, et pour une raison plus forte : elle ne se lit pas
+        dans un `tool_result` du tout, mais dans les messages du client. C'est la **seule**
+        provenance du module dans ce cas avec `valeurs_refusees`, et les deux sont donc
+        passées explicitement — il ne doit pas être possible de les obtenir par accident.
         """
         return ContexteFourni(
             produits=dict(self.produits),
@@ -409,6 +503,7 @@ class _Accumulateur:
             valeurs_de_distribution=frozenset(self.distribution),
             agregats=frozenset(self.agregats),
             valeurs_refusees=valeurs_refusees,
+            montants_du_client=montants_du_client,
             budget_usd=self.budget,
         )
 

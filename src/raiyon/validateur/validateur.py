@@ -62,9 +62,32 @@ class Verdict:
 
     griefs: tuple[Grief, ...]
 
+    bloquant: bool = True
+    """Ce verdict doit-il faire régénérer, ou seulement signaler ? (étape 21, jalon 2)
+
+    ⚠️ **Le mode est porté par le verdict, pas lu par l'orchestration.** Deux orchestrations
+    consomment `valider()` ; leur faire lire `get_settings().validation` chacune de leur
+    côté donnerait deux endroits à tenir d'accord, et le jour où l'un des deux oublie, le
+    drapeau ne vaut plus rien là où on ne l'a pas regardé. Il est donc résolu **une fois**,
+    au seul endroit qui construit un verdict.
+
+    Le défaut est `True` : un `Verdict` construit à la main dans un test bloque, comme
+    depuis l'étape 9, et aucun test existant n'a eu à changer."""
+
     @property
     def valide(self) -> bool:
         return not self.griefs
+
+    @property
+    def bloque(self) -> bool:
+        """Vrai quand ce verdict doit faire régénérer. **C'est le seul test des boucles.**
+
+        Un verdict peut porter des griefs sans bloquer : c'est le mode `avertissement`, où
+        les règles tournent et se comptent mais où le texte part quand même. Les deux
+        orchestrations testent donc `bloque` là où elles testaient `griefs`, et continuent
+        d'émettre un `TexteRejete` sur `griefs` — sans quoi le mode n'observerait rien.
+        """
+        return bool(self.griefs) and self.bloquant
 
     def en_lignes(self) -> tuple[str, ...]:
         """Les griefs tels qu'ils partent au modèle, un par ligne."""
@@ -83,7 +106,13 @@ def valider(texte: str, contexte: ContexteFourni) -> Verdict:
     reprise qui ne signalerait que la première faute ferait payer une régénération par
     faute, alors que le budget est de une (arbitrage D).
     """
+    from raiyon.config import get_settings
+
     griefs: list[Grief] = []
     for regle in REGLES:
         griefs.extend(regle(texte, contexte))
-    return Verdict(tuple(griefs))
+    # ⚠️ **Les règles tournent quel que soit le mode.** `avertissement` ne les éteint pas :
+    # il retire au verdict son pouvoir de faire régénérer. Un validateur éteint ne produit
+    # aucune mesure, et c'est la mesure qui a montré que deux des trois griefs de la
+    # campagne v3 étaient des défauts de règle.
+    return Verdict(tuple(griefs), bloquant=get_settings().validation == "bloquante")

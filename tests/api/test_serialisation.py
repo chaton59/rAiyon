@@ -313,11 +313,17 @@ def test_text_rejected_porte_les_griefs_et_lorigine():
     assert donnees == {
         "origine": "question",
         "tentative": 1,
+        # Vrai par défaut : un `TexteRejete` construit sans préciser décrit un refus
+        # bloquant, comme depuis l'étape 9.
+        "bloquant": True,
         "griefs": [
             {
                 "code": "id_inconnu",
                 "extrait": "monitor-0000000000",
                 "correction": "citer un id fourni",
+                # Instrumentation de la tolérance d'arrondi écartée : elle ne décide de
+                # rien, elle voyage pour être comptée dans `evenements_tour`.
+                "arrondi": False,
             }
         ],
     }
@@ -718,5 +724,31 @@ def test_le_texte_refuse_ne_part_jamais_au_client():
         )
     )
 
-    assert set(donnees) == {"origine", "tentative", "griefs"}
+    assert set(donnees) == {"origine", "tentative", "bloquant", "griefs"}
     assert secret not in json.dumps(donnees, ensure_ascii=False)
+
+
+def test_text_rejected_dit_si_le_grief_a_bloque():
+    """⚠️ **Le même événement décrit deux situations opposées selon le mode.**
+
+    En `bloquante`, le texte n'a jamais atteint le client. En `avertissement`, il l'a
+    atteint et le grief n'est qu'un signalement. Le tableau de bord marque « jamais lu par
+    le client » : sans ce champ, il le dirait à tort une fois sur deux.
+
+    ⚠️ Le texte refusé reste **absent du fil dans les deux modes**. Ce n'est pas une
+    incohérence : le fil transporte la mécanique du refus, jamais son objet, et un texte
+    livré est déjà parti par son propre événement `message`.
+    """
+    signale = "Celui-ci est à 230 $."
+    _, donnees = nom_et_donnees(
+        TexteRejete(
+            texte=signale,
+            griefs=(Grief(CodeGrief.MONTANT_NON_FOURNI, "230 $", "reprendre `prix_usd`"),),
+            tentative=0,
+            origine=OrigineRejet.TEXTE,
+            bloquant=False,
+        )
+    )
+
+    assert donnees["bloquant"] is False
+    assert signale not in json.dumps(donnees, ensure_ascii=False)

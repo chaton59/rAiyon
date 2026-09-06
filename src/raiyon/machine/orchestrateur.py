@@ -398,7 +398,21 @@ def repondre_machine(
             return IssueDuTour(etat, tuple(tours), appels_modele, tuple(outils_appeles))
 
         verdict = valider(redigee.texte, fourni)
-        if not verdict.griefs:
+        # ⚠️ **`bloque`, pas `griefs`** (étape 21, jalon 2). En mode `avertissement` les
+        # règles tournent et leurs griefs se comptent, mais le texte part au client. Le
+        # `TexteRejete` est émis avant la sortie de boucle, sans quoi le mode n'observerait
+        # rien — c'est toute la différence entre relâcher le validateur et l'éteindre.
+        if not verdict.bloque:
+            if verdict.griefs:
+                logueur.warning(
+                    "machine.grief_signale",
+                    origine=origine.value,
+                    codes=[grief.code.value for grief in verdict.griefs],
+                    consequence="aucune : RAIYON_VALIDATION=avertissement, le texte part",
+                )
+                yield TexteRejete(
+                    redigee.texte, verdict.griefs, regenerations, origine, bloquant=False
+                )
             break
 
         regenerations += 1

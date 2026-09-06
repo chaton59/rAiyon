@@ -278,6 +278,17 @@ class TexteRejete:
     de questions que de recommandations, et un taux global masquerait lequel des deux
     chemins fuit."""
 
+    bloquant: bool = True
+    """Le grief a-t-il fait régénérer, ou seulement été signalé ? (étape 21, jalon 2)
+
+    ⚠️ **Sans ce champ, le mode `avertissement` rendrait le tableau de bord menteur.** La
+    page marque un texte rejeté « jamais lu par le client » ; en avertissement, il l'a
+    été. Le même événement décrit alors deux situations opposées, et rien à l'écran ne les
+    sépare.
+
+    Il vaut `True` par défaut : c'est le comportement depuis l'étape 9, et un `TexteRejete`
+    construit dans un test décrit un refus bloquant comme avant."""
+
 
 Evenement = (
     CriteresMisAJour
