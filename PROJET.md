@@ -518,6 +518,59 @@ le streaming), et un garde-fou `max_iterations` contre l'emballement.
 > la **rédaction** et le **coût d'entrée**. Aucune des deux n'est « meilleure », et
 > écrire qu'elle l'est serait la seule conclusion que ces mesures ne portent pas.
 
+> **Amendement de l'étape 30 — le déterminisme se paie en extensibilité, et c'est mesuré.**
+> Le sixième outil (`search_reviews`, §3.18) a été exposé au schéma, donc « aux deux
+> orchestrations ». Sur dix scénarios et trois prises : **l'agent l'appelle 6 fois, la
+> machine 0.**
+>
+> 🔴 **Ce n'est pas une préférence du modèle, c'est structurel — vérifié par lecture, sans
+> dépenser un appel.** Trois faits indépendants le ferment :
+>
+> 1. `repondre_machine()` filtre le schéma — `outils_extraction` ne retient que
+>    `record_criteria`. Les cinq autres outils **ne sont jamais montrés au modèle** ;
+> 2. l'appel de rédaction reçoit le **même** schéma filtré, et jette les `tool_use` qu'il
+>    recevrait quand même (`machine.outil_appele_a_la_redaction`) ;
+> 3. `decider()` ne connaît que cinq actions — `Sonder`, `Suggerer`, `Rechercher`,
+>    `DemanderPrecision`, `Rediger` — et `NOM_DE_LOUTIL` n'en mappe que trois. Il n'existe
+>    aucune action « chercher des avis ».
+>
+> **« Exposé aux deux orchestrations » est donc vrai au schéma et faux à l'exécution.** La
+> phrase a été écrite à l'étape 27 en croyant décrire un fait ; elle décrivait une
+> déclaration. Sixième précédent de capacité supposée non mesurée.
+>
+> **Décidé de ne pas être corrigé, et le motif vaut mieux que le correctif.** Donner l'outil
+> à la machine demande d'écrire une règle déterministe pour « il est temps de chercher des
+> avis » — c'est-à-dire exactement l'intention que la machine est mauvaise à saisir, et que
+> §3.6 lui reproche depuis le début. La faire mal contaminerait la comparaison.
+>
+> Ce que le constat dit est plus net que ce que la fonctionnalité aurait dit : **l'agent
+> adopte un outil neuf en l'exposant ; la machine demande un nœud de décision écrit à la
+> main.** Le déterminisme se paie en extensibilité. C'est le pendant du « moins d'appels,
+> plus cher » ci-dessus : deux coûts de la machine, tous deux mesurés, aucun des deux
+> visible dans le tableau des six critères.
+>
+> **Les chiffres de la campagne, 10 scénarios × 3 prises, prompt `systeme.v3` :**
+>
+> | | agent | machine |
+> |---|---|---|
+> | prises ayant recommandé | **30/30** | **30/30** |
+> | replis | **0** | **0** |
+> | appels modèle | 175 | **145** (−17 %) |
+> | jetons sortants | 60 400 | 72 588 (+20 %) |
+> | **$ / recommandation livrée** | **0,0638** | **0,0790** (+24 %) |
+> | `search_reviews` appelé | 6 | **0** |
+>
+> ⚠️ **L'écart de coût a été recalculé à armes égales, et il ne bouge pas.** L'agent dépense
+> six appels sur un outil que la machine ne peut pas appeler : la comparaison brute est donc
+> contaminée. Hors scénarios 19 et 22 — les deux seuls qui appellent l'outil — on lit
+> **0,0656 contre 0,0815**, soit **+24 %**, exactement le même écart. La contamination était
+> négligeable, et le dire vaut mieux que de laisser le doute au lecteur.
+>
+> ⚠️ **Le coût par recommandation, jamais le coût brut seul.** Une orchestration qui ne
+> recommande pas est toujours moins chère : sur cette campagne les deux recommandent 30/30,
+> donc les deux lectures coïncident — mais la comparaison v2/v3 de l'étape 30 a montré le
+> cas inverse, où le brut disait +92 % et le normalisé +28 %.
+
 ### 3.7 — Les outils exposés à l'agent
 
 | Outil | Rend | Rôle |
@@ -5048,6 +5101,9 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Le budget effacé au changement de catégorie est tarifé, pas empêché** | Moyenne | Changer de catégorie remet le budget à `None` (étape 7, arbitrage D) et **paie le jeton du tour**, comme n'importe quel desserrage. Le modèle peut donc, en deux messages du client, revenir à la catégorie de départ sans plafond : c'est le prix d'une parole, pas une porte fermée. Le seul correctif qui fermerait vraiment est un **budget par catégorie**, et il rouvre exactement la divergence que §3.10 ferme en donnant au budget une colonne unique — deux copies d'une même contrainte finissent par dire deux choses. Le choix est donc assumé : une porte tarifée plutôt qu'une seconde source de vérité |
 | **`probe_catalog` est un oracle à prix** | Moyenne — elle porte sur le critère nº1. **Partiellement fermée à l'étape 9** | Le sondage rend une fourchette de prix exacte sur le sous-catalogue courant. Avec deux ou trois sondages resserrés, l'agent connaît le prix d'un produit qu'on ne lui a **jamais** donné, et sans identifiant. L'alternative — rendre des paliers arrondis — a été écartée parce qu'un arrondi est lui-même une affirmation approximative sur le catalogue : il en fabrique une pour en éviter une autre. Atténuation : ~~le prompt~~ **la règle 2 du validateur** — un montant écrit dans une phrase qui nomme un produit fourni doit être le prix **de ce produit** ou son écart au budget, jamais une borne d'agrégat. Le piège nº6 de `tests/validateur/test_pieges.py` le constate, et il échoue si le contexte est aplati. ⚠️ **Ce qui reste ouvert** : la règle ne sait pas qu'un nom qu'elle ne connaît pas est un nom de produit. « L'Acer XV272U est à 108 $ », dans une conversation où seul un sondage a eu lieu, passe — 108 est un agrégat fourni, et aucun produit **connu** n'est nommé dans la phrase. Fermer ce cas demanderait de reconnaître un nom de produit inventé dans du texte libre, ce qu'aucune heuristique ne sait faire honnêtement |
 | **`regle_valeurs_unitaires` lit un guillemet comme des pouces** | Faible aujourd'hui, certaine à terme | Mesuré à l'étape 28 : « Vantrix Pro 480 » cité entre guillemets dans une prose devient `480"`, donc **un écran de 480 pouces**, et déclenche `valeur_non_fournie`. Même famille que le correctif de `NOMBRE` (étape 17) : une expression qui reconnaît une unité dans une chaîne ne sait pas si le caractère appartient au nombre ou à la ponctuation. 🔴 **La prédiction s'est réalisée dans la même session, à la passe suivante** : « le "Nexoria ZX-9000" n'existe pas dans notre catalogue » — phrase parfaitement légitime, et même exactement celle que la mesure du cas (a) attend — a été refusée sur `9000"`, lu comme 9 000 pouces. Ce n'est donc plus un défaut sans occurrence : **il refuse de la prose vraie, et il l'a fait sur le seul chemin où nommer un produit hors catalogue est le bon comportement**. Conséquence de second ordre mesurée : à la régénération, le modèle a cessé de nommer le produit, et le client y perd. Consigné sans correctif : le fermer demande de distinguer un guillemet d'unité d'un guillemet de citation, ce qu'aucune heuristique locale ne fait honnêtement, et le défaut n'a aujourd'hui aucune occurrence sur du texte vrai |
+| 🔴 **La claim v2 → v3 a une portée exacte, et elle voyage avec le chiffre** | Moyenne — c'est l'affirmation qui portera le portfolio | Mesurée à l'étape 30 : **4 scénarios, 3 prises chacun, orchestration `agent`, prompt `systeme.v3` contre `systeme.v2`**. Résultat : **8/12 prises ont recommandé chez v2, 12/12 chez v3** — soit 2/4 scénarios recommandant à toutes leurs prises contre 4/4. Le cas décisif est `besoin_flou` : **0 fois sur 3 chez v2, 3 fois sur 3 chez v3**. Un scénario qui échoue 3/3 d'un côté et réussit 3/3 de l'autre est un comportement, pas une fluctuation. ⚠️ **Décidé de ne PAS rejouer v2 sur les dix scénarios**, et le motif compte : six des dix ont été écrits **après** v3, et deux portent sur un outil dont v2 ignore l'existence. Mesurer v2 sur une piste construite après elle ne renforcerait pas la claim, ça la salirait. La portée reste donc celle-ci, écrite à côté du chiffre partout où il est cité |
+| **« v3 fait plus de griefs que v2 » : prédiction posée, réponse reçue, c'est non** | Faible — la question est close, la méthode reste | Étape 30 : la campagne de 4 scénarios avait donné **8 griefs et 2 replis** côté v3 contre 1 et 0 côté v2, et l'hypothèse écrite était « v3 recommande plus, donc écrit plus de prose chiffrée, donc glisse plus ». Une campagne fraîche sur les **mêmes quatre scénarios** rend **2 griefs et 0 repli** : le 8 était lui-même un tirage haut, et l'écart ne se reproduit pas. ⚠️ **Aucune conclusion inverse n'en est tirée** — deux campagnes ne font pas une distribution. 🔴 **Ce qui se conclut, en revanche, c'est le choix d'indicateur** : pendant que le compte fin oscillait d'un facteur 4 (8 → 2), l'indicateur grossier restait lisible (replis 2 → 0 → 0). Un repli est le seul événement que le **client subit** ; un grief est un événement interne que le système absorbe. C'est l'argument entier pour publier les replis d'abord et garder les griefs en diagnostic, et `ligne_de_base.py` ordonne ses colonnes ainsi |
+| **Le besoin d'un retrait des mots vides est peut-être en train de se dissoudre** | Faible — hypothèse à ne pas traîner | Le seuil de recouvrement (§3.18) a été calibré sur des formulations dispersées : `…avis joueurs`, `…avis gamers`, une comparaison à trois produits. ⚠️ **Cette dispersion venait en grande partie de la description de l'outil**, qui demandait de nommer le produit comme le catalogue l'écrit et faisait exploser les requêtes de *sujet* — corrigé à l'étape 29 en « une recherche, un objet ». Depuis : les **6** formulations de la campagne de l'étape 30 sont toutes courtes, à un seul produit, et **reproductibles au caractère près** (`avis MSI MAG 274CQF` quatre fois à l'identique). Zéro quasi-doublon, donc zéro donnée nouvelle pour le seuil. **Hypothèse : si le jalon 5 ne produit pas de quasi-doublon, la question des mots vides se ferme au lieu de se traîner** — et le seuil de recouvrement devient un filet peu sollicité plutôt qu'un mécanisme central |
 | 🔴 **Un compte de griefs à une prise est dans le bruit — mesuré** | **Élevée**, et elle invalide des comparaisons déjà publiées | Étape 29 : trois exécutions **identiques** des quatre mêmes scénarios ont rendu **3, puis 0, puis 2** griefs, sans qu'aucune touche le chemin web (0 appel à `search_reviews` dans les trois). L'amplitude mesurée est donc de 0 à 3 sur un compte dont les valeurs publiées valaient 0 à 3. ⚠️ **Conséquence qui déborde le jalon : toute comparaison de comptes de griefs faite jusqu'ici — v2 contre v3, l'étape 28 — est dans le bruit. Aucune n'est fausse, aucune n'est établie.** La correction n'est pas une note : c'est le harnais qui doit porter les prises multiples, et `ligne_de_base.py` publie désormais `min/méd/max` au lieu d'un nombre seul. Ce risque a été trouvé en **rejouant plutôt qu'en déduisant** une ligne de base dont la déduction disait « rien ne bouge » — cinquième précédent de capacité supposée non mesurée, deuxième attrapé du bon côté |
 | **Le 4/4 des cas adverses est un résultat, pas un taux** | Moyenne — c'est une lecture de portfolio qui peut déraper | Étape 28 : le modèle n'a suivi aucune des quatre injections. ⚠️ **Deux réserves voyagent avec ce chiffre partout où il est cité.** (1) Un tirage par cas : quatre conversations ne disent rien de la variance, et rien ne permet d'en tirer un taux de résistance. (2) **Deux des quatre charges n'ont été livrées qu'après avoir ajusté les fixtures à la forme réelle des requêtes du modèle** — la livraison est une précondition, pas la mesure, et deux tirages avaient échoué avant. Un 4/4 survendu vaut moins qu'un 2/4 honnête |
 | **Aucune mesure du sixième outil côté machine à états** | Faible | Tout ce qui est mesuré aux étapes 27 et 28 l'est sur l'orchestration `agent`. La machine expose les mêmes six outils et passe par le même répartiteur, donc rien ne laisse attendre un écart — mais rien ne le constate non plus, et c'est exactement la forme d'affirmation que ce dépôt refuse ailleurs. À porter au jalon qui étend les scénarios |
