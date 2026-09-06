@@ -6,7 +6,7 @@ Create Date: 2026-09-04
 
 Ce que le schéma savait d'un tour avant cette migration : les blocs bruts échangés avec
 le modèle, et l'état de session. Ce qu'il ne savait pas, et qui décide de tout le reste
-de l'étape 17 : **combien d'appels ont eu lieu, ce qu'ils ont coûté, combien de temps ils
+de l'étape 23 : **combien d'appels ont eu lieu, ce qu'ils ont coûté, combien de temps ils
 ont pris, et dans quel ordre les événements sont sortis**. Ces faits vivaient dans des
 logs qui s'évaporaient à la fermeture du shell.
 
@@ -34,7 +34,7 @@ migration se lise dans les deux sens.
 ### Les tours antérieurs n'ont ni appels ni événements, et c'est correct
 
 Aucun remplissage rétroactif n'est possible : les compteurs n'ont jamais été écrits nulle
-part. Le tableau de bord de l'étape 17 doit donc rendre une timeline vide **sans mentir
+part. Le tableau de bord de l'étape 23 doit donc rendre une timeline vide **sans mentir
 et sans planter** pour les 71 860 tours déjà en base — c'est un cas nominal, pas une
 dégradation.
 """

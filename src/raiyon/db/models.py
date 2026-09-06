@@ -1,5 +1,5 @@
 """Modèles SQLAlchemy : `produits`, `sessions`, `tours_conversation`, et les deux tables
-d'observation de l'étape 17 — `appels_modele`, `evenements_tour`.
+d'observation de l'étape 23 — `appels_modele`, `evenements_tour`.
 
 Le schéma applique la décision §3.3 : des colonnes typées et indexées pour ce qui
 est commun à tout produit, un JSONB `specs` pour ce qui est propre a la catégorie.
@@ -214,7 +214,7 @@ class TourConversation(Base):
 
 
 # --------------------------------------------------------------------------- #
-# L'observation — étape 17. Deux tables qui décrivent un tour sans le rejouer
+# L'observation — étape 23. Deux tables qui décrivent un tour sans le rejouer
 # --------------------------------------------------------------------------- #
 
 DISPLAY_THINKING = ("summarized", "omitted")
@@ -242,7 +242,7 @@ class AppelModele(Base):
     ⚠️ **C'est ce qui rend l'arbitrage `effort` décidable plus tard.** Il n'est pas fixé
     aujourd'hui, et il ne pouvait pas l'être : trois tirages `low`/`medium`/`high` sur un
     même message ont rendu 165, 280 et 187 jetons — du bruit. Fixer sur cette base referait
-    la faute que l'étape 17 vient de consigner.
+    la faute que l'étape 23 vient de consigner.
 
     Sans ces deux colonnes, la question resterait indécidable pour toujours : on ne pourrait
     pas séparer les populations d'une campagne, et on retomberait sur trois tirages. Avec

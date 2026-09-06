@@ -104,7 +104,7 @@ class Grief:
     ⚠️ **Purement instrumental. Ce champ ne change aucune décision** — un grief marqué
     `arrondi` est refusé exactement comme les autres, et c'est le point.
 
-    ### Pourquoi il existe (étape 21, jalon 2)
+    ### Pourquoi il existe (étape 25)
 
     Une tolérance d'arrondi a été proposée et **écartée**. Elle admettait un entier `M` s'il
     existait un montant fourni `P` tel que `P ≤ M < P + 1` — borne directionnelle, jamais de
@@ -262,8 +262,8 @@ def regle_montants(texte: str, contexte: ContexteFourni) -> tuple[Grief, ...]:
             # voir §7. L'argument de sûreté est structurel : cette branche admet déjà
             # `valeurs_refusees`, **écrites par le modèle** ; y admettre des écarts
             # **écrits par le moteur** est strictement plus sûr que ce qui s'y trouve.
-            # ⚠️ **`montants_du_client` est ici et NULLE PART AILLEURS** (étape 21,
-            # jalon 2). Dans la branche `nommes`, un montant que le client a prononcé
+            # ⚠️ **`montants_du_client` est ici et NULLE PART AILLEURS** (étape 25).
+            # Dans la branche `nommes`, un montant que le client a prononcé
             # autoriserait « ce produit est à 300 $ » — le validateur perdrait sa
             # propriété centrale, qu'aucun prix de produit ne vient d'ailleurs que du
             # moteur. L'argument de sûreté est le même que pour `valeurs_refusees`, qui

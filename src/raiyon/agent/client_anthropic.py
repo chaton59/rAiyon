@@ -38,7 +38,7 @@ payer deux appels pour une erreur qui ne va pas se résoudre.
 
 `make fumee` exerce ce chemin sans la boucle, et dit quel mode a été retenu.
 
-### Le raisonnement : adaptatif, résumé, borné par `max_tokens` (étape 17)
+### Le raisonnement : adaptatif, résumé, borné par `max_tokens` (étape 23)
 
 ```python
 thinking = {"type": "adaptive", "display": "summarized"}
@@ -71,7 +71,7 @@ même titre qu'un « X marche ».
   and "output_config.effort" to control thinking behavior. »* Le budget de jetons de
   raisonnement n'existe plus comme paramètre ; la borne dure qui reste est `MAX_TOKENS`.
 * `display: "summarized"` est ce qui rend le texte non vide. C'est un **résumé produit par
-  l'API**, jamais la trace brute du modèle — le dashboard de l'étape 17 l'écrit à l'écran,
+  l'API**, jamais la trace brute du modèle — le dashboard de l'étape 23 l'écrit à l'écran,
   et ce module ne prétend pas le contraire.
 * `output_config.effort` n'est **pas** fixé : son défaut est `high`, et trois mesures à
   `low` / `medium` / `high` sur le même message ont rendu 165, 280 et 187 jetons de
@@ -149,7 +149,7 @@ class ClientAnthropic:
         """Le mode retenu. `make fumee` et les logs de la boucle l'affichent."""
         return not self._replie
 
-    # Trois lectures publiques, ajoutées à l'étape 17 pour `ClientJournalisant`. Elles
+    # Trois lectures publiques, ajoutées à l'étape 23 pour `ClientJournalisant`. Elles
     # décrivent **la requête qui part**, et c'est ce qui les rend légitimes : le décorateur
     # ne les devine pas, il les lit sur celui qui les envoie. Hors du `Protocol` — la
     # boucle n'en a que faire, et un client de cassette n'a rien à en dire.

@@ -264,7 +264,7 @@ def repondre(
 
         message = depouiller(reponse.blocs)
         # ⚠️ **Ce contrôle vivait plus bas, sous `if not message.appels`, et c'est ce qui a
-        # laissé passer `refusal`** : le message coupé de l'étape 17 portait trois
+        # laissé passer `refusal`** : le message coupé de l'étape 23 portait trois
         # `tool_use`, donc il n'atteignait jamais la branche. Une génération interrompue
         # n'a pourtant rien à voir avec le fait qu'elle ait produit des appels d'outils —
         # elle peut être coupée **dans** leurs arguments, ce qui est précisément ce qu'on
@@ -279,7 +279,7 @@ def repondre(
         )
         verdict = valider(message.texte, fourni) if message.texte else VERDICT_SANS_GRIEF
 
-        # ⚠️ **`bloque`, pas `griefs`** (étape 21, jalon 2). En mode `avertissement`, les
+        # ⚠️ **`bloque`, pas `griefs`** (étape 25). En mode `avertissement`, les
         # règles tournent, produisent leurs griefs et les font compter — mais le texte part
         # au client et rien n'est régénéré. Le signalement vit donc dans `_signaler()`,
         # avant ce branchement, pour être émis dans les deux modes.
@@ -366,7 +366,7 @@ def repondre(
             yield Texte(message.texte)
 
         if not message.appels:
-            # ⚠️ Le `WARNING` de troncature était ici jusqu'à l'étape 17 — voir le
+            # ⚠️ Le `WARNING` de troncature était ici jusqu'à l'étape 23 — voir le
             # commentaire de `signaler_si_interrompue()` plus haut, qui explique pourquoi
             # l'y laisser rendait `refusal` invisible.
             logueur.info("boucle.fin_de_tour", iterations=iteration, fin=reponse.fin)

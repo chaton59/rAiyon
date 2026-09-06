@@ -53,13 +53,13 @@ FINS_INTERROMPUES: dict[str, str] = {
 
 ⚠️ **Les deux sont la même famille, et le dépôt n'en testait qu'un.** `max_tokens` était
 surveillé depuis l'étape 8 ; `refusal` ne l'était par personne, et il est arrivé — une
-fois, au premier tir réel de l'étape 17 : 453 jetons, 20,8 secondes, et un
+fois, au premier tir réel de l'étape 23 : 453 jetons, 20,8 secondes, et un
 `ask_clarification` dont les arguments étaient `{}`. **Un appel d'outil coupé dans ses
 arguments a exactement la forme d'une troncature**, et c'est ce qui rattache les deux.
 
 Rien n'est traité différemment : les deux restent opaques pour l'orchestration, qui
 continue son chemin comme avant. Ils sont **nommés et comptés**, ce qui est tout ce que
-l'étape 17 demande — et ce qui manquait pour que la seconde soit seulement visible.
+l'étape 23 demande — et ce qui manquait pour que la seconde soit seulement visible.
 
 *Alternative écartée — replier sur `refusal`.* Elle changerait le comportement sur la foi
 d'une occurrence. Ici la boucle s'est rattrapée seule : le répartiteur a refusé l'argument

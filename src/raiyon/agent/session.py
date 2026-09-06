@@ -35,7 +35,7 @@ la réponse qui va avec produirait, au tour suivant, un historique se terminant 
 message `user` sans réponse ; l'API l'accepte, mais la conversation relue ne serait pas
 celle qui a eu lieu.
 
-### Les deux tables d'observation entrent dans **ce** commit (étape 17)
+### Les deux tables d'observation entrent dans **ce** commit (étape 23)
 
 `appels_modele` et `evenements_tour` sont écrites juste avant le `commit()`, avec les lignes
 de conversation et l'état. Un seul commit par tour, donc l'atomicité de l'arbitrage 9 est
@@ -193,7 +193,7 @@ def tour(
     )
     logueur.info("session.tour_client", session_id=str(identifiant), numero=numero)
 
-    # ⚠️ **L'enveloppe d'observation est posée ici, pas par l'appelant** (étape 17). Une
+    # ⚠️ **L'enveloppe d'observation est posée ici, pas par l'appelant** (étape 23). Une
     # instance par tour : `iteration` repart donc de 1 sans compteur à remettre à zéro, et
     # il n'existe aucun chemin qui persiste un tour sans le compter. Le client reçu — réel,
     # faux, de cassette, ou déjà enveloppé par `ClientEnregistreur` — traverse inchangé.

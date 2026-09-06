@@ -1,4 +1,4 @@
-"""⚠️ **La propriété que l'étape 17 doit tenir : observer un tour ne change pas ce tour.**
+"""⚠️ **La propriété que l'étape 23 doit tenir : observer un tour ne change pas ce tour.**
 
 C'est la seule chose qu'un décorateur de `ClientLLM` peut casser, et elle ne se voit pas en
 lisant le code — il faut jouer les mêmes scénarios des deux façons et comparer.

@@ -42,7 +42,7 @@
  *
  * ### « Non mesuré » n'est pas « zéro »
  *
- * Les tours d'avant l'étape 17 n'ont ni appel ni événement, et rien ne permet de les leur
+ * Les tours d'avant l'étape 23 n'ont ni appel ni événement, et rien ne permet de les leur
  * fabriquer. Partout où le serveur rend `null`, la page écrit « non mesuré ». Afficher
  * `0` affirmerait qu'une conversation n'a rien coûté, ce qui est faux — c'est la même
  * distinction que celle entre une capacité absente et une capacité non mesurée, et c'est
@@ -136,7 +136,7 @@ function rendreLaListe(sessions) {
         premiere.appendChild(lien);
         ligne.appendChild(premiere);
 
-        // ⚠️ Une session d'avant l'étape 17 a des tours et zéro appel. Écrire `0` la
+        // ⚠️ Une session d'avant l'étape 23 a des tours et zéro appel. Écrire `0` la
         // ferait passer pour gratuite ; on écrit donc ce qu'on sait, et rien de plus.
         const mesure = (valeur) => (session.mesuree ? milliers(valeur) : NON_MESURE);
         ligne.appendChild(noeud("td", "nombre", mesure(session.tours)));

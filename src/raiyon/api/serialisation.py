@@ -527,7 +527,7 @@ def _grief(grief: Grief) -> Donnees:
         "code": grief.code.value,
         "extrait": grief.extrait,
         "correction": grief.correction,
-        # Instrumentation de la tolérance d'arrondi **écartée** (étape 21, jalon 2). Il ne
+        # Instrumentation de la tolérance d'arrondi **écartée** (étape 25). Il ne
         # change aucune décision ; il passe par le fil pour atterrir dans `evenements_tour`,
         # où une campagne pourra le compter. Voir `Grief.arrondi`.
         "arrondi": grief.arrondi,

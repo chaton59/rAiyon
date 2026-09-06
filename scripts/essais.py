@@ -230,7 +230,7 @@ CONVERSATIONS: tuple[Conversation, ...] = (
         ),
     ),
     # ------------------------------------------------------------------- #
-    # 11 à 14 — le jeu « naturel » de l'étape 21
+    # 11 à 14 — le jeu « naturel » de l'étape 24
     #
     # ⚠️ **Ces quatre-là ne cherchent pas un mécanisme qui cède.** Les dix
     # précédentes visent une règle précise et se lisent par oui/non ; celles-ci
@@ -249,7 +249,7 @@ CONVERSATIONS: tuple[Conversation, ...] = (
         titre="le besoin clair avec budget",
         vise=(
             "le chemin nominal, celui qui doit être court : catégorie, usage et budget "
-            "sont donnés d'emblée. Ligne de base de l'étape 21 — combien de tours "
+            "sont donnés d'emblée. Ligne de base de l'étape 24 — combien de tours "
             "jusqu'à une recommandation quand le client ne cache rien."
         ),
         tours=(
@@ -261,7 +261,7 @@ CONVERSATIONS: tuple[Conversation, ...] = (
         numero=12,
         titre="le besoin flou",
         vise=(
-            "⭐ **le scénario qui a motivé l'étape 21.** Rien n'est donné : ni catégorie, "
+            "⭐ **le scénario qui a motivé l'étape 24.** Rien n'est donné : ni catégorie, "
             "ni budget, ni usage. C'est là que §5 « donner avant de demander » pousse le "
             "modèle à servir les agrégats du catalogue — « 171 cartes de 62,99 $ à "
             "7516,34 $ » — et à sonner comme un export de base."
@@ -306,7 +306,7 @@ PRIORITAIRES: tuple[int, ...] = (1, 2, 6)
 raccourci de frappe, c'est le garde-fou qui empêche une campagne de cent vingt appels."""
 
 NATUREL: tuple[int, ...] = (11, 12, 13, 14)
-"""Le jeu de l'étape 21, **rejoué à l'identique sur chaque version de prompt**.
+"""Le jeu de l'étape 24, **rejoué à l'identique sur chaque version de prompt**.
 
 ⚠️ **Nommé plutôt que retapé.** La comparaison v2/v3 ne vaut que si les deux versions
 reçoivent exactement les mêmes messages, dans le même ordre ; une liste de numéros
@@ -342,7 +342,7 @@ def main() -> int:
         choices=sorted(JEUX),
         help=(
             "un ensemble nommé plutôt qu'une liste de numéros. « naturel » est le jeu de "
-            "l'étape 21, rejoué à l'identique sur chaque version de prompt — le retaper à "
+            "l'étape 24, rejoué à l'identique sur chaque version de prompt — le retaper à "
             "la main est l'endroit où un scénario se perd."
         ),
     )

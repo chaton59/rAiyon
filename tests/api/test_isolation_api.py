@@ -43,7 +43,7 @@ oubli — et le test de couverture ci-dessous empêche qu'elle en devienne un.""
 MODULES_BASE = ("raiyon.api.verrou", "raiyon.api.journal")
 """SQLAlchemy, et rien d'autre : le verrou est une phrase de SQL, pas une route.
 
-`journal.py` les rejoint à l'étape 17 : il **lit** deux tables et n'expose rien. Ses routes
+`journal.py` les rejoint à l'étape 23 : il **lit** deux tables et n'expose rien. Ses routes
 — et leur 404 hors `dev` — vivent dans `app.py`, ce qui est exactement ce qui lui permet
 d'être testé sans serveur. Le classement a été demandé par ce fichier avant d'être écrit :
 le test de couverture ci-dessous a échoué à la création du module, ce qui est son travail."""

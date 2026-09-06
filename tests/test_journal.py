@@ -107,7 +107,7 @@ def test_sans_chemin_aucun_fichier_et_la_chaine_reste_courte():
 
 
 def test_le_defaut_de_la_configuration_est_le_terminal_seul():
-    """Un clone frais sans `RAIYON_JOURNAL_JSONL` se comporte comme avant l'étape 17."""
+    """Un clone frais sans `RAIYON_JOURNAL_JSONL` se comporte comme avant l'étape 23."""
     assert get_settings().journal_jsonl is None
 
 

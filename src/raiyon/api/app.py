@@ -500,7 +500,7 @@ def lister_le_journal(_: JournalOuvert, fabrique: Fabrique) -> list[dict[str, An
 def lire_le_journal(identifiant: uuid.UUID, _: JournalOuvert, fabrique: Fabrique) -> dict[str, Any]:
     """La chronologie complète d'une session : en-tête agrégé, puis les tours.
 
-    ⚠️ **Rend 200 pour une session d'avant l'étape 17**, avec ses tours et sans ses
+    ⚠️ **Rend 200 pour une session d'avant l'étape 23**, avec ses tours et sans ses
     mesures. C'est le cas nominal pour les 71 860 tours déjà en base : la page dit « non
     mesuré » là où les colonnes manquent, au lieu de rendre une erreur ou d'afficher zéro.
     """

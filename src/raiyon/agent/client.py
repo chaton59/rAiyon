@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 MAX_TOKENS = 6144
-"""Le plafond de sortie d'un appel. **Il borne aussi le raisonnement**, depuis l'étape 17.
+"""Le plafond de sortie d'un appel. **Il borne aussi le raisonnement**, depuis l'étape 23.
 
 ⚠️ **Il valait 2 048, et l'arbitrage 12 le justifiait par « une recommandation de trois
 produits avec son pourquoi tient largement dedans ».** La phrase était vraie de la prose

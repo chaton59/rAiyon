@@ -279,7 +279,7 @@ class TexteRejete:
     chemins fuit."""
 
     bloquant: bool = True
-    """Le grief a-t-il fait régénérer, ou seulement été signalé ? (étape 21, jalon 2)
+    """Le grief a-t-il fait régénérer, ou seulement été signalé ? (étape 25)
 
     ⚠️ **Sans ce champ, le mode `avertissement` rendrait le tableau de bord menteur.** La
     page marque un texte rejeté « jamais lu par le client » ; en avertissement, il l'a

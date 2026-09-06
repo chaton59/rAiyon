@@ -8,7 +8,7 @@ charge JSONB qui ne se sérialise pas, une contrainte qui refuse une valeur, un 
 n'est pas celui qu'on croit — rien de tout cela ne se voit en mémoire.
 
 ⚠️ **Le test le plus important est celui de l'atomicité.** L'arbitrage 9 dit qu'un tour est
-soit entièrement là, soit absent ; l'étape 17 y ajoute deux tables et doit le laisser vrai.
+soit entièrement là, soit absent ; l'étape 23 y ajoute deux tables et doit le laisser vrai.
 Un second commit pour l'observation aurait passé tous les autres tests de ce fichier.
 """
 

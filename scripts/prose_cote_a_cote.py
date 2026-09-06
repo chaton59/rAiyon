@@ -3,7 +3,7 @@
 ### Pourquoi ce script existe, et ce qu'il corrige
 
 Il a été écrit après une faute, et la faute vaut d'être nommée : la comparaison v2/v3 de
-l'étape 21 a d'abord été assemblée **à la main**, en recopiant la sortie terminale de
+l'étape 24 a d'abord été assemblée **à la main**, en recopiant la sortie terminale de
 `scripts/essais.py` dans un rapport. Plusieurs fragments en sont ressortis corrompus au
 niveau du caractère — « vous voulez qus », « du 144 Hzge » — et il a fallu requêter la base
 pour établir que la prose stockée, elle, était intacte.

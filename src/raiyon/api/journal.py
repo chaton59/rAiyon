@@ -11,13 +11,13 @@
 C'est la décision structurante, et elle vient de la contrainte 3.4 : **les 71 860 tours
 déjà en base n'ont ni appel ni événement**, et rien ne permet de les leur fabriquer après
 coup. Une chronologie bâtie sur `appels_modele` rendrait donc une page vide pour toute
-conversation antérieure à l'étape 17 — c'est-à-dire pour la totalité de l'historique, le
+conversation antérieure à l'étape 23 — c'est-à-dire pour la totalité de l'historique, le
 jour où l'on ouvre la page.
 
 La chronologie se construit donc à partir des **lignes de conversation**, qui existent
 depuis l'étape 8 :
 
-| Ce qu'on lit | D'où ça vient | Absent avant l'étape 17 ? |
+| Ce qu'on lit | D'où ça vient | Absent avant l'étape 23 ? |
 |---|---|---|
 | message du client, blocs assistants, `tool_result` | `tours_conversation` | non |
 | raisonnement (résumé) | blocs `thinking` | vide, mais présent |
@@ -88,7 +88,7 @@ elle est déjà dans la donnée, il suffisait de la porter jusqu'à l'écran.
 
 ### Un appel sans raisonnement est un **état normal**
 
-L'adaptatif décide, appel par appel. Sur la première conversation réelle de l'étape 17,
+L'adaptatif décide, appel par appel. Sur la première conversation réelle de l'étape 23,
 1 appel sur 5 portait un bloc `thinking`. La page ne doit donc pas rendre l'absence comme
 une donnée manquante — `raisonnement` vaut `None` et la page dit « pas de raisonnement sur
 cet appel », ce qui est un fait, pas un trou.
@@ -198,7 +198,7 @@ def sessions(base: Session, *, limite: int = 50) -> list[dict[str, Any]]:
             "replis": ligne.replis or 0,
             "griefs": ligne.griefs or 0,
             # ⚠️ **Le drapeau qui empêche la page de mentir.** Une session d'avant
-            # l'étape 17 a des tours et zéro appel ; sans lui, la liste afficherait « 0
+            # l'étape 23 a des tours et zéro appel ; sans lui, la liste afficherait « 0
             # appel » comme si la conversation n'avait rien coûté.
             "mesuree": bool(ligne.appels),
         }
@@ -286,7 +286,7 @@ def _entete(
 def _cout(appels: Sequence[AppelModele]) -> str | None:
     """Le coût estimé de la session, ou `None`. **Deux absences distinctes, une valeur.**
 
-    `None` quand la session n'a aucun appel mesuré — une conversation d'avant l'étape 17 a
+    `None` quand la session n'a aucun appel mesuré — une conversation d'avant l'étape 23 a
     coûté quelque chose, et afficher `0.00` affirmerait le contraire. `None` aussi si un
     seul appel porte un modèle dont le tarif est inconnu : un total partiel se lirait comme
     un total, et c'est la règle du tout ou rien que `raiyon.eval.cout` applique déjà à ses
@@ -462,7 +462,7 @@ def _appels_refuses(lignes: Sequence[TourConversation]) -> set[int]:
 
     La règle est celle de `prose.py` — « un message assistant suivi d'une reprise a été
     refusé » — et elle est **importée**, pas réécrite : `porte_une_reprise()` est publique
-    depuis l'étape 17 pour que ces deux lecteurs n'en aient qu'une.
+    depuis l'étape 23 pour que ces deux lecteurs n'en aient qu'une.
     """
     from raiyon.api.prose import porte_une_reprise
 
@@ -551,7 +551,7 @@ def _raisonnement(blocs: Sequence[Mapping[str, Any]]) -> str | None:
     ⚠️ **`None` et `""` ne veulent pas dire la même chose.** `None` : l'adaptatif n'a pas
     raisonné sur cet appel, ce qui est normal — 1 appel sur 5 en portait un sur la première
     conversation réelle. `""` : un bloc existe mais son texte est vide, c'est-à-dire un
-    appel passé sous `display: "omitted"` — tout l'historique d'avant l'étape 17.
+    appel passé sous `display: "omitted"` — tout l'historique d'avant l'étape 23.
     """
     morceaux = [str(bloc.get("thinking", "")) for bloc in blocs if bloc.get("type") == "thinking"]
     return None if not morceaux else "\n".join(morceaux)

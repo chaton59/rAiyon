@@ -116,7 +116,7 @@ def test_la_liste_porte_les_totaux_de_la_session(api):
 def test_une_session_sans_tour_apparait_comme_non_mesuree(api, fabrique):
     """⚠️ **Le drapeau qui empêche la liste de mentir** (contrainte 3.4).
 
-    Une session d'avant l'étape 17 a des tours et zéro appel. Sans `mesuree`, la page
+    Une session d'avant l'étape 23 a des tours et zéro appel. Sans `mesuree`, la page
     afficherait « 0 appel » comme si la conversation n'avait rien coûté — au lieu de dire
     qu'on ne sait pas ce qu'elle a coûté.
     """
@@ -335,7 +335,7 @@ def test_une_session_ancienne_rend_ses_tours_sans_ses_mesures(api, fabrique):
                     session_id=identifiant,
                     numero=2,
                     role="assistant",
-                    # Le bloc `thinking` vide de tout l'historique d'avant l'étape 17 :
+                    # Le bloc `thinking` vide de tout l'historique d'avant l'étape 23 :
                     # signé, et sans une lettre de texte.
                     blocs=[
                         {"type": "thinking", "thinking": "", "signature": "Er0E…"},

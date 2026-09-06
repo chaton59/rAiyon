@@ -141,7 +141,7 @@ class Settings(BaseSettings):
     orchestration: Literal["agent", "machine"] = "agent"
 
     validation: Literal["bloquante", "avertissement"] = "bloquante"
-    """Ce que le validateur fait d'un grief — cf. PROJET.md §3.11, étape 21 jalon 2.
+    """Ce que le validateur fait d'un grief — cf. PROJET.md §3.11, étape 25.
 
     * `bloquante` (défaut) : un grief déclenche une régénération, puis le repli sur
       template. C'est le niveau 2 de §3.11, et c'est le comportement depuis l'étape 9.
@@ -160,7 +160,7 @@ class Settings(BaseSettings):
     que l'arbitrage puisse se renverser sans commit, pas parce qu'il devrait l'être."""
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    """⚠️ **Déclarée depuis l'étape 2, et lue par personne jusqu'à l'étape 17.** Le dépôt
+    """⚠️ **Déclarée depuis l'étape 2, et lue par personne jusqu'à l'étape 23.** Le dépôt
     n'appelait pas `structlog.configure()` : il tournait sur les défauts du paquet, qui ne
     filtrent rien. `raiyon.journal.configurer_journal()` la consomme désormais, et une
     variable de configuration cesse d'annoncer un effet qu'elle n'avait pas."""
@@ -174,7 +174,7 @@ class Settings(BaseSettings):
     voulait observer."""
 
     app_env: Literal["dev", "test", "prod"] = "dev"
-    """⚠️ **Depuis l'étape 17, elle décide aussi de l'existence des routes `/journal`.**
+    """⚠️ **Depuis l'étape 23, elle décide aussi de l'existence des routes `/journal`.**
     Elles exposent des conversations entières : hors `dev`, elles rendent 404."""
 
 

@@ -236,7 +236,7 @@ def test_la_reprise_ne_fournit_jamais_un_fait(contexte):
 
     reprise = message_de_grief(["- **montant_non_fourni** — « 4242 $ » : ne pas le citer."])
     # ⚠️ **Le seul endroit qui porte 4242 est la reprise.** Le tour client parle d'autre
-    # chose : sinon le test passerait par la provenance `montants_du_client` de l'étape 21,
+    # chose : sinon le test passerait par la provenance `montants_du_client` de l'étape 25,
     # et ne dirait plus rien de la reprise — qui est ce qu'il garde.
     messages = [
         {"role": "user", "content": [{"type": "text", "text": "Un écran, budget 300 $."}]},
@@ -257,7 +257,7 @@ def test_la_reprise_ne_fournit_jamais_un_fait(contexte):
 
 
 def test_un_montant_que_le_client_a_ecrit_est_un_fait_fourni(contexte):
-    """⚠️ **Le faux positif structurel fermé au jalon 2 de l'étape 21.**
+    """⚠️ **Le faux positif structurel fermé à l'étape 25.**
 
     Mesuré en conversation réelle : le client dit « je dirais 300 $ », le modèle répond
     « D'accord, 300 $ pour démarrer », et le validateur refuse. `record_criteria` rend

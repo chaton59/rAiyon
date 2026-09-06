@@ -2,7 +2,7 @@
 
 ### Pourquoi un script et pas une lecture à l'œil du tableau de bord
 
-Le tableau de bord de l'étape 17 rend **une** session à la fois, et il est fait pour être
+Le tableau de bord de l'étape 23 rend **une** session à la fois, et il est fait pour être
 lu. Comparer deux versions de prompt demande l'inverse : huit sessions, cinq colonnes, et
 la même définition appliquée aux huit. La lire huit fois à l'écran, c'est huit occasions
 de compter autrement.

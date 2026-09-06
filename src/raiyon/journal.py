@@ -41,7 +41,7 @@ plus dure que la base de données.
 
 Il contient ce que les logs contiennent déjà : des événements nommés, avec leurs champs.
 Il ne contient **pas** de prose de conversation — celle-là vit en base, et le dashboard de
-l'étape 17 la lit là-bas. Le fichier est un journal d'exploitation, pas une seconde
+l'étape 23 la lit là-bas. Le fichier est un journal d'exploitation, pas une seconde
 persistance.
 """
 

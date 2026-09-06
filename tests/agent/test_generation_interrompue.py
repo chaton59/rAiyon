@@ -3,7 +3,7 @@
 ⚠️ **Le cas qui a motivé ces tests est le troisième**, celui où la génération est coupée
 alors que le message porte des appels d'outils. Le contrôle vivait sous `if not
 message.appels` : un message coupé qui appelait des outils ne l'atteignait jamais. C'est
-exactement ce qui est arrivé au premier tir réel de l'étape 17 — trois `tool_use`, dont un
+exactement ce qui est arrivé au premier tir réel de l'étape 23 — trois `tool_use`, dont un
 `ask_clarification` à `{}`, et un `stop_reason` que personne n'a vu.
 
 **Aucun de ces tests n'assertent un changement de comportement**, et c'est délibéré : les
@@ -68,7 +68,7 @@ def test_la_boucle_signale_une_generation_interrompue(fin, contexte, outils):
 def test_la_boucle_signale_meme_quand_le_message_porte_des_appels_doutils(fin, contexte, outils):
     """⚠️ **Le défaut corrigé : c'est par là que `refusal` est passé sans être vu.**
 
-    Le message coupé de l'étape 17 portait trois `tool_use`. Sous l'ancien placement — dans
+    Le message coupé de l'étape 23 portait trois `tool_use`. Sous l'ancien placement — dans
     la branche `if not message.appels` — il n'atteignait jamais le contrôle, et le tour se
     déroulait sans qu'une ligne le mentionne.
     """

@@ -143,7 +143,7 @@ DISPLAY_PAR_DEFAUT = "omitted"
 
 C'est **le défaut de l'API**, pas une valeur de remplissage : un client qui n'envoie rien
 obtient exactement ce mode-là. Écrire `summarized` supposerait une demande qui n'a pas été
-faite — et c'est la forme même de la faute que l'étape 17 vient de consigner."""
+faite — et c'est la forme même de la faute que l'étape 23 vient de consigner."""
 
 
 def _dans_la_pile(client: object, nom: str, defaut: Any) -> Any:  # noqa: ANN401 — polymorphe

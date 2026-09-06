@@ -169,7 +169,7 @@ class ContexteFourni:
     contient, qui est la raison d'être de `probe_catalog` (§3.7)."""
 
     montants_du_client: frozenset[Decimal] = frozenset()
-    """Les montants que le **client** a écrits dans ses propres messages (étape 21, jalon 2).
+    """Les montants que le **client** a écrits dans ses propres messages (étape 25).
 
     ### Le faux positif que ça ferme, et il est structurel
 
@@ -286,14 +286,14 @@ def contexte_des_messages(messages: Sequence[Mapping[str, Any]]) -> ContexteFour
     « par clé, jamais par nom d'outil » y survit.
 
     ⚠️ **Une seule provenance se lit dans le texte d'un message `user`, et elle est
-    étroitement gardée** (étape 21, jalon 2). Le message de reprise de l'étape 9 est un
+    étroitement gardée** (étape 25). Le message de reprise de l'étape 9 est un
     bloc `user` de la **même forme** qu'un tour client, et il **cite les extraits refusés** :
     en tirer des faits rendrait le validateur auto-annulant — mesuré, 18 griefs sur 19
     disparaissaient. `montants_du_client` l'exclut donc explicitement, et
     `test_la_reprise_ne_fournit_jamais_un_fait` reste la garde qui le vérifie.
 
     La phrase « aucune provenance ne se lit dans le texte d'un message `user` » figurait ici
-    jusqu'à l'étape 21. Elle est remplacée plutôt que nuancée : ce qui la fondait n'était pas
+    jusqu'à l'étape 25. Elle est remplacée plutôt que nuancée : ce qui la fondait n'était pas
     « le texte du client est sale », c'était « le texte du client est **indiscernable** de la
     reprise ». Depuis que `prefixe_de_reprise()` les sépare, l'interdiction porte sur la
     reprise seule.

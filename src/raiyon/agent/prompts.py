@@ -175,10 +175,10 @@ def prefixe_de_reprise() -> str:
     remplaçant `MARQUE_DES_GRIEFS` dans ce même gabarit : le préfixe est donc exact au
     caractère près, et il le reste si l'étape 13 réécrit le corps du message.
 
-    ⚠️ **Il vivait dans `api/prose.py` jusqu'à l'étape 21, et il a trois lecteurs.**
+    ⚠️ **Il vivait dans `api/prose.py` jusqu'à l'étape 23, et il a trois lecteurs.**
     `prose.py` masque la reprise au rechargement ; `api/journal.py` s'en sert pour ne pas
-    compter un grief comme un tour client ; et `validateur/contexte.py` en dépend depuis le
-    jalon 2 pour une raison bien plus lourde — **exclure la reprise de la provenance
+    compter un grief comme un tour client ; et `validateur/contexte.py` en dépend depuis
+    l'étape 25 pour une raison bien plus lourde — **exclure la reprise de la provenance
     « parole du client »**. Un message de reprise cite les extraits refusés : les admettre
     rendrait le validateur auto-annulant, mesuré à 18 griefs sur 19.
 

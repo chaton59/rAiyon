@@ -214,7 +214,7 @@ def depouiller(blocs: Sequence[dict[str, Any]]) -> Message:
     `claude-sonnet-5` émettait des blocs `thinking`, avec leur `signature`, sans qu'on les
     sollicite. La ligne est barrée plutôt qu'effacée.
 
-    ⚠️ **Et depuis l'étape 17, la phrase « aucun `thinking` n'est activé » est fausse deux
+    ⚠️ **Et depuis l'étape 23, la phrase « aucun `thinking` n'est activé » est fausse deux
     fois.** Elle l'était déjà comme description du reçu ; elle l'est devenue comme
     description du demandé, `client_anthropic.py` envoyant désormais
     `thinking={"type": "adaptive", "display": "summarized"}`. Le raisonnement adaptatif

@@ -63,7 +63,7 @@ class Verdict:
     griefs: tuple[Grief, ...]
 
     bloquant: bool = True
-    """Ce verdict doit-il faire régénérer, ou seulement signaler ? (étape 21, jalon 2)
+    """Ce verdict doit-il faire régénérer, ou seulement signaler ? (étape 25)
 
     ⚠️ **Le mode est porté par le verdict, pas lu par l'orchestration.** Deux orchestrations
     consomment `valider()` ; leur faire lire `get_settings().validation` chacune de leur

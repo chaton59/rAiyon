@@ -98,7 +98,7 @@ from raiyon.agent.prompts import prefixe_de_reprise
 from raiyon.tools.schema_outils import NOM_PRECISION
 
 __all__ = ["Interlocuteur", "Parole", "porte_une_reprise", "prefixe_de_reprise", "prose_de"]
-"""`prefixe_de_reprise` est réexporté : il vivait ici jusqu'à l'étape 21 et trois modules
+"""`prefixe_de_reprise` est réexporté : il vivait ici jusqu'à l'étape 23 et trois modules
 l'importaient de ce chemin. Il a déménagé dans `agent/prompts.py`, à côté du gabarit qu'il
 décode, parce que `validateur/contexte.py` en a besoin et n'a pas à importer `raiyon.api`
 pour l'obtenir."""
@@ -202,7 +202,7 @@ def _a_ete_refuse(historique: Sequence[Mapping[str, Any]], rang: int) -> bool:
     l'avertissement du côté où il se lit.
 
     La reconnaissance d'un message de reprise vit dans `porte_une_reprise()`, publique
-    depuis l'étape 17 : `api/journal.py` pose la même question pour marquer, dans la
+    depuis l'étape 23 : `api/journal.py` pose la même question pour marquer, dans la
     chronologie, l'appel dont le texte n'a jamais atteint le client.
     """
     suivant = historique[rang + 1] if rang + 1 < len(historique) else None
@@ -214,7 +214,7 @@ def _a_ete_refuse(historique: Sequence[Mapping[str, Any]], rang: int) -> bool:
 def porte_une_reprise(blocs: Sequence[Mapping[str, Any]]) -> bool:
     """Ces blocs de rôle `user` portent-ils un message de reprise ?
 
-    Publique depuis l'étape 17, parce que `api/journal.py` pose **exactement** la même
+    Publique depuis l'étape 23, parce que `api/journal.py` pose **exactement** la même
     question : quel appel modèle a produit un texte que le validateur a refusé ? Deux
     lecteurs, une seule règle — l'écrire deux fois donnerait deux réponses le jour où le
     gabarit de grief change, et une seule des deux serait corrigée.
