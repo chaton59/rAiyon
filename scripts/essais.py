@@ -229,11 +229,95 @@ CONVERSATIONS: tuple[Conversation, ...] = (
             "et le moins cher, il coûte combien ?",
         ),
     ),
+    # ------------------------------------------------------------------- #
+    # 11 à 14 — le jeu « naturel » de l'étape 21
+    #
+    # ⚠️ **Ces quatre-là ne cherchent pas un mécanisme qui cède.** Les dix
+    # précédentes visent une règle précise et se lisent par oui/non ; celles-ci
+    # dressent une **ligne de base de conduite de dialogue**, à rejouer à
+    # l'identique sur deux versions de prompt. Ce qu'on en tire n'est pas un
+    # verdict mais un tableau : jetons, griefs, replis, tours jusqu'à une
+    # recommandation, latence.
+    #
+    # Elles sont donc écrites pour être **ordinaires**, pas piégeuses : quatre
+    # profils de client que le produit doit servir tous les jours. Une ligne de
+    # base bâtie sur des cas limites mesurerait la résistance aux pièges, pas la
+    # conversation.
+    # ------------------------------------------------------------------- #
+    Conversation(
+        numero=11,
+        titre="le besoin clair avec budget",
+        vise=(
+            "le chemin nominal, celui qui doit être court : catégorie, usage et budget "
+            "sont donnés d'emblée. Ligne de base de l'étape 21 — combien de tours "
+            "jusqu'à une recommandation quand le client ne cache rien."
+        ),
+        tours=(
+            "je cherche une carte graphique pour jouer en 1080p, 400 $ maximum",
+            "laquelle tu me conseilles ?",
+        ),
+    ),
+    Conversation(
+        numero=12,
+        titre="le besoin flou",
+        vise=(
+            "⭐ **le scénario qui a motivé l'étape 21.** Rien n'est donné : ni catégorie, "
+            "ni budget, ni usage. C'est là que §5 « donner avant de demander » pousse le "
+            "modèle à servir les agrégats du catalogue — « 171 cartes de 62,99 $ à "
+            "7516,34 $ » — et à sonner comme un export de base."
+        ),
+        tours=(
+            "salut, je voudrais améliorer mon PC mais je sais pas trop par quoi commencer",
+            "je joue surtout, et je fais un peu de montage vidéo à côté",
+            "je dirais 300 $",
+        ),
+    ),
+    Conversation(
+        numero=13,
+        titre="le budget intenable",
+        vise=(
+            "le client ne peut pas monter, et il le dit. L'assistant doit expliquer "
+            "pourquoi ça ne passe pas et proposer un arbitrage, sans assouplir de "
+            "lui-même (§9) et sans faire porter au client la faute de son budget."
+        ),
+        tours=(
+            "un écran 4K 165 Hz à moins de 150 $",
+            "je peux vraiment pas mettre plus, c'est mon maximum",
+        ),
+    ),
+    Conversation(
+        numero=14,
+        titre="le changement d'avis en cours de route",
+        vise=(
+            "deux revirements successifs sur la même catégorie : la taille, puis le "
+            "budget. Le jeton de parole (§3.17) n'accorde qu'un desserrage par message, "
+            "et la conversation doit rester fluide malgré cette contrainte."
+        ),
+        tours=(
+            "un écran gaming 27 pouces, 350 $",
+            "en fait je préfère du 24 pouces",
+            "et finalement je peux monter à 450 $",
+        ),
+    ),
 )
 
 PRIORITAIRES: tuple[int, ...] = (1, 2, 6)
 """Les trois que l'étape 19 joue par défaut. Voir la docstring du module : ce n'est pas un
 raccourci de frappe, c'est le garde-fou qui empêche une campagne de cent vingt appels."""
+
+NATUREL: tuple[int, ...] = (11, 12, 13, 14)
+"""Le jeu de l'étape 21, **rejoué à l'identique sur chaque version de prompt**.
+
+⚠️ **Nommé plutôt que retapé.** La comparaison v2/v3 ne vaut que si les deux versions
+reçoivent exactement les mêmes messages, dans le même ordre ; une liste de numéros
+recopiée à la main dans deux commandes est précisément l'endroit où un scénario se perd.
+`--jeu naturel` le rend impossible.
+
+Les quatre profils sont ceux qu'un client réel présente : un besoin clair avec budget, un
+besoin flou, un budget intenable, un changement d'avis en cours de route."""
+
+JEUX: dict[str, tuple[int, ...]] = {"prioritaires": PRIORITAIRES, "naturel": NATUREL}
+"""Les ensembles nommés. `--conversation` reste disponible pour un numéro isolé."""
 
 
 def main() -> int:
@@ -254,6 +338,15 @@ def main() -> int:
         ),
     )
     analyseur.add_argument(
+        "--jeu",
+        choices=sorted(JEUX),
+        help=(
+            "un ensemble nommé plutôt qu'une liste de numéros. « naturel » est le jeu de "
+            "l'étape 21, rejoué à l'identique sur chaque version de prompt — le retaper à "
+            "la main est l'endroit où un scénario se perd."
+        ),
+    )
+    analyseur.add_argument(
         "--orchestration",
         choices=("agent", "machine", "deux"),
         default="deux",
@@ -263,7 +356,7 @@ def main() -> int:
     configurer_journal()
 
     try:
-        conversations = _retenues(arguments.conversation)
+        conversations = _retenues(arguments.conversation, arguments.jeu)
     except ValueError as erreur:
         print(f"\n⛔ {erreur}\n", file=sys.stderr)
         return 1
@@ -319,14 +412,20 @@ def main() -> int:
     return 0
 
 
-def _retenues(numeros: list[int] | None) -> tuple[Conversation, ...]:
+def _retenues(numeros: list[int] | None, jeu: str | None = None) -> tuple[Conversation, ...]:
     """Les conversations demandées, ou les trois prioritaires. Lève sur un numéro inconnu.
 
-    Un numéro absent est une erreur et non un silence : `--conversation 11` qui ne jouerait
+    Un numéro absent est une erreur et non un silence : `--conversation 99` qui ne jouerait
     rien laisserait croire que l'essai est passé.
+
+    `--jeu` et `--conversation` s'additionnent, dans cet ordre et sans doublon : demander
+    le jeu naturel **plus** une conversation isolée est un besoin réel quand on rejoue une
+    ligne de base et qu'on veut vérifier un cas au passage.
     """
     par_numero = {essai.numero: essai for essai in CONVERSATIONS}
-    voulus = list(dict.fromkeys(numeros)) if numeros else list(PRIORITAIRES)
+    demandes = list(JEUX[jeu]) if jeu else []
+    demandes += list(numeros or [])
+    voulus = list(dict.fromkeys(demandes)) if demandes else list(PRIORITAIRES)
     inconnus = [numero for numero in voulus if numero not in par_numero]
     if inconnus:
         raise ValueError(
