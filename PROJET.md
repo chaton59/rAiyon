@@ -995,6 +995,81 @@ version en exemptait le changement de catégorie et le bornait à un par tour ; 
 était **inter-tours**, donc invisible pour une borne posée par tour — partir sur `cpu` au
 tour 5, revenir sur `monitor` au tour 6, et chercher sans plafond.
 
+### 3.18 — La recherche web : un sixième outil, et un cache qui sert la mesure
+
+**Décidé à l'étape 26.** Le catalogue apporte des faits ; le web apporte des **opinions** —
+des avis et des retours d'usage, ce dont aucune colonne ne dispose. La bride a été
+délibérément relâchée pour rendre la conversation plus naturelle, quitte à sortir un peu
+du catalogue. **Tout ce qui est relâché doit rester mesurable**, et c'est pour cela que le
+journal de l'étape 23 précède celle-ci.
+
+#### Les décisions arrêtées
+
+| | |
+|---|---|
+| **Un outil exécuté par le répartiteur**, pas le `web_search` natif d'Anthropic | Le natif ferait perdre trois choses : le cache, l'encadrement du contenu en **donnée citée**, et le journal. Aucune des trois n'est optionnelle ici |
+| **Fournisseur : Brave Search API** | Choisi sur ses conditions de stockage, **pas sur son prix**. Google et Exa l'interdisent, Serper et SerpAPI revendent du Google sous litige, Tavily est silencieuse — et le silence n'est pas une permission. Brave est le seul où stocker est un droit **accordé explicitement**, moyennant un plan « storage rights ». Variable `BRAVE_SEARCH_API_KEY`, traitée comme `ANTHROPIC_API_KEY` |
+| **Cache sur la requête normalisée**, lien produit optionnel | La recherche est libre — le modèle formule ce qu'il veut —, donc il n'y a pas toujours un `produit_id` sous lequel ranger |
+| **Contenu brut, URL, date. Jamais de synthèse générée** | On ne met pas de texte de LLM dans la base de faits (§2). Même règle que `produits` |
+| **Le contenu web n'entre PAS dans le `ContexteFourni`** | Conséquence voulue : la prose qualitative reste libre — aucune règle ne la couvre — et **tout chiffre ramené du web tombe**. ⚠️ C'est un acte à poser, pas un état par défaut : `_charges_utiles()` lit tout `tool_result` réussi sans regarder de quel outil il vient, donc un sixième outil y entrerait **automatiquement**. Un test doit échouer si l'exclusion est retirée |
+
+#### Le TTL vaut 24 h, et le chiffre vient d'une frontière — pas d'un taux de hit
+
+🔴 **L'argument économique a été mesuré, et il est faux.** Une campagne complète fait 81
+tours client, donc au pire 81 recherches, soit **0,40 $** au tarif Brave de 5 $ pour mille ;
+le crédit mensuel offert en paie douze. Le cache n'économise **rien qui compte**, et le
+dimensionner comme un cache d'économie aurait donné une réponse à la mauvaise question.
+
+Ce qu'il achète est la **comparabilité** : comparer deux versions de prompt suppose que les
+deux exécutions aient vu le même contenu web, sans quoi la différence mesurée mélange
+l'effet du prompt et celui d'une page qui a bougé — et rien à l'écran ne les sépare.
+
+**Les deux caches ne se dimensionnent pas pareil.** Un cache d'économie se règle sur un
+taux de hit : un TTL court qui attrape déjà 90 % des répétitions suffit. Un cache de
+comparabilité se règle sur une **frontière** — il doit être plus long que l'écart entre les
+deux bras d'une comparaison, sinon l'expiration tombe **au milieu de la mesure**. Une
+frontière à 4 h attrape pourtant presque tous les hits, et coupe en deux une session de
+travail qui en dure six. **Ce défaut-là n'apparaît dans aucun taux de hit.**
+
+24 h est donc le plus court TTL qui fasse coïncider une génération de cache avec une
+journée de travail, l'unité réelle de ce projet. Plus long ne rattrape presque rien et
+transforme le cache en corpus ; plus court rouvre la frontière au milieu de la mesure.
+
+⚠️ **Risque résiduel, nommé** : une comparaison à cheval sur minuit. Il ne se ferme pas par
+un TTL plus long, il se **rend visible** — `recupere_le` est dans la ligne et le journal
+trace hit/miss par recherche, donc une mesure contaminée se constate au lieu de passer.
+
+#### Les mesures ne sortent jamais sur le réseau
+
+**Deux problèmes ouverts n'en faisaient qu'un, et un seul geste les ferme** : le cache est
+**pré-chargé**, seedé comme le catalogue l'est déjà (`data/seed/avis.jsonl`). L'outil
+trouve un hit, ne sort pas, ne consomme pas de crédit, et rend le même `tool_result` à
+chaque rejeu.
+
+1. `make eval` tourne sans clé et sans réseau. Un outil qui appellerait un fournisseur au
+   rejeu dépenserait **et** rendrait un `tool_result` différent de l'enregistrement, donc
+   une cassette qui ne rejoue plus la même conversation.
+2. Le §3(b) des conditions Brave interdit d'employer des résultats de recherche pour
+   *« evaluate […] or benchmark »* un modèle. Une campagne qui interroge Brave pour
+   comparer deux prompts est exactement cela.
+
+*Alternative écartée — la cassette porte le résultat d'outil.* Elle confondrait le rejeu du
+**modèle** et celui des **outils**, alors que les cassettes de ce dépôt sont explicitement
+« les réponses du modèle ».
+
+*Alternative écartée — une fixture séparée.* Elle ajoute un mécanisme parallèle là où le
+cache fait déjà ce travail. Le catalogue est seedé ; les avis le sont pareil.
+
+**Deux conséquences tenues dès l'étape 26** : `source` sépare `brave` de `fabrique`, et une
+ligne `fabrique` **ne périme jamais** — sinon le seed expirerait 24 h après `make seed` et
+les campagnes cesseraient de trouver quoi que ce soit, silencieusement, un jour plus tard.
+Et **aucune ligne `brave` n'entre au dépôt git** : le §3(b) interdit aussi de redistribuer
+des résultats de recherche, ce qu'un JSONL committé serait.
+
+⚠️ **Reste à lire avant de créer la clé** : le plan « storage rights » lève-t-il la clause
+« evaluate / benchmark », ou seulement l'interdiction de stocker ? Avec le cache
+pré-chargé, elle porte beaucoup moins — mais on ne signe pas sans savoir.
+
 ---
 
 ## 4. Critères d'acceptation

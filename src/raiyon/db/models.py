@@ -1,5 +1,6 @@
-"""Modèles SQLAlchemy : `produits`, `sessions`, `tours_conversation`, et les deux tables
-d'observation de l'étape 23 — `appels_modele`, `evenements_tour`.
+"""Modèles SQLAlchemy : `produits`, `sessions`, `tours_conversation`, les deux tables
+d'observation de l'étape 23 — `appels_modele`, `evenements_tour` — et le cache d'avis web
+de l'étape 26, `avis_produit`.
 
 Le schéma applique la décision §3.3 : des colonnes typées et indexées pour ce qui
 est commun à tout produit, un JSONB `specs` pour ce qui est propre a la catégorie.
@@ -358,4 +359,152 @@ class EvenementTour(Base):
         CheckConstraint("rang >= 1", name="rang_positif"),
         UniqueConstraint("session_id", "tour_client", "rang", name="uq_evenements_tour_rang"),
         Index("ix_evenements_tour_session_tour", "session_id", "tour_client", "rang"),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Le cache d'avis web — étape 26
+# --------------------------------------------------------------------------- #
+
+SOURCES_AVIS = ("brave", "fabrique")
+"""D'où vient la ligne. **Deux provenances, et la distinction porte tout le jalon.**
+
+* `brave` — récupérée d'une vraie recherche. Elle est datée, donc elle périme.
+* `fabrique` — **écrite à la main**, committée dans `data/seed/avis.jsonl`. Elle n'a
+  jamais été un instantané du web, donc elle n'a pas de fraîcheur à perdre : elle ne
+  périme **jamais**. Voir `AvisProduit.recupere_le`.
+
+⚠️ **Aucune ligne `brave` n'entre dans le dépôt git**, et ce n'est pas une politique de
+propreté : les conditions Brave §3(b) interdisent de *« redistribute, resell, or
+sublicense the Search Results »*. Un `avis.jsonl` committé contenant de vrais résultats de
+recherche serait exactement cela. Le seed est donc **fabriqué**, et la colonne rend le
+fait vérifiable par une requête au lieu de le laisser à une intention."""
+
+EXTRAIT_MAX_CARACTERES = 500
+"""Longueur maximale d'un extrait. ⚠️ **Une borne, pas une mesure** — rien ne l'a calibrée.
+
+Elle existe pour deux raisons, aucune des deux esthétique : un extrait est du **texte de
+tiers** qui part dans le contexte du modèle, donc de la surface d'injection et du jeton
+facturé. 500 caractères font environ 125 jetons ; cinq résultats par recherche en font
+625, ce qui reste petit devant un historique de conversation.
+
+Elle est tenue à **deux endroits** : `tronquer_extrait()` coupe à l'écriture, la
+contrainte SQL refuse ce qui passerait outre. La couche haute tronque plutôt qu'elle ne
+rejette — perdre un résultat entier parce qu'une page est bavarde serait pire —, et la
+troncature est **marquée** pour que le modèle voie qu'elle a eu lieu.
+
+À recalibrer sur les longueurs réellement rendues, une fois qu'il en existe."""
+
+
+class AvisProduit(Base):
+    """Un résultat web mis en cache : ce qu'une page dit, d'où ça vient, et quand.
+
+    ### Ce cache n'est pas un cache d'économie, et ça change son dimensionnement
+
+    ⚠️ **C'est le point à ne pas perdre, parce qu'il a été trouvé en tuant l'argument
+    inverse.** Le réflexe est de justifier un cache par les appels qu'il évite. Sur cette
+    charge, l'argument est faux et il a été mesuré : une campagne complète, c'est **81
+    tours client**, donc au pire 81 recherches, soit **0,40 $** au tarif Brave de 5 $ pour
+    mille. Le crédit mensuel offert en paie douze. **Le cache n'économise rien qui compte.**
+
+    Ce qu'il achète, c'est la **comparabilité**. Comparer deux versions de prompt suppose
+    que les deux exécutions aient vu le **même** contenu web ; sinon la différence mesurée
+    mélange l'effet du prompt et l'effet d'une page qui a bougé, et rien à l'écran ne les
+    sépare.
+
+    **Un cache d'économie et un cache de comparabilité ne se dimensionnent pas pareil.** Le
+    premier se règle sur un taux de hit : plus il est haut, mieux c'est, et un TTL court
+    qui attrape déjà 90 % des répétitions suffit. Le second se règle sur une **frontière** :
+    le TTL doit être plus long que l'écart entre les deux bras d'une comparaison, **sinon
+    l'expiration tombe au milieu de la mesure**. Une frontière à 4 h attrape pourtant
+    presque tous les hits — et coupe en deux une session de travail qui dure six heures.
+    Ce défaut-là ne se voit dans aucun taux de hit ; il ne se voit qu'en se demandant ce
+    que le cache sert.
+
+    D'où **24 h** (`RAIYON_AVIS_TTL_HEURES`) : c'est le plus court TTL qui fait coïncider
+    une génération de cache avec une journée de travail, l'unité réelle de ce projet. Plus
+    long ne rattrape presque rien sur cette charge et transforme le cache en corpus ; plus
+    court rouvre la frontière au milieu de la mesure.
+
+    ⚠️ **Le risque résiduel est nommé** : une comparaison à cheval sur minuit. Il ne se
+    ferme pas par un TTL plus long, il se **rend visible** — `recupere_le` est dans la
+    ligne, et l'étape 27 trace hit/miss par recherche, donc une mesure contaminée se
+    constate au lieu de passer.
+
+    ### La clé est la requête seule ; `produit_id` est un lien, pas une clé
+
+    La recherche est libre — le modèle formule ce qu'il veut —, donc il n'y a pas toujours
+    un produit sous lequel ranger. `produit_id` est renseigné quand la recherche portait
+    sur un produit identifié, et sert à relire le cache d'un produit ; il **n'entre pas**
+    dans l'identité de la ligne. Une même page peut donc être trouvée par deux requêtes
+    différentes, et elle y sera deux fois : ce sont deux faits de cache distincts.
+
+    ### `ON DELETE CASCADE`, et la conséquence sur `make seed`
+
+    ⚠️ **`make seed` vide la table `produits` avant de la remplir** (`charger_en_base`).
+    La cascade emporte donc les avis liés à un produit, à chaque chargement de catalogue.
+    Ce n'est pas un défaut à contourner : un avis sur un produit qui n'existe plus n'est
+    pas un fait. La conséquence est tenue à l'endroit où elle se produit — **`make seed`
+    charge les deux**, catalogue puis avis, dans cet ordre et dans la même commande.
+
+    *Alternative écartée — `ON DELETE SET NULL`.* La ligne survivrait en perdant son lien,
+    donc un avis sur « ce produit » deviendrait un avis sur rien, sans que rien ne le dise.
+    Une perte silencieuse vaut moins qu'une suppression franche.
+    """
+
+    __tablename__ = "avis_produit"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+
+    requete_normalisee: Mapped[str] = mapped_column(Text, nullable=False)
+    """La clé, telle que `raiyon.avis.normalisation.normaliser()` la produit.
+
+    Stockée normalisée et **jamais** la requête d'origine : garder les deux inviterait à
+    lire l'une en croyant lire l'autre. Ce que la requête d'origine aurait apporté — savoir
+    ce que le modèle a réellement écrit — est du ressort du journal, qui l'enregistre
+    dans `evenements_tour` sans en faire une clé."""
+
+    produit_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("produits.id", ondelete="CASCADE"), nullable=True
+    )
+
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    titre: Mapped[str] = mapped_column(Text, nullable=False)
+    extrait: Mapped[str] = mapped_column(Text, nullable=False)
+    """Ce que la page dit, borné à `EXTRAIT_MAX_CARACTERES`.
+
+    ⚠️ **Du texte brut de tiers, jamais une synthèse.** Aucun octet de cette colonne ne
+    vient d'un modèle de langage — c'est la même règle que pour `produits`, et pour la même
+    raison : on ne met pas du texte de LLM dans la base de faits (§2)."""
+
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
+    recupere_le: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    """Quand la ligne a été récupérée. **Le TTL se lit dessus, à la lecture.**
+
+    Pas de tâche de fond qui purge : une ligne périmée reste en base et c'est la lecture
+    qui la refuse. Un purgeur ajouterait un ordonnanceur, donc un composant qui tourne, à
+    un projet dont toutes les garanties sont vérifiables par une requête.
+
+    ⚠️ **Une ligne `fabrique` ne périme jamais, quelle que soit cette date.** Elle n'a pas
+    été prise sur le web à un instant : elle a été écrite. Sans cette exception, le seed
+    d'avis deviendrait périmé vingt-quatre heures après `make seed`, et `make eval`
+    cesserait de trouver quoi que ce soit — **silencieusement, un jour plus tard**, ce qui
+    est la pire forme de panne pour un harnais de mesure."""
+
+    __table_args__ = (
+        CheckConstraint(f"source IN ({_liste_sql(SOURCES_AVIS)})", name="source_connue"),
+        CheckConstraint("requete_normalisee <> ''", name="requete_non_vide"),
+        CheckConstraint(f"char_length(extrait) <= {EXTRAIT_MAX_CARACTERES}", name="extrait_borne"),
+        # Une page n'apparaît qu'une fois par requête. C'est ce qui rend l'écriture
+        # concurrente sûre sans verrou : deux processus qui remplissent la même clé au
+        # même instant ne peuvent pas produire de doublon — le second se heurte à cette
+        # contrainte, et `DepotAvisSql.ecrire()` en fait une relecture plutôt qu'une erreur.
+        UniqueConstraint("requete_normalisee", "url", name="uq_avis_produit_requete_url"),
+        # Toutes les lectures partent de la clé. L'index la porte seule : `recupere_le`
+        # n'y ajouterait rien, le groupe rendu par une clé tenant en quelques lignes.
+        Index("ix_avis_produit_requete", "requete_normalisee"),
+        # La relecture « les avis de ce produit », qui ne passe pas par la clé.
+        Index("ix_avis_produit_produit_id", "produit_id"),
     )

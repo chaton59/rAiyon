@@ -1,7 +1,8 @@
 """Point d'entrée de la passe C — `make seed`. **Aucun appel API.**
 
 Charge le seed committé en base : lecture, revalidation par `ProduitEnBase`, insertion
-en une transaction.
+en une transaction. Depuis l'étape 26 il charge aussi `data/seed/avis.jsonl` — voir
+`executer_passe_c()` pour pourquoi les deux vivent dans la même commande.
 
 ⚠️ **Conséquence connue et non traitée** (§3.4ter) : construire l'engine charge
 `Settings`, où `ANTHROPIC_API_KEY` est obligatoire depuis l'étape 2. Cette commande
@@ -14,6 +15,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from raiyon.avis.chargement import SeedAvisInvalide
 from raiyon.catalogue.chargement import BaseInjoignable, executer_passe_c
 from raiyon.catalogue.normalisation import PipelineArrete
 from raiyon.catalogue.pipeline import FICHIER_SEED
@@ -26,11 +28,11 @@ def main() -> int:
     arguments = analyseur.parse_args()
 
     try:
-        rapport = executer_passe_c(arguments.seed)
+        rapport, avis = executer_passe_c(arguments.seed)
     except BaseInjoignable as erreur:
         print(f"\n⛔ {erreur}\n", file=sys.stderr)
         return 1
-    except (PipelineArrete, FileNotFoundError) as erreur:
+    except (PipelineArrete, SeedAvisInvalide, FileNotFoundError) as erreur:
         print(f"\n⛔ Seed inutilisable — {erreur}\n", file=sys.stderr)
         return 1
 
@@ -38,6 +40,16 @@ def main() -> int:
         f"{rapport.lus} produits relus et revalidés · "
         f"{rapport.supprimes} supprimés · {rapport.inseres} insérés"
     )
+    print(f"{avis.lus} avis relus et revalidés · {avis.inseres} insérés")
+    if avis.orphelins:
+        # ⚠️ Un avertissement, pas une erreur : une fixture qui nomme un produit disparu
+        # est un défaut réel, mais faire échouer `make seed` entier dessus ferait payer au
+        # catalogue la faute d'un avis. La ligne est écartée et dite.
+        print(
+            f"⚠️  {len(avis.orphelins)} avis écartés — produit absent du catalogue : "
+            f"{', '.join(avis.orphelins)}",
+            file=sys.stderr,
+        )
     return 0
 
 

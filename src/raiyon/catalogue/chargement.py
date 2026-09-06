@@ -20,6 +20,7 @@ from sqlalchemy import CursorResult, delete
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from raiyon.avis.chargement import RapportAvis, charger_avis_en_base, lire_seed_avis
 from raiyon.catalogue.pipeline import FICHIER_SEED, lire_seed
 from raiyon.catalogue.schemas import ProduitEnBase
 from raiyon.db.engine import session_scope
@@ -64,19 +65,36 @@ def charger_en_base(session: Session, produits: Sequence[ProduitEnBase]) -> tupl
     return supprimes, len(produits)
 
 
-def executer_passe_c(chemin_seed: Path = FICHIER_SEED) -> RapportChargement:
-    """Lit, revalide, charge. Une seule transaction, aucun appel API.
+def executer_passe_c(chemin_seed: Path = FICHIER_SEED) -> tuple[RapportChargement, RapportAvis]:
+    """Lit, revalide, charge — **le catalogue puis les avis**. Une transaction, aucun appel API.
 
     Trois opérations, et plus aucune fusion : ce que le JSONL contient est exactement
     ce qui entre en base. Le cache de traductions qui s'intercalait ici a disparu avec
     la passe B (§3.4ter).
+
+    ⚠️ **Les avis entrent ici, et l'ordre n'est pas négociable** (étape 26). `avis_produit`
+    porte une FK vers `produits` en `ON DELETE CASCADE` : `charger_en_base()` vide la table
+    des produits, donc emporte les avis liés. Les charger **après**, dans la même
+    transaction, est ce qui fait qu'un `make seed` laisse une base complète plutôt qu'un
+    catalogue et un cache vidé.
+
+    *Alternative écartée — une commande `make seed-avis` séparée.* Elle rendrait l'ordre
+    facultatif, donc oubliable, et le symptôme d'un oubli serait une campagne d'éval qui ne
+    trouve aucun avis — c'est-à-dire un scénario qui mesure autre chose que ce qu'il
+    annonce, sans erreur. Une commande qui laisse la base dans un état incohérent quand on
+    n'en lance qu'une moitié n'est pas une commodité.
     """
     produits = lire_seed(chemin_seed)
+    avis = lire_seed_avis()
 
     try:
         with session_scope() as session:
             supprimes, inseres = charger_en_base(session, produits)
+            rapport_avis = charger_avis_en_base(session, avis)
     except OperationalError as erreur:
         raise BaseInjoignable(MESSAGE_SANS_BASE) from erreur
 
-    return RapportChargement(lus=len(produits), inseres=inseres, supprimes=supprimes)
+    return (
+        RapportChargement(lus=len(produits), inseres=inseres, supprimes=supprimes),
+        rapport_avis,
+    )

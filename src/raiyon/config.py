@@ -159,6 +159,25 @@ class Settings(BaseSettings):
     fondait — et il justifie à lui seul de ne pas relâcher la garde. Le drapeau existe pour
     que l'arbitrage puisse se renverser sans commit, pas parce qu'il devrait l'être."""
 
+    avis_ttl_heures: int = Field(default=24, ge=1)
+    """Fraîcheur d'une ligne de `avis_produit` récupérée sur le web — étape 26.
+
+    **24 h, et le chiffre vient d'une frontière, pas d'un taux de hit.** Ce cache sert la
+    comparabilité de deux exécutions, pas l'économie d'appels : l'argument économique a été
+    mesuré et il est faux — 81 recherches au pire par campagne, soit 0,40 $. Le TTL doit
+    donc être plus long que l'écart entre les deux bras d'une comparaison, faute de quoi
+    l'expiration tombe **au milieu de la mesure**. Une session de travail dure plus de
+    quatre heures ; 24 h fait coïncider une génération de cache avec une journée.
+
+    Le raisonnement complet est dans la docstring de `db.models.AvisProduit` — il vaut plus
+    que le chiffre, parce que le chiffre se rediscute et le raisonnement non.
+
+    `ge=1` : zéro n'est pas une valeur légitime ici, contrairement à `max_regenerations`.
+    Il ferait périmer toute ligne récupérée à l'instant même, donc une récupération par
+    recherche — pas un cache désactivé, un cache qui travaille pour rien. ⚠️ Il ne toucherait
+    d'ailleurs **pas** les lignes `fabrique`, qui ne périment jamais : « TTL à zéro » ne
+    veut même pas dire « pas de cache »."""
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     """⚠️ **Déclarée depuis l'étape 2, et lue par personne jusqu'à l'étape 23.** Le dépôt
     n'appelait pas `structlog.configure()` : il tournait sur les défauts du paquet, qui ne
