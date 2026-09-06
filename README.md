@@ -5,6 +5,13 @@ naturel, l'assistant dialogue avec lui puis recommande des produits **réels** d
 catalogue. Le LLM ne produit jamais un fait — il met en mots des faits que le
 code lui a fournis.
 
+> 🔴 **Un signal que rien ne lit n'est pas un garde-fou, c'est de la décoration — et il
+> coûte exactement aussi cher à produire qu'un signal lu.**
+>
+> Six occurrences dans ce dépôt, dont une exigence dont la seule lecture valait 3,08 $ et
+> une réfutation juste produite par le modèle que rien n'a jamais remontée. C'est le fil qui
+> relie ce que ce projet a appris — `PROJET.md` §9.
+
 ## Les quatre chiffres, avec leur portée
 
 Un chiffre sans sa portée ne vaut rien, donc chaque ligne porte la sienne. **Relevés au
@@ -220,6 +227,13 @@ soustraction pure, vérifiée par un test).
 *Tout vient de `docs/eval/rapport.v2.md` et `docs/eval/rapport.machine.v1.md`, jetons
 compris depuis l'étape 16 : la mesure nº7 les publie, et l'écart des deux campagnes est dans
 `docs/eval/comparaison.v2-machine.v1.md`.*
+
+⚠️ **Ces deux campagnes ont eu lieu, et elles ne se rejouent plus.** `v2` et `machine.v1`
+sont **archivés** depuis le 2026-09-06 : leurs cassettes déclarent l'empreinte de schéma
+d'outils d'avant `search_reviews`. **Les chiffres du tableau restent vrais** — ce sont ceux
+de campagnes payées, dont les rapports sont committés et lisibles —, mais la comparaison
+agent/machine ne se recalcule plus contre le code d'aujourd'hui. La refaire est une décision
+délibérée avec son coût, deux campagnes. Dit ici plutôt que laissé à supposer.
 
 ⚠️ **Les deux lignes marquées ci-dessus portent sur 30 prises de la machine sur 36, et
 c'est le point le plus important de ce tableau.** Le correctif de validateur de l'étape 18

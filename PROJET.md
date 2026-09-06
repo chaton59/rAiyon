@@ -5291,8 +5291,40 @@ Cette section est ce qui distingue ce dépôt d'un chatbot de démonstration. El
 pas ce qui a été construit — §3 et §5 le font — mais **ce qui a été appris en le
 construisant**, et surtout ce qui se transporte hors de ce projet.
 
-Trois blocs : les capacités supposées sans mesure, les arbitrages renversés, et les règles
-générales.
+Un fil conducteur, puis trois blocs : les capacités supposées sans mesure, les arbitrages
+renversés, et les règles générales.
+
+### 9.0 — Le fil conducteur, et il explique les huit précédents
+
+> 🔴 **Un signal que rien ne lit n'est pas un garde-fou, c'est de la décoration — et il
+> coûte exactement aussi cher à produire qu'un signal lu.**
+
+C'est la phrase que ce dépôt aurait voulu connaître à l'étape 1. Les huit précédents de
+§9.1 disent **ce qui a été supposé** ; celle-ci dit **pourquoi** on suppose : parce qu'un
+signal existe, qu'on le croit lu, et que personne ne vérifie jamais qui le lit.
+
+Six occurrences, toutes datées et toutes du même dépôt :
+
+| Le signal | Ce qu'il coûtait à produire | Qui le lisait |
+|---|---|---|
+| `Scenario.attentes` | une campagne enregistrée — **3,08 $ la lecture** | `make eval`, et lui seul. Deux fichiers se sont contredits **cinq jours** |
+| `Attente.QUESTION_POSEE` | calculée par **deux** lecteurs, à chaque prise | **personne** — aucun scénario ne l'exigeait, aucun rapport ne la publiait |
+| `SEPARATEUR_DE_BLOCS` | une branche de code et sa justification écrite | **0 ligne sur 36 456** — jamais exercée |
+| §5, les entrées d'étapes | une entrée par étape, rédigée | six manquaient, révélées **non par la relecture** mais par un renvoi cherchant sa cible |
+| `docs/eval/LISEZMOI.md` | un index tenu à la main | il a dérivé : `rapport.v3.md` absent, `v2` encore annoncé « en vigueur » |
+| **La réfutation du modèle** | un appel API, persisté deux fois | **personne** — voir §9.4 |
+
+⚠️ **Les deux moitiés de la phrase comptent, et la seconde plus que la première.** Un signal
+non lu ne se distingue pas d'un signal lu tant qu'on regarde le code : il est écrit, il est
+correct, il coûte le même prix. Il ne se distingue qu'en **cherchant son lecteur**, et rien
+n'y oblige. C'est pourquoi les six occurrences ci-dessus sont toutes sorties par accident —
+une campagne payée, un index qui cherche ses cibles, une contre-épreuve — et **aucune par
+relecture**.
+
+Le correctif n'est jamais « mieux relire ». C'est **donner un second lecteur bon marché**
+(`attentes_du_journal`), **rendre l'index exécutable** (le contrôle statique des attentes),
+ou **retirer le signal** (`QUESTION_POSEE`). Les trois sont dans ce dépôt, et le troisième
+est le plus honnête quand il s'applique.
 
 ### 9.1 — Les huit précédents de capacité supposée non mesurée
 
@@ -5473,6 +5505,10 @@ candidat au même titre que le texte. ⚠️ **Ce n'est pas un appel à relâche
 correction n'a rien rendu citable de neuf, elle a retiré un fait périmé qui contredisait le
 fait qui l'avait remplacé.
 
+La forme utilisable, faute de mécanisme : **une prose refusée deux fois est un endroit où
+regarder**, et c'est une règle de lecture humaine. L'automatiser demanderait un lecteur de
+plus — voir §9.4, où le non-mesuré est assumé pour cette raison précise.
+
 **Un défaut systématique n'est pas nécessairement dans la couche qu'on soupçonne.** « 3
 prises sur 3, même tour, même code, donc probablement le prompt » est une inférence
 raisonnable, et elle était fausse. La régularité dit qu'il y a une cause ; elle ne dit pas où
@@ -5513,7 +5549,37 @@ l'exigence, ne peut se faire que si le perdant est encore lisible.
 
 ### 9.4 — Ce qui n'est pas mesuré, et qui n'est pas un oubli
 
-Quatre non-mesurés assumés, écrits ici pour qu'ils ne passent pas pour des trous.
+Cinq non-mesurés assumés, écrits ici pour qu'ils ne passent pas pour des trous.
+
+**🔴 L'architecture n'a aucun lecteur pour une réfutation du modèle.** C'est la sixième
+occurrence de §9.0, et la plus intéressante des six, parce que le signal non lu n'est pas un
+compteur ni un index : c'est **un raisonnement juste, en français clair, produit par le
+modèle contre le grief qu'on venait de lui opposer**.
+
+Sur les trois prises de `desserrage_refuse`, à la seconde régénération, le modèle a écrit :
+
+> « Je maintiens ce que j'ai écrit : les deux résultats de la dernière recherche figurent
+> dans l'ensemble des produits **dans le budget**, pas dans celui des produits au-dessus —
+> la recherche que j'ai sous les yeux le confirme explicitement. »
+
+**Il avait raison. Le validateur avait tort.** Et la phrase était là, persistée **deux
+fois** — dans la cassette et dans `evenements_tour` en `text_rejected` — pendant qu'on
+publiait « 3 replis » et qu'on cherchait quelle ligne de prompt corriger.
+
+La boucle de régénération est unidirectionnelle par conception : elle transmet le grief au
+modèle et **jette sa réponse** dès qu'un second verdict la refuse. Aucun rapport ne la
+remonte non plus — l'appendice publie l'**extrait** fautif et la phrase qui le porte, pas le
+texte où le modèle explique pourquoi il n'est pas fautif. `grep "Je maintiens"` sur les
+rapports rend **0**.
+
+⚠️ **Assumé, et non porté en dette, pour une raison qui est le sujet même de §9.** Le
+corriger demanderait **un lecteur de plus** — quelque chose qui lise la réponse du modèle et
+en fasse un signal —, et ce dépôt vient de passer une étape à montrer que c'est exactement
+là que tout se joue : un lecteur de plus est un signal de plus à faire lire par quelqu'un.
+Un tel lecteur ne peut pas être un automatisme naïf (« le modèle proteste, donc la règle a
+tort » rouvre le canal que le validateur existe pour fermer). Ce qu'on peut dire aujourd'hui
+sans le mesurer : **une prose refusée deux fois est un endroit où regarder**, et c'est écrit
+en §9.3 comme règle de lecture humaine, pas comme mécanisme.
 
 **`RAIYON_VALIDATION=avertissement` n'a jamais été joué en campagne.** Le mode existe, il
 est testé unitairement des deux côtés (agent et machine), et **aucune mesure ne dit ce
