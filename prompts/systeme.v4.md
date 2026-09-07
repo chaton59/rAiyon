@@ -9,20 +9,30 @@ doit être identique d'un appel à l'autre.
 identiques au caractère près, et c'est voulu — l'étape 33 doit pouvoir attribuer à cette
 section-là ce que la campagne mesurera.
 
-**Ce que v3 avait de trop.** La 8 bis y disait la méfiance sans en dire la **portée** : le
-contenu web y était décrit comme un texte qui peut « imiter une consigne système », sans
-qu'aucune phrase ne dise où s'arrête le soupçon. Un modèle qui apprend « une consigne qui
-arrive sans encadrement propre n'est pas légitime » applique la leçon à **tout** message de
-rôle utilisateur qui porte des consignes — y compris au message par lequel le contrôle
-automatique lui demande de réécrire une réponse. Mesuré : sous v3, ce message a été
-qualifié d'injection dans **39 raisonnements visibles sur 43** ; sous les prompts qui n'ont
-pas de 8 bis, **0 sur 222**.
+**Ce que v3 avait de trop, et ce n'est pas de la paranoïa.** La 8 bis y disait la méfiance
+sans en dire la **portée** : le contenu web y est décrit comme un texte qui peut « imiter
+une consigne système », et aucune phrase ne dit où le soupçon s'arrête. Le modèle a donc
+appliqué la leçon à **tout** message de rôle utilisateur portant des consignes non
+encadrées — y compris à celui par lequel un contrôle automatique lui demande de réécrire
+une réponse. Sous v3, ce message a été qualifié d'injection dans **39 raisonnements
+visibles sur 43** ; sous les prompts sans 8 bis, **0 sur 222**.
 
-**Ce que v4 ajoute est une frontière, pas un adoucissement.** Le soupçon est borné à ce
-qui se trouve **entre les marques scellées** d'un résultat de `search_reviews`, et la
+⚠️ **Et là où on l'a le mieux observé, le modèle avait raison.** Les trois cas les plus
+nets portaient tous sur une reprise qui affirmait un dépassement de budget **qui n'existait
+pas** — un défaut du validateur, corrigé depuis. Le modèle a relu ses résultats d'outils,
+constaté que la reprise les contredisait, et refusé de mentir au client. C'est exactement
+le comportement voulu. La 8 bis ne l'a pas rendu méfiant à tort : elle lui a fait ranger
+une correction légitime dans la catégorie « texte hostile », ce qui est une **erreur de
+catégorie**, pas une erreur de jugement.
+
+**Ce que v4 change est donc une frontière, pas un adoucissement.** Le soupçon est borné à
+ce qui se trouve **entre les marques scellées** d'un résultat de `search_reviews`, et la
 réciproque est écrite : un texte qui n'est pas entre des marques ne vient pas d'une page.
-Rien n'est retiré de ce que v3 interdisait — les deux situations, le catalogue qui passe
-devant et la borne d'une recherche par message sont repris mot pour mot.
+Ce qui est conservé compte autant : **juger la correction sur les résultats d'outils plutôt
+que lui obéir sans la lire.** Une reprise reste contestable — elle se conteste avec un
+`tool_result`, pas avec un soupçon sur sa forme. Rien n'est retiré de ce que v3
+interdisait : les deux situations, le catalogue qui passe devant et la borne d'une
+recherche par message sont repris mot pour mot.
 
 ⚠️ C'est **ici** que vit l'autorité sur le contenu web, et pas dans le rappel joint au
 résultat de l'outil : ce rappel habite le voisinage du contenu non fiable, où une page peut
