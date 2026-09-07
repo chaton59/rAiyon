@@ -66,11 +66,12 @@ class Reglages:
     elle y est sans exception** : `jouer()`, `scripts/eval.py` et le rejeu de cassettes ne
     renseignent ce champ nulle part.
 
-    Deux appelants construisent un fournisseur, et deux seulement — vérifié à l'étape 33 :
-    `scripts/essais.py --en-ligne`, qui exige le drapeau **et** la clé, et `raiyon.api.app`,
-    qui le construit au démarrage sur la présence de la clé parce qu'un serveur est le
-    produit et non une mesure. ⚠️ **`scripts/console.py` n'en construit pas** — la console
-    reste hors ligne."""
+    **Trois appelants construisent un fournisseur, et trois seulement** — la liste est
+    tenue par `tests/api/test_fournisseur_au_demarrage.py`, qui lit l'AST plutôt que de
+    croire une docstring. Les deux portes interactives, `raiyon.api.app` et
+    `scripts/console.py`, sortent sur la seule présence de la clé : un dialogue n'est pas
+    une mesure, et deux portes aux postures différentes fabriquent une fausse alerte.
+    `scripts/essais.py` exige en plus `--en-ligne`, étant le plus proche d'une campagne."""
 
     orchestrateur: Orchestrateur | None = None
     """Qui conduit le tour. `None` = celle que la configuration désigne.

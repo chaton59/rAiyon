@@ -1,4 +1,4 @@
-"""Le serveur construit son fournisseur d'avis au démarrage, et **lui seul avec `essais.py`**.
+"""Qui a le droit de construire un fournisseur d'avis, et la liste est une décision.
 
 ### Le défaut que ce module ferme (étape 33)
 
@@ -18,8 +18,13 @@ seule vérification est chère sera violée en silence ». Le lecteur bon march�
 Les chemins de **mesure** restent hors ligne quoi qu'il arrive : `Reglages.fournisseur`
 vaut `None` pour `make eval`, les cassettes et les tests, parce qu'un mode en ligne qui
 s'activerait à la présence d'un secret ferait qu'installer une clé changerait ce qu'on
-mesure. `make api` n'est pas une mesure, c'est le **produit** : une clé posée y sert, sans
-drapeau de plus.
+mesure. **Cette moitié-là ne se négocie pas.**
+
+Les portes **interactives** — `make api` et `make chat` — ne sont pas des mesures : ce sont
+des dialogues. Une clé posée y sert, sans drapeau de plus, et les deux se comportent de la
+même façon. `scripts/essais.py`, qui sert à regarder des conversations plutôt qu'à en
+mesurer, demande en plus `--en-ligne` : c'est le seul appelant où le drapeau subsiste, parce
+qu'il est le plus proche d'une campagne.
 """
 
 import ast
@@ -36,16 +41,26 @@ RACINE = Path(__file__).resolve().parents[2]
 CONSTRUCTEURS_AUTORISES = frozenset(
     {
         "scripts/essais.py",
+        "scripts/console.py",
         "src/raiyon/api/app.py",
     }
 )
 """🔴 **Les seuls fichiers qui ont le droit de construire un `FournisseurBrave`.**
 
 Nommés ici comme `test_isolation_reseau` nomme `raiyon.avis.brave` : ce n'est pas une
-observation, c'est une décision, et un fichier de plus doit faire échouer ce test pour
+observation, c'est une **décision**, et un fichier de plus doit faire échouer ce test pour
 obliger quelqu'un à dire s'il a le droit de sortir sur le réseau.
 
-⚠️ **`scripts/console.py` n'y est pas, et c'est délibéré** — la console reste hors ligne.
+**Trois, et le nombre s'est décidé deux fois.** L'API d'abord ; la console ensuite, parce
+que deux portes interactives avec des postures réseau différentes fabriquent la fausse
+alerte que ce dépôt documente partout ailleurs — « pourquoi `search_reviews` répond ici et
+pas là ? ». Le rôle de référence sans réseau est déjà tenu, et mieux, par
+`tests/avis/test_hors_ligne.py`, qui arrache `socket.socket`.
+
+⚠️ **La duplication du branchement est assumée** : les trois fichiers portent les mêmes
+quatre lignes plutôt qu'un helper partagé. Factoriser déplacerait la décision dans l'appel
+du helper, où elle cesserait d'être visible ; ici, chaque porte d'entrée déclare sa posture
+réseau dans son propre code, et ce test garde la liste.
 """
 
 
@@ -107,13 +122,24 @@ def fichiers_qui_construisent_le_fournisseur() -> set[str]:
     return trouves
 
 
-def test_deux_fichiers_construisent_un_fournisseur_et_deux_seulement():
+def test_seuls_les_fichiers_autorises_construisent_un_fournisseur():
     """La phrase d'architecture devient un test. **C'est tout l'objet de ce module.**
 
     Elle est écrite dans `agent/session.py`, `eval/executeur.py` et `.env.example` ; elle a
     été fausse pendant six étapes parce qu'aucun de ces trois endroits n'était exécutable.
     """
-    assert fichiers_qui_construisent_le_fournisseur() == set(CONSTRUCTEURS_AUTORISES)
+    trouves = fichiers_qui_construisent_le_fournisseur()
+    attendus = set(CONSTRUCTEURS_AUTORISES)
+    assert trouves == attendus, (
+        f"les constructeurs de FournisseurBrave sont {sorted(trouves)}, "
+        f"la liste autorisée dit {sorted(attendus)}.\n"
+        "⚠️ Ce nombre est une DÉCISION, pas un constat : il est passé de 1 à 2 puis à 3 "
+        "(essais.py, l'API, la console), chaque fois parce que quelqu'un a arbitré qu'une "
+        "porte d'entrée avait le droit de sortir sur le réseau. Les chemins de MESURE — "
+        "make eval, les cassettes, les tests — n'en construisent aucun, et cette moitié-là "
+        "ne se négocie pas. Si vous ajoutez un fichier, écrivez pourquoi dans "
+        "CONSTRUCTEURS_AUTORISES avant de le lister."
+    )
 
 
 @pytest.mark.parametrize("fichier", sorted(CONSTRUCTEURS_AUTORISES))
@@ -123,11 +149,16 @@ def test_la_liste_ne_nomme_que_des_fichiers_qui_existent(fichier):
     assert (RACINE / fichier).is_file()
 
 
-def test_la_console_reste_hors_ligne():
-    """Constaté plutôt que tu. La console est un outil de mise au point, pas le produit.
+def test_les_deux_portes_interactives_ont_la_meme_posture_reseau():
+    """**L'API et la console, ensemble ou aucune des deux.**
 
-    Le §9.3 le demande : « un test qui **constate** un trou délibéré vaut mieux qu'un trou
-    tu. » Le jour où la console doit sortir sur le réseau, c'est ce test qu'on change — donc
-    quelqu'un l'aura décidé.
+    Deux points d'entrée interactifs aux comportements réseau différents fabriquent une
+    fausse alerte : le même geste marche d'un côté et refuse de l'autre, et le rapport de
+    bogue qui en sort désigne `search_reviews` plutôt que le câblage. Ce test lie les deux
+    plutôt que de laisser l'un dériver.
     """
-    assert "scripts/console.py" not in fichiers_qui_construisent_le_fournisseur()
+    constructeurs = fichiers_qui_construisent_le_fournisseur()
+
+    assert ("src/raiyon/api/app.py" in constructeurs) == ("scripts/console.py" in constructeurs), (
+        "l'API et la console doivent sortir sur le réseau dans les mêmes conditions"
+    )

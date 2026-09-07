@@ -229,14 +229,14 @@ def tour(
                 depot_avis=DepotAvisSql(session, ttl=ttl_des_avis()),
                 # ⚠️ **`None` par défaut : hors ligne** (§3.18). Le fournisseur est
                 # **injecté**, jamais construit ici : c'est ce qui fait qu'une campagne ne
-                # peut pas sortir sur le réseau, même avec une clé en place. Deux appelants
-                # en construisent un, et **deux seulement** (vérifié à l'étape 33) :
-                # `scripts/essais.py --en-ligne`, qui exige le drapeau **et** la clé, et
-                # `raiyon.api.app`, qui le construit au démarrage sur la seule présence de
-                # la clé — c'est le produit, pas un chemin de mesure. ⚠️ **`scripts/console.py`
-                # n'en construit pas** : la console reste hors ligne, et la phrase qui
-                # prétendait le contraire a vécu de l'étape 27 à l'étape 33 dans trois
-                # fichiers à la fois.
+                # peut pas sortir sur le réseau, même avec une clé en place. **Trois
+                # appelants en construisent un, et trois seulement** — la liste est tenue
+                # par `tests/api/test_fournisseur_au_demarrage.py`, qui lit l'AST : les deux
+                # portes interactives (`raiyon.api.app` et `scripts/console.py`), qui
+                # sortent sur la seule présence de la clé parce qu'un dialogue n'est pas une
+                # mesure, et `scripts/essais.py`, qui exige en plus `--en-ligne`. ⚠️ La
+                # phrase qui prétendait déjà cela a vécu **fausse** de l'étape 27 à l'étape
+                # 33 dans trois fichiers à la fois, faute de lecteur exécutable.
                 fournisseur=fournisseur,
             ),
             max_iterations=max_iterations,

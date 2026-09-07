@@ -54,7 +54,7 @@ from raiyon.agent.evenements import (
 from raiyon.agent.prompts import SystemeEnVigueur, prompt_systeme
 from raiyon.agent.session import SessionIntrouvable, creer_session, lire_session, tour
 from raiyon.catalogue.schemas import LIBELLES_CATEGORIE, Categorie
-from raiyon.config import ConfigurationError, get_settings
+from raiyon.config import ConfigurationError, cle_brave, get_settings
 from raiyon.db.engine import get_sessionmaker
 from raiyon.db.models import SessionConversation
 from raiyon.journal import configurer_journal
@@ -92,6 +92,27 @@ def main() -> int:
     outils = schema_des_outils()
     fabrique = get_sessionmaker()
 
+    # 🔴 **La console sort sur le réseau dès qu'une clé est posée, comme `make api`**
+    # (étape 33). Les deux portes interactives avaient des postures réseau différentes —
+    # l'API en ligne, la console hors ligne —, et deux comportements pour un même geste
+    # fabriquent exactement la fausse alerte que ce dépôt passe son temps à documenter :
+    # « pourquoi search_reviews répond ici et pas là ? ». Le rôle de « référence sans
+    # réseau » est déjà tenu, et mieux, par `tests/avis/test_hors_ligne.py`, qui arrache
+    # `socket.socket`.
+    #
+    # ⚠️ **La règle inchangée est celle des chemins de MESURE** : `make eval`, les
+    # cassettes et les tests gardent `None` par construction, et poser une clé ne change
+    # rien à ce qu'ils mesurent. Une console est un dialogue, pas une mesure.
+    #
+    # L'import est dans la branche, comme dans `essais.py` et `api/app.py` : sans clé,
+    # aucun client HTTP n'est chargé.
+    fournisseur = None
+    cle = cle_brave()
+    if cle is not None:
+        from raiyon.avis.brave import FournisseurBrave
+
+        fournisseur = FournisseurBrave(cle)
+
     with fabrique() as base:
         try:
             conversation = (
@@ -106,7 +127,13 @@ def main() -> int:
             base.commit()
 
         depot = DepotSql(base)
-        _entete(conversation.id, prompt, client.strict, reprise=arguments.session is not None)
+        _entete(
+            conversation.id,
+            prompt,
+            client.strict,
+            reprise=arguments.session is not None,
+            avis="brave" if fournisseur is not None else "hors ligne",
+        )
         _rappeler_letat(conversation)
 
         for ligne in _lignes_de_stdin():
@@ -120,6 +147,7 @@ def main() -> int:
                 depot=depot,
                 max_iterations=reglages.max_agent_iterations,
                 max_regenerations=reglages.max_regenerations,
+                fournisseur=fournisseur,
             )
             issue = _afficher(evenements, trace=arguments.trace)
             if arguments.trace:
@@ -350,18 +378,22 @@ def _rappeler_letat(conversation: SessionConversation) -> None:
 
 
 def _entete(
-    identifiant: uuid.UUID, prompt: SystemeEnVigueur, strict: bool, *, reprise: bool
+    identifiant: uuid.UUID, prompt: SystemeEnVigueur, strict: bool, *, reprise: bool, avis: str
 ) -> None:
     """L'en-tête dit **quelle version tourne**, et il la lit au lieu de l'écrire.
 
     Le nom de fichier était en dur ici jusqu'à l'étape 13. Depuis que la version se
     choisit par variable d'environnement, un littéral dirait `systeme.v1` pendant qu'une
     campagne v3 tourne — une console qui ment sur ce qu'elle envoie.
+
+    ⚠️ **`avis` s'affiche dans les deux sens**, comme `api.demarree` le journalise (étape
+    33) : une console qui ne sort pas sur le réseau doit le dire aussi, faute de quoi le
+    silence se lit comme « ça marche » et un refus de `search_reviews` passe pour une panne.
     """
     mode = "strict" if strict else "repli sans strict"
     print(f"\n\033[1mrAiyon\033[0m — {'session reprise' if reprise else 'nouvelle session'}")
     print(f"session : {identifiant}")
-    print(f"prompt  : {prompt.version} ({prompt.empreinte}) · outils : {mode}")
+    print(f"prompt  : {prompt.version} ({prompt.empreinte}) · outils : {mode} · avis : {avis}")
     print(f'Ctrl-D pour sortir. Pour reprendre : make chat ARGS="--session {identifiant}"')
 
 
