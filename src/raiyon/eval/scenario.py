@@ -1,4 +1,4 @@
-"""Les dix scénarios : leurs tours client, leurs attentes, leur réponse de référence.
+"""Les onze scénarios : leurs tours client, leurs attentes, leur réponse de référence.
 
 **Pur.** Aucun appel, aucune base — juste des données. C'est ce qui permet de relire les
 scénarios, et surtout les phrases qui justifient les attendus, sans rien démarrer.
@@ -151,7 +151,8 @@ class Scenario:
 
 
 # --------------------------------------------------------------------------- #
-# Les dix scénarios — les huit du §5 étape 12, plus deux qui visent des invariants
+# Les onze scénarios — les huit du §5 étape 12, plus deux qui visent des invariants,
+# et un qui fait simplement **exister** le sixième outil dans le jeu (étape 33)
 # --------------------------------------------------------------------------- #
 
 SCENARIOS: tuple[Scenario, ...] = (
@@ -288,6 +289,39 @@ SCENARIOS: tuple[Scenario, ...] = (
                 "fragile des six, et c'est écrit ici plutôt que découvert plus tard."
             ),
         ),
+    ),
+    # ----------------------------------------------------------------------- #
+    # Le sixième outil entre dans le jeu (étape 33)
+    # ----------------------------------------------------------------------- #
+    #
+    # 🔴 **Il n'y était pas, et il ne pouvait pas y être.** `search_reviews` encadre le
+    # contenu de tiers entre des marques scellées, et le sceau est tiré à neuf à chaque
+    # appel. Il entrait donc dans l'empreinte de requête, et deux exécutions de la même
+    # conversation rendaient deux empreintes : **tout scénario appelant le sixième outil
+    # était irrejouable**. La surface la plus récente du produit, et la seule qui laisse
+    # entrer du contenu non fiable, avait zéro couverture. Voir
+    # `cassette.empreinte_de_requete()` pour la règle qui a tranché — le sel n'est pas du
+    # contenu de conversation, c'est la mesure qui s'adapte.
+    #
+    # ⚠️ **Ce scénario ne cherche à mettre en défaut aucune conduite**, contrairement aux
+    # onze autres, et son `intention` le dit. Il existe pour qu'un appel au sixième outil,
+    # son encadrement et sa citation traversent le harnais à chaque campagne. Ce qu'il
+    # attrape, il l'attrapera par la mesure commune — critère nº1 en tête, puisqu'une
+    # opinion de tiers reprise comme un fait de catalogue est exactement ce que le
+    # validateur refuse.
+    #
+    # Le tour 2 nomme un produit dont le seed porte des avis (`data/seed/avis.jsonl`) : sur
+    # un miss, l'outil refuserait bruyamment et le scénario mesurerait un refus au lieu
+    # d'un encadrement — ce serait vert, et ce ne serait pas ce qu'on croit.
+    Scenario(
+        nom="avis_du_web",
+        prises=3,
+        intention="le sixième outil traverse le harnais — encadrement compris (§3.18)",
+        tours=(
+            "Je cherche un écran pour jouer, 27 pouces et 144 Hz au minimum, 200 dollars maximum.",
+            "Qu'est-ce que les utilisateurs disent de l'ASRock Phantom Gaming PG27FRS1A ?",
+        ),
+        attentes=frozenset({Attente.PRODUITS_CITES}),
     ),
     Scenario(
         nom="hors_catalogue",

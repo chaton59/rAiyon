@@ -17,7 +17,7 @@
 |---|---|---|---|---|
 | 1 | Aucun produit, prix ou spec inventé — **dans le texte livré** | 0 | 0 grief(s) | ✅ |
 | 2 | Budget jamais dépassé sans présentation explicite | 0 | 0 violation(s) | ✅ |
-| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 27 prise(s) | ✅ |
+| 3 | Délai avant première valeur — en **tours client** | médiane ≤ 2 | 1.0 tour(s) sur 30 prise(s) | ✅ |
 | 4 | Le produit attendu est dans le top 3 | ≥ 80 % | 100 % — 12/12 prise(s) à réponse de référence | ✅ |
 | 5 | Moteur de matching testable sans API | binaire | hors de ce rapport — `make check` | — |
 | 6 | Cas zéro résultat traité proprement | binaire | 12/12 traité(s) | ✅ |
@@ -26,16 +26,16 @@
 
 | Mesure | Valeur | Seuil |
 |---|---|---|
-| Taux de rejet du validateur | 1 grief(s) sur 81 tour(s) — 0.01/tour | publié |
-| Taux de repli | 0 tour(s) sur 81 — 0 % | publié |
+| Taux de rejet du validateur | 1 grief(s) sur 87 tour(s) — 0.01/tour | publié |
+| Taux de repli | 0 tour(s) sur 87 — 0 % | publié |
 | Itérations par tour | 1 à 5 (médiane 3.0) | publié |
-| Prises sans aucune valeur livrée | 9 sur 36 | publié |
-| Questions posées avant la première valeur | médiane 0.0 sur 27 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
+| Prises sans aucune valeur livrée | 9 sur 39 | publié |
+| Questions posées avant la première valeur | médiane 0.0 sur 30 prise(s) | publié — mesure la règle « donner avant de demander », pas le critère nº3 |
 | Règles du validateur jamais déclenchées | 5 sur 6 : `id_inconnu`, `prix_etranger_au_produit`, `nom_reecrit`, `ecart_non_dit`, `valeur_non_fournie` | publié — voir `tests/validateur/test_pieges.py` |
-| Prises où `suggest_next_question` a signalé le budget manquant | 0 sur 36 | publié — **observation, pas exigence** |
-| Appels au modèle par tour client (mesure nº7) | 195 appel(s) sur 81 tour(s) — 2.41 appel/tour | publié — **figé à l'enregistrement**, voir la note ci-dessous |
-| Jetons d'entrée facturés (mesure nº7) | 463 667 facturés (463 667 hors cache + 0 de cache écrit) ; 2 550 210 lus du cache, à un autre tarif | publié — **figé à l'enregistrement**, voir la note ci-dessous |
-| Jetons de sortie (mesure nº7) | 61 649 jetons | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Prises où `suggest_next_question` a signalé le budget manquant | 0 sur 39 | publié — **observation, pas exigence** |
+| Appels au modèle par tour client (mesure nº7) | 213 appel(s) sur 87 tour(s) — 2.45 appel/tour | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons d'entrée facturés (mesure nº7) | 517 911 facturés (504 833 hors cache + 13 078 de cache écrit) ; 2 772 536 lus du cache, à un autre tarif | publié — **figé à l'enregistrement**, voir la note ci-dessous |
+| Jetons de sortie (mesure nº7) | 66 683 jetons | publié — **figé à l'enregistrement**, voir la note ci-dessous |
 
 ⚠️ **La mesure nº7 ne vient pas du rejeu.** Ce sont les seules lignes de ce fichier qui soient lues
 dans l'en-tête des cassettes plutôt que recalculées : elles sont **figées à l'enregistrement** et ne
@@ -67,6 +67,9 @@ Aucun repli sur cette exécution.
 
 | Scénario | Prise | Tours | Tours avant valeur | Questions avant valeur | Attendu top 3 | Rejets | Replis | Itér. | Conforme |
 |---|---|---|---|---|---|---|---|---|---|
+| avis_du_web | 1 | 2 | 1 | 0 | — | 0 | 0 | 2 à 4 (médiane 3.0) | ✅ |
+| avis_du_web | 2 | 2 | 1 | 0 | — | 0 | 0 | 2 à 4 (médiane 3.0) | ✅ |
+| avis_du_web | 3 | 2 | 1 | 0 | — | 0 | 0 | 2 à 4 (médiane 3.0) | ✅ |
 | besoin_flou | 1 | 3 | 2 | 0 | — | 0 | 0 | 2 à 3 (médiane 2.0) | ✅ |
 | besoin_flou | 2 | 3 | 2 | 0 | — | 0 | 0 | 2 | ✅ |
 | besoin_flou | 3 | 3 | 2 | 0 | — | 0 | 0 | 3 | ✅ |
@@ -117,6 +120,7 @@ un signal.
 
 | Scénario | Prises | Tours avant valeur | Attendu top 3 |
 |---|---|---|---|
+| avis_du_web | 3 | 1 | — |
 | besoin_flou | 3 | 2 | — |
 | budget_absent | 3 | 1 | 3/3 |
 | budget_serre | 3 | 1 | 3/3 |

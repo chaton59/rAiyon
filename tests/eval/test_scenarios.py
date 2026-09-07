@@ -63,10 +63,17 @@ def test_les_huit_scenarios_du_plan_sont_tous_la():
     assert set(PAR_NOM) >= EXIGES_PAR_LE_PLAN
 
 
-def test_il_y_a_bien_onze_scenarios():
-    """Dix à l'étape 12, plus `question_de_domaine` au correctif — voir son intention."""
-    assert len(SCENARIOS) == 11
+def test_il_y_a_bien_douze_scenarios():
+    """Dix à l'étape 12, `question_de_domaine` au correctif, `avis_du_web` à l'étape 33.
+
+    ⚠️ **Le douzième ne cherche à mettre en défaut aucune conduite**, et c'est le seul dans
+    ce cas : il existe pour qu'un appel à `search_reviews` — donc un encadrement scellé —
+    traverse le harnais à chaque campagne. Il n'y était pas parce qu'il ne **pouvait** pas y
+    être : le sceau entrait dans l'empreinte de requête et rendait la prise irrejouable.
+    """
+    assert len(SCENARIOS) == 12
     assert "question_de_domaine" in PAR_NOM
+    assert "avis_du_web" in PAR_NOM
 
 
 def test_les_noms_sont_uniques():
@@ -93,7 +100,7 @@ def test_chaque_scenario_porte_au_moins_trois_prises():
     assert all(scenario.prises >= 3 for scenario in SCENARIOS)
     assert {scenario.nom for scenario in SCENARIOS if scenario.prises > 3} == A_SIX_PRISES
     assert all(PAR_NOM[nom].prises == 6 for nom in A_SIX_PRISES)
-    assert prises_attendues() == 36
+    assert prises_attendues() == 39, "36 jusqu'à l'étape 32, +3 pour `avis_du_web`"
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.nom)
@@ -156,6 +163,10 @@ def test_les_scenarios_sans_attendu_sont_une_decision_pas_un_oubli():
         "zero_budget_trop_bas",
         "desserrage_refuse",
         "categorie_efface_budget",
+        # `avis_du_web` mesure qu'un encadrement traverse le harnais, pas quel produit
+        # arrive en tête : un attendu y ferait porter la métrique nº4 sur un scénario qui
+        # ne classe rien.
+        "avis_du_web",
     }
     avec = sum(scenario.prises for scenario in SCENARIOS if scenario.attendu is not None)
     assert avec == 12, "quatre scénarios à attendu, trois prises chacun depuis l'étape 13"
