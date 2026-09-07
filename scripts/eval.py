@@ -35,7 +35,7 @@ que dix scénarios scriptés ne produisent pas, pas à mesurer.
 import argparse
 import datetime as dt
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -676,6 +676,8 @@ def mesurer_le_jeu(
     reglages: Reglages,
     prompt: SystemeEnVigueur,
     empreinte_outils: str,
+    *,
+    fabrique: Callable[[], Session] | None = None,
 ) -> tuple[Mesures, Cout]:
     """Rejoue les prises d'un jeu et rend l'agrégat **et son coût**. Aucune écriture.
 
@@ -694,7 +696,16 @@ def mesurer_le_jeu(
     print(f"jeu {jeu.nom} — prompt {prompt.version} ({prompt.empreinte}), {len(prises)} prise(s)")
     if jeu.compose:
         print("  composé : " + ", ".join(jeu.composants) + " (un scénario, une source)")
-    fabrique = get_sessionmaker()
+    # ⚠️ **La fabrique est injectable parce que le rejeu doit pouvoir viser la base de
+    # test.** Sans ce paramètre, `mesurer_le_jeu` ouvre ses sessions sur la base
+    # applicative quoi qu'en dise l'appelant : un test d'intégration qui déclare une
+    # fixture sur la base seedée la voit ignorée, n'est vert que sur un poste où la base
+    # applicative est migrée **et** seedée, et y écrit pour de vrai — `jouer()` committe —
+    # hors de la transaction que la fixture croyait garantir.
+    # C'est exactement le mode d'échec constaté en CI, où la base applicative est créée
+    # vide : `UndefinedTable: relation "sessions" does not exist`.
+    # Les deux appels de production ne passent rien : le défaut les couvre.
+    fabrique = fabrique or get_sessionmaker()
     mesures: list[MesuresDunePrise] = []
     divergences_vues: set[tuple[str, str, int]] = set()
     usage = USAGE_NUL

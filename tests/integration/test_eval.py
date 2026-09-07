@@ -30,7 +30,7 @@ from collections.abc import Iterator
 
 import pytest
 from sqlalchemy import Engine, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from eval import JEU_ETAPE_12, Jeu, jeu_en_vigueur, prises_du_jeu  # scripts/ sur le pythonpath
 from raiyon.agent.prompts import prompt_systeme
@@ -65,6 +65,34 @@ def base_seedee(moteur_agregats: Engine) -> Iterator[Session]:
         yield session
     finally:
         session.close()
+        if transaction.is_active:
+            transaction.rollback()
+        connexion.close()
+
+
+@pytest.fixture
+def fabrique_seedee(moteur_agregats: Engine) -> Iterator[sessionmaker[Session]]:
+    """La même chose que `base_seedee`, mais **fabrique** — pour le code qui ouvre lui-même
+    ses sessions.
+
+    Même justification que `base_seedee`, et elle vaut à chaque session ouverte : les
+    `commit()` de `jouer()` rejoignent la transaction externe par un point de sauvegarde, et
+    le `rollback` final défait tout, conversations comprises.
+
+    ⚠️ **`join_transaction_mode` est explicite ici** parce qu'une fabrique sert des sessions
+    successives : le lien à la transaction externe doit tenir pour toutes, pas seulement
+    pour la première.
+    """
+    connexion = moteur_agregats.connect()
+    transaction = connexion.begin()
+    fabrique = sessionmaker(
+        bind=connexion,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
+    try:
+        yield fabrique
+    finally:
         if transaction.is_active:
             transaction.rollback()
         connexion.close()
@@ -346,7 +374,7 @@ def test_chaque_ligne_de_la_liste_nomme_une_cassette_qui_existe():
         )
 
 
-def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu(monkeypatch, base_seedee):
+def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu(monkeypatch, fabrique_seedee):
     """La contre-épreuve du premier contrôle, **à travers le rejeu réel**.
 
     ⚠️ **La première rédaction de ce test appelait `_verifier_les_divergences_attendues`
@@ -362,6 +390,13 @@ def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu(monkeypatch, base_s
     besoin d'une cassette qui **se rejoue vraiment**, sans quoi il constaterait une
     péremption au lieu d'une divergence absente. Les jeux antérieurs au sixième outil sont
     archivés — voir `est_archive`.
+
+    ⚠️ **La fabrique de sessions est injectée, et sans elle ce test mentait deux fois.**
+    `mesurer_le_jeu` appelait `get_sessionmaker()` : le rejeu visait la base **applicative**,
+    la fixture `base_seedee` que ce test déclarait ne servait à rien, et les conversations
+    écrites par `jouer()` — qui committe — y restaient, hors de la transaction annulée. Le
+    test n'était vert que sur un poste dont la base applicative est migrée et seedée ; en CI,
+    où elle est créée vide, il échouait sur `relation "sessions" does not exist`.
     """
     import eval as module
     from eval import DivergenceAttendueAbsente, _reglages_pour, mesurer_le_jeu, systeme_du_jeu
@@ -382,6 +417,7 @@ def test_une_ligne_qui_ne_diverge_plus_fait_echouer_le_rejeu(monkeypatch, base_s
             reglages,
             prompt,
             empreinte_outils,
+            fabrique=fabrique_seedee,
         )
 
     message = str(erreur.value)
