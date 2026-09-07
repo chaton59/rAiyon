@@ -11,7 +11,7 @@ de compter autrement.
 écrites par `session.tour()` pendant les conversations. Il n'appelle aucune API, ne
 persiste rien, et peut être relancé sur les mêmes sessions autant de fois qu'on veut.
 
-### La seule définition non évidente : « tours jusqu'à une recommandation »
+### Deux définitions non évidentes. La première : « tours jusqu'à une recommandation »
 
 Un tour **recommande** quand il émet un `products_found` **et** un `message`. Les deux
 sont nécessaires et aucun ne suffit :
@@ -24,6 +24,32 @@ sont nécessaires et aucun ne suffit :
 Le chiffre rendu est le **rang du tour client**, à partir de 1 — pas son `tour_client`,
 qui compte aussi les lignes de `tool_result`. `—` veut dire qu'aucun tour de la
 conversation n'a recommandé, ce qui est une information et non une donnée manquante.
+
+### La seconde : « frontières du cache tenues » (étape 34)
+
+`cache↗` compte les **frontières de tour** où le modèle a relu **plus que le préfixe fixe**,
+c'est-à-dire où le point de coupe mobile de `client_anthropic.py` a survécu à l'aller-retour
+de l'historique par `tours_conversation`.
+
+⚠️ **Elle est accrochée ici, et pas dans un script à elle, pour une raison précise.** §9.0 du
+journal recense les signaux que rien ne lit ; `cache_lu` en est le neuvième cas et le plus
+gênant, parce qu'il **ne coûtait rien** — l'API rend le compteur, l'étape 23 l'écrivait déjà,
+le tableau de bord l'affichait — et que personne ne l'a lu pendant onze étapes. Le correctif
+habituel de la section, « donner un second lecteur bon marché », ne s'applique donc pas : le
+lecteur était déjà bon marché. Ce qui manquait était **une tâche du jour qui se règle
+dessus**. On accroche la colonne au geste que quelqu'un fait déjà — lancer une ligne de
+base — plutôt que de lui demander d'en faire un de plus.
+
+⚠️ **Et `_mesurer()` sommait déjà `cache_lu` sans que rien ne le publie**, ce qui est le même
+défaut d'un cran plus bas : une valeur calculée que personne ne lit. Le total n'était de
+toute façon pas la bonne statistique — 300 794 jetons ne disent rien, leur **croissance**
+dit tout.
+
+Ce que la colonne décide, et c'est le seul point resté ouvert de l'étape 34 : **-54 % de
+coût d'entrée si elle est pleine, -21,7 % si elle est à zéro** (mesuré sur la session
+`b19bd39a` du 2026-09-07 ; le détail est dans la docstring de `client_anthropic.py`). Les
+deux sont des gains — c'est pourquoi la décision n'a pas attendu la mesure. La mesure,
+elle, n'attend plus personne.
 """
 
 import argparse
@@ -47,6 +73,42 @@ GENRE_PRODUITS = "products_found"
 GENRE_MESSAGE = "message"
 GENRE_REJET = "text_rejected"
 GENRE_REPLI = "fallback"
+
+
+def _frontieres_du_cache(appels: Sequence[AppelModele]) -> tuple[int, int] | None:
+    """Combien de frontières de tour ont relu **plus que le préfixe fixe**, sur combien.
+
+    Le **socle** est le plus petit `cache_lu` non nul de la session, et non une constante
+    écrite ici : c'est le préfixe `tools` + `system`, il pèse ce que le prompt du jour pèse,
+    et le coder en dur rendrait la colonne fausse au prochain changement de prompt. Il vaut
+    13 078 jetons au 2026-09-07 — un chiffre qu'on relève, jamais qu'on suppose.
+
+    Une frontière est **tenue** quand le premier appel d'un tour relit plus que ce socle,
+    c'est-à-dire quand l'historique reconstruit depuis le JSONB de `tours_conversation`
+    s'est révélé identique à celui qui avait été envoyé au tour précédent. C'est exactement
+    l'inconnue que l'étape 34 a décidé de ne pas payer d'avance.
+
+    Le premier tour n'a pas de frontière devant lui et n'est pas compté. `None` quand la
+    question ne se pose pas : rien n'a été lu du cache, ou la session n'a qu'un tour.
+
+    ⚠️ **La lecture d'un zéro n'est pas celle d'une absence.** `0/9` dit que le point de
+    coupe mobile ne tient qu'à l'intérieur d'un tour — un gain, moindre. `—` dit qu'il n'y
+    avait rien à observer.
+    """
+    lus = [appel.cache_lu for appel in appels if appel.cache_lu]
+    if not lus:
+        return None
+    socle = min(lus)
+    premiers: list[AppelModele] = []
+    vus: set[int] = set()
+    for appel in appels:  # déjà triés par (tour_client, iteration)
+        if appel.tour_client not in vus:
+            vus.add(appel.tour_client)
+            premiers.append(appel)
+    frontieres = premiers[1:]
+    if not frontieres:
+        return None
+    return sum(1 for appel in frontieres if appel.cache_lu > socle), len(frontieres)
 
 
 def _mesurer(base: Session, identifiant: uuid.UUID) -> dict[str, Any]:
@@ -106,6 +168,7 @@ def _mesurer(base: Session, identifiant: uuid.UUID) -> dict[str, Any]:
         "jetons_sortie": sum(appel.jetons_sortie for appel in appels),
         "jetons_entree": sum(appel.jetons_entree for appel in appels),
         "cache_lu": sum(appel.cache_lu for appel in appels),
+        "frontieres": _frontieres_du_cache(appels),
         "griefs": dict(griefs),
         "replis": dict(replis),
         "recommande": recommande,
@@ -235,6 +298,7 @@ def main() -> int:
         "attentes",
         "$/reco",
         "coût $",
+        "cache↗",
         "appels",
         "lat.méd",
         "griefs",
@@ -242,15 +306,19 @@ def main() -> int:
     )
     print(
         f"| {entetes[0]:<24} | {entetes[1]:>5} | {entetes[2]:>10} | {entetes[3]:>6} | "
-        f"{entetes[4]:>8} | {entetes[5]:>6} | {entetes[6]:>6} | {entetes[7]:>8} | "
-        f"{entetes[8]:>11} | {entetes[9]:>7} | {entetes[10]}"
+        f"{entetes[4]:>8} | {entetes[5]:>6} | {entetes[6]:>6} | {entetes[7]:>6} | "
+        f"{entetes[8]:>8} | {entetes[9]:>11} | {entetes[10]:>7} | {entetes[11]}"
     )
     print("  (min/méd/max sur les prises ; « = » quand toutes les prises s'accordent)")
     print("  ⚠️ $/reco est le coût normalisé : une version qui ne recommande pas est toujours")
     print("     moins chère, et le coût brut seul dit alors l'inverse de ce qui s'est passé.")
     print("  ⚠️ attentes : « — » veut dire que le label ne nomme aucun scénario, donc que")
     print("     cette conversation n'est adossée à aucune exigence. C'est une information.")
-    largeurs = (26, 7, 12, 8, 10, 8, 8, 10, 13, 9, 26)
+    print("  ⚠️ cache↗ : frontières de tour où le cache a relu plus que le préfixe fixe.")
+    print("     Pleine, le point de coupe mobile survit au rechargement de l'historique ; à")
+    print("     zéro, il ne tient qu'à l'intérieur d'un tour. Les deux sont des gains, pas")
+    print("     le même — « — » dit qu'il n'y avait rien à observer, pas qu'il a échoué.")
+    largeurs = (26, 7, 12, 8, 10, 8, 8, 8, 10, 13, 9, 26)
     print("|".join("-" * largeur for largeur in largeurs))
     manquements: dict[str, dict[str, int]] = {}
     sans_scenario: list[str] = []
@@ -276,6 +344,9 @@ def main() -> int:
         livrees = len(mesures) - sans_reco
         par_reco = "—" if not livrees else f"{cout / livrees:.4f}"
         replis = sum(sum(mesure["replis"].values()) for mesure in mesures)
+        tenues = sum(m["frontieres"][0] for m in mesures if m["frontieres"])
+        frontieres = sum(m["frontieres"][1] for m in mesures if m["frontieres"])
+        cache = f"{tenues}/{frontieres}" if frontieres else "—"
         conformite, manquees = _conformite(label, mesures)
         if manquees:
             manquements[label] = manquees
@@ -283,7 +354,7 @@ def main() -> int:
             sans_scenario.append(label)
         print(
             f"| {label:<24} | {len(mesures):>5} | {reco:>10} | {replis:>6} | "
-            f"{conformite:>8} | {par_reco:>6} | {cout:>6.3f} | "
+            f"{conformite:>8} | {par_reco:>6} | {cout:>6.3f} | {cache:>6} | "
             f"{_amplitude([float(m['appels']) for m in mesures]):>8} | "
             f"{_amplitude([m['latence_mediane'] for m in mesures]):>11} | "
             f"{_amplitude(par_prise):>7} | {detail}"
