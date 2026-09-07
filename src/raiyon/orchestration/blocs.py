@@ -146,7 +146,14 @@ def empiler_la_reprise(
     ⚠️ **Le message de repli, lui, n'entre pas dans `tours`** — voir `boucle.py`. La base dit
     ce que le modèle a **émis**, le flux dit ce que le client a **reçu** (§9.3) ; un repli
     est du second, et le modèle qui relit sa conversation voit donc son texte refusé et la
-    reprise, jamais le template qui les a remplacés."""
+    reprise, jamais le template qui les a remplacés.
+
+    🔴 **Et il est persisté quand même — dans `evenements_tour`, `genre = "fallback"`**, avec
+    son texte intégral et son motif. Chercher un repli dans `tours_conversation` et conclure
+    de son absence qu'il n'est pas observable est une faute commise pour de vrai à l'étape 33,
+    et c'est la règle du §9.3 retournée contre celui qui mesure : re-dériver le flux depuis la
+    base trompe **dans les deux sens**. La phrase ci-dessus dit où le repli n'est pas ; celle-ci
+    dit où il est, parce qu'une moitié seule est un piège."""
     reprise = [*resultats, _bloc_de_grief(verdict)]
     messages.append({"role": ROLE_CLIENT, "content": reprise})
     tours.append(TourProduit(ROLE_CLIENT, reprise))

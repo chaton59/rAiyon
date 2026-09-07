@@ -60,10 +60,17 @@ class Reglages:
     `scripts/eval.py` et le rejeu de cassettes ne le renseignent nulle part : il n'existe
     donc aucun chemin de mesure qui puisse appeler Brave, même avec une clé en place.
 
-    ⚠️ **La clé présente ne suffit pas, et c'est voulu.** Un mode en ligne qui s'activerait
-    à la seule présence d'un secret ferait qu'installer une clé changerait silencieusement
-    ce que `make eval` mesure. Seul un appelant qui construit explicitement un fournisseur
-    sort sur le réseau — aujourd'hui `scripts/essais.py --en-ligne`, la console et l'API."""
+    ⚠️ **La clé présente ne suffit pas ici, et c'est voulu.** Un mode en ligne qui
+    s'activerait à la seule présence d'un secret ferait qu'installer une clé changerait
+    silencieusement ce que `make eval` mesure. **Cette règle vise les chemins de mesure, et
+    elle y est sans exception** : `jouer()`, `scripts/eval.py` et le rejeu de cassettes ne
+    renseignent ce champ nulle part.
+
+    Deux appelants construisent un fournisseur, et deux seulement — vérifié à l'étape 33 :
+    `scripts/essais.py --en-ligne`, qui exige le drapeau **et** la clé, et `raiyon.api.app`,
+    qui le construit au démarrage sur la présence de la clé parce qu'un serveur est le
+    produit et non une mesure. ⚠️ **`scripts/console.py` n'en construit pas** — la console
+    reste hors ligne."""
 
     orchestrateur: Orchestrateur | None = None
     """Qui conduit le tour. `None` = celle que la configuration désigne.

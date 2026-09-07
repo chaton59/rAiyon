@@ -160,8 +160,9 @@ from raiyon.api.serialisation import (
     trame_derreur,
 )
 from raiyon.api.verrou import verrouiller_le_tour
+from raiyon.avis.fournisseur import Fournisseur
 from raiyon.catalogue.schemas import LIBELLES_CATEGORIE
-from raiyon.config import ConfigurationError, Settings, get_settings
+from raiyon.config import ConfigurationError, Settings, cle_brave, get_settings
 from raiyon.db.engine import get_sessionmaker
 from raiyon.journal import configurer_journal
 from raiyon.matching.depot import DepotSql
@@ -241,6 +242,21 @@ class Ressources:
     fabrique: sessionmaker[Session]
     reglages: Settings
 
+    fournisseur: Fournisseur | None = None
+    """Le récupérateur d'avis web. `None` veut dire hors ligne — voir `duree_de_vie()`.
+
+    ⚠️ **C'est le seul champ que le serveur construit à partir d'un secret présent ou
+    absent, et l'exception est raisonnée** (étape 33). Partout ailleurs dans le dépôt, une
+    clé posée ne change rien : `Reglages.fournisseur` reste `None` pour `make eval`, pour
+    les campagnes et pour les tests, **par construction**, parce qu'un mode en ligne qui
+    s'activerait à la présence d'un secret ferait qu'installer une clé changerait ce qu'on
+    mesure. Cette règle vise les chemins de **mesure**, et elle y est inchangée.
+
+    `make api` n'est pas un chemin de mesure, c'est le **produit**. Un utilisateur qui pose
+    une clé attend qu'elle serve, et lui demander un drapeau de plus revient à lui faire
+    déclarer deux fois la même intention. Le défaut par défaut reste hors ligne : sans clé,
+    ce champ vaut `None` et `search_reviews` sert le cache puis refuse bruyamment."""
+
 
 @asynccontextmanager
 async def duree_de_vie(application: FastAPI) -> AsyncIterator[None]:
@@ -253,6 +269,25 @@ async def duree_de_vie(application: FastAPI) -> AsyncIterator[None]:
     ⚠️ **Le journal est configuré en premier**, avant même la clé : c'est le seul endroit
     d'où un `api.demarrage_impossible` peut atteindre un fichier. Configuré après, il
     n'aurait rien à dire du seul échec qui empêche le serveur d'exister.
+
+    ### 🔴 Le fournisseur d'avis se construit ici, et l'absence de clé n'est pas une panne
+
+    C'est le seul endroit du dépôt où un secret présent **change un comportement** — voir
+    `Ressources.fournisseur` pour l'arbitrage, et `raiyon.avis.fournisseur` pour la règle
+    qu'il n'enfreint pas. Deux propriétés à ne pas perdre :
+
+    * `cle_brave()` ne lève jamais. Sans clé, le serveur démarre **exactement comme avant**,
+      hors ligne, et `search_reviews` sert le cache puis refuse en nommant ce qui manque ;
+    * l'import de `FournisseurBrave` est **dans la branche**, comme dans `scripts/essais.py` :
+      un serveur sans clé ne charge pas de client HTTP du tout. Ce n'est pas une
+      optimisation, c'est la propriété d'import que `tests/avis/test_isolation_reseau.py`
+      défend un paquet plus loin, tenue ici par cohérence.
+
+    ⚠️ **Une clé invalide n'est pas détectée au démarrage**, et c'est voulu : la vérifier
+    coûterait un appel réseau à chaque lancement pour anticiper un échec que le premier
+    `search_reviews` signalera de toute façon en refus d'outil, sans interrompre la
+    conversation. Le serveur annonce donc « en ligne » sur la **présence** d'une clé, jamais
+    sur sa validité — et le journal dit `avis=brave`, pas `avis=joignable`.
     """
     journal = configurer_journal()
     try:
@@ -262,12 +297,14 @@ async def duree_de_vie(application: FastAPI) -> AsyncIterator[None]:
         logueur.error("api.demarrage_impossible", message=str(erreur))
         raise
 
+    fournisseur = _fournisseur_davis()
     application.state.ressources = Ressources(
         client=client,
         prompt=prompt,
         outils=tuple(schema_des_outils()),
         fabrique=get_sessionmaker(),
         reglages=get_settings(),
+        fournisseur=fournisseur,
     )
     logueur.info(
         "api.demarree",
@@ -275,8 +312,29 @@ async def duree_de_vie(application: FastAPI) -> AsyncIterator[None]:
         empreinte=prompt.empreinte,
         strict=client.strict,
         journal=None if journal is None else str(journal),
+        # 🔴 **Dit fort, et dans les deux sens.** Un serveur qui sort sur le réseau doit le
+        # déclarer au démarrage ; un serveur qui n'en sort pas doit le déclarer aussi, sinon
+        # le silence se lit comme « ça marche » et les refus de `search_reviews` passent
+        # pour une panne. C'est le même geste que `strict`, mesuré et annoncé plutôt que
+        # supposé.
+        avis="brave" if fournisseur is not None else "hors ligne",
     )
     yield
+
+
+def _fournisseur_davis() -> Fournisseur | None:
+    """Le fournisseur Brave si une clé est posée, `None` sinon. **Ne lève jamais.**
+
+    Une fonction plutôt que quatre lignes dans `duree_de_vie()` : c'est le seul endroit du
+    serveur qui décide d'ouvrir le réseau, et il doit être trouvable par son nom. L'import
+    reste local — voir la docstring de `duree_de_vie()`.
+    """
+    cle = cle_brave()
+    if cle is None:
+        return None
+    from raiyon.avis.brave import FournisseurBrave
+
+    return FournisseurBrave(cle)
 
 
 app = FastAPI(
@@ -602,6 +660,7 @@ def _flux(
             depot=DepotSql(base),
             max_iterations=partagees.reglages.max_agent_iterations,
             max_regenerations=partagees.reglages.max_regenerations,
+            fournisseur=partagees.fournisseur,
         )
         for evenement in evenements:
             yield trame_de(evenement)
