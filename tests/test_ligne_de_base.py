@@ -1,4 +1,12 @@
-"""Les frontières du cache, colonne `cache↗` de `scripts/ligne_de_base.py` (étape 34).
+"""Ce que `scripts/ligne_de_base.py` publie et qu'il calculait sans le publier (étape 34).
+
+Deux valeurs, un même défaut refermé : `_mesurer()` sommait `cache_lu` et `jetons_entree`,
+et rien ne les rendait. C'est le motif de §9.0 — une valeur produite que personne ne lit —
+dans le script qui aurait dû en être le lecteur.
+
+---
+
+### Les frontières du cache, colonne `cache↗`
 
 La colonne existe pour lire **le seul point resté ouvert** de l'étape 34 : le point de coupe
 mobile survit-il à l'aller-retour de l'historique par `tours_conversation` ? Elle répond
@@ -10,9 +18,11 @@ les mêmes tours, les mêmes appels, seul `cache_lu` change. Sans la contre-épr
 fonction qui rendrait toujours `0/n` passerait le premier test.
 """
 
-from ligne_de_base import _frontieres_du_cache
+from ligne_de_base import _frontieres_du_cache, _usage_cumule
 
+from raiyon.agent.client import USAGE_NUL, Usage
 from raiyon.db.models import AppelModele
+from raiyon.eval.cout import Cout
 
 SOCLE = 13_078
 """Le préfixe `tools` + `system`, mesuré le 2026-09-07. Écrit ici pour fabriquer les cas,
@@ -20,8 +30,15 @@ SOCLE = 13_078
 et c'est ce qui la garde juste au prochain changement de prompt."""
 
 
-def appel(tour, iteration, cache_lu):
-    return AppelModele(tour_client=tour, iteration=iteration, cache_lu=cache_lu)
+def appel(tour, iteration, cache_lu, entree=0, sortie=0, ecrit=0):
+    return AppelModele(
+        tour_client=tour,
+        iteration=iteration,
+        cache_lu=cache_lu,
+        jetons_entree=entree,
+        jetons_sortie=sortie,
+        cache_ecrit=ecrit,
+    )
 
 
 def conversation(lus):
@@ -78,3 +95,72 @@ def test_une_session_sans_cache_ne_rend_rien():
 
 def test_aucun_appel_ne_rend_rien():
     assert _frontieres_du_cache([]) is None
+
+
+# --------------------------------------------------------------------------- #
+# L'entrée facturée — la seconde valeur qui se calculait sans se publier
+# --------------------------------------------------------------------------- #
+
+TROIS_APPELS = [
+    appel(1, 1, cache_lu=0, entree=100, sortie=1, ecrit=10_000),
+    appel(1, 2, cache_lu=10_000, entree=200, sortie=2, ecrit=0),
+    appel(7, 1, cache_lu=10_000, entree=400, sortie=4, ecrit=0),
+]
+"""Les cinq compteurs portent des ordres de grandeur distincts **à dessein** : une fonction
+qui intervertirait deux champs, ou qui n'en sommerait qu'un, rendrait un total qui ne
+ressemble à aucun des attendus."""
+
+
+def test_le_cumul_somme_les_cinq_compteurs():
+    assert _usage_cumule(TROIS_APPELS) == Usage(
+        appels=3, jetons_entree=700, jetons_sortie=7, cache_ecrit=10_000, cache_lu=20_000
+    )
+
+
+def test_le_cumul_distingue_deux_conversations():
+    """⭐ La contre-épreuve : une fonction qui rendrait toujours la même chose — le neutre,
+    le premier appel, un compte d'appels seul — passerait le test précédent par accident sur
+    un jeu mal choisi. Elle ne passe pas celui-ci."""
+    plus_courte = _usage_cumule(TROIS_APPELS[:2])
+
+    assert plus_courte != _usage_cumule(TROIS_APPELS)
+    assert plus_courte != USAGE_NUL
+    assert plus_courte.appels == 2
+
+
+def test_aucun_appel_rend_le_neutre():
+    """Et c'est ce qui rend atteignable la branche « aucun appel persisté » du script :
+    zéro appel n'est pas zéro dépense, c'est un tour qui n'a rien commité (arbitrage 9)."""
+    assert _usage_cumule([]) == USAGE_NUL
+
+
+def _cout(appels):
+    return Cout(usage=_usage_cumule(appels), prises=1, prises_sans_usage=0, tours=2)
+
+
+def test_lentree_facturee_est_celle_du_depot():
+    """🔴 **Le test qui compte de cette moitié.** La définition n'est pas réécrite dans le
+    script, elle est **exécutée** — et c'est cette propriété-là qu'on vérifie, pas
+    l'arithmétique de `Cout`, qui a ses propres tests dans `tests/eval/`."""
+    assert _cout(TROIS_APPELS).entree_facturee == 700 + 10_000
+
+
+def test_le_cache_lu_nentre_pas_dans_lentree_facturee():
+    """⭐ La contre-épreuve de la précédente, et elle vise une faute plausible : additionner
+    les trois compteurs d'entrée « pour avoir le total ». Le cache lu se paie à un autre
+    tarif ; l'ajouter fabriquerait un total que personne ne doit à personne."""
+    cout = _cout(TROIS_APPELS)
+
+    assert cout.entree_facturee != cout.usage.jetons_entree + cout.usage.cache_lu
+    assert cout.entree_facturee != sum(
+        (cout.usage.jetons_entree, cout.usage.cache_ecrit, cout.usage.cache_lu)
+    )
+    assert "à un autre tarif" in cout.en_ligne_entree()
+
+
+def test_la_ligne_dentree_publie_les_deux_moities_separement():
+    """Le rendu du script, tel qu'il sort : le facturé décomposé, le cache lu à côté."""
+    ligne = _cout(TROIS_APPELS).en_ligne_entree()
+
+    assert ligne.startswith("10 700 facturés (700 hors cache + 10 000 de cache écrit)")
+    assert "20 000 lus du cache" in ligne

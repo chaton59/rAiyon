@@ -63,8 +63,10 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from raiyon.agent.client import USAGE_NUL, Usage
 from raiyon.db.engine import get_sessionmaker
 from raiyon.db.models import AppelModele, EvenementTour
+from raiyon.eval.cout import Cout
 from raiyon.eval.metriques import Attente, attentes_du_journal
 from raiyon.eval.scenario import ScenarioInconnu, par_nom
 from raiyon.observation import cout_estime_usd
@@ -73,6 +75,25 @@ GENRE_PRODUITS = "products_found"
 GENRE_MESSAGE = "message"
 GENRE_REJET = "text_rejected"
 GENRE_REPLI = "fallback"
+
+
+def _usage_cumule(appels: Sequence[AppelModele]) -> Usage:
+    """L'`Usage` de la session, cumulé par `Usage.__add__` plutôt qu'à la main.
+
+    Cinq sommes écrites ici seraient cinq occasions de compter faux, et surtout une
+    **seconde définition** du cumul à tenir d'accord avec celle de `raiyon.agent.client`.
+    Le `__add__` existe depuis l'étape 13 ; il est fait pour ça.
+    """
+    cumul = USAGE_NUL
+    for appel in appels:
+        cumul = cumul + Usage(
+            appels=1,
+            jetons_entree=appel.jetons_entree,
+            jetons_sortie=appel.jetons_sortie,
+            cache_ecrit=appel.cache_ecrit,
+            cache_lu=appel.cache_lu,
+        )
+    return cumul
 
 
 def _frontieres_du_cache(appels: Sequence[AppelModele]) -> tuple[int, int] | None:
@@ -165,9 +186,7 @@ def _mesurer(base: Session, identifiant: uuid.UUID) -> dict[str, Any]:
             [(evenement.tour_client, evenement.genre, evenement.charge) for evenement in evenements]
         ),
         "appels": len(appels),
-        "jetons_sortie": sum(appel.jetons_sortie for appel in appels),
-        "jetons_entree": sum(appel.jetons_entree for appel in appels),
-        "cache_lu": sum(appel.cache_lu for appel in appels),
+        "usage": _usage_cumule(appels),
         "frontieres": _frontieres_du_cache(appels),
         "griefs": dict(griefs),
         "replis": dict(replis),
@@ -360,7 +379,27 @@ def main() -> int:
             f"{_amplitude(par_prise):>7} | {detail}"
         )
 
-    total_sortie = sum(mesure["jetons_sortie"] for _, _, mesure in lignes)
+    usage_total = USAGE_NUL
+    for _, _, mesure in lignes:
+        usage_total = usage_total + mesure["usage"]
+    # ⚠️ **La définition de « entrée facturée » n'est pas réécrite ici, elle est
+    # exécutée** : `Cout.entree_facturee` dit « hors cache + cache écrit », et
+    # `en_ligne_entree()` porte avec elle la règle qui compte — le cache lu est publié
+    # **à côté** et jamais additionné, parce qu'un lecteur qui verrait les deux sur deux
+    # lignes d'un tableau de coûts les sommerait, et la somme ne veut rien dire. Recopier
+    # la formule ici en ferait une seconde définition à tenir d'accord ; c'est exactement
+    # ce que §9.3 appelle corriger au point d'usage en laissant l'affirmation debout au
+    # point de décision.
+    #
+    # ⚠️ La règle du tout ou rien de `Cout` ne peut pas se déclencher sur cette source, et
+    # ce n'est pas un contournement : `appels_modele` porte ses quatre compteurs en
+    # `NOT NULL`, donc `prises_sans_usage` vaut zéro par le schéma, pas par optimisme.
+    cout_total = Cout(
+        usage=usage_total,
+        prises=len(lignes),
+        prises_sans_usage=0,
+        tours=sum(mesure["tours"] for _, _, mesure in lignes),
+    )
     total_cout = sum(mesure["cout"] or 0 for _, _, mesure in lignes)
     tous_griefs: Counter[str] = Counter()
     tous_replis: Counter[str] = Counter()
@@ -373,8 +412,21 @@ def main() -> int:
     print(
         f"\nTOTAL : {livrees_totales}/{prises_totales} prises ont recommandé · "
         f"replis {sum(tous_replis.values())} · {total_cout:.4f} $ dont **{par_reco} par "
-        f"recommandation livrée** · {total_sortie} jetons sortie"
+        f"recommandation livrée** · {cout_total.usage.jetons_sortie} jetons sortie"
     )
+    # ⚠️ **Zéro appel n'est pas zéro dépense**, et la nuance vient d'être payée : un tour
+    # qui plante ne commit rien, pas même ses appels aboutis (arbitrage 9, §7). Un
+    # « 0 facturé » se lirait « rien n'a coûté » là où il faut lire « rien n'a été
+    # persisté » — le total exact est alors dans `data/journal/`, pas ici.
+    if cout_total.appels:
+        print(f"        entrée              : {cout_total.en_ligne_entree()}")
+    else:
+        print(
+            "        entrée              : aucun appel persisté — un tour qui plante ne "
+            "commit rien.\n"
+            "                              Cette table est un plancher de coût, pas une "
+            "facture ; voir data/journal/."
+        )
     print(f"        griefs (diagnostic) : {dict(tous_griefs) or '—'}")
     if tous_replis:
         print(f"        replis par motif    : {dict(tous_replis)}")
