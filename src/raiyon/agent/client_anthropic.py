@@ -6,21 +6,105 @@ n'a donc pas besoin d'être rappelée en revue.
 
 ---
 
-### Le cache de prompt : un seul point de coupe, sur le bloc système (arbitrage 7)
+### Le cache de prompt : deux points de coupe, le second mobile (arbitrage 7, renversé)
 
 ```python
 system = [{"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}]
+messages = avec_point_de_coupe(messages)  # marque le dernier bloc du dernier message
 ```
 
-Le préfixe mis en cache est `tools` + `system`. Une coupe posée sur le système couvre
-donc **aussi** les cinq définitions d'outils, qui sont la partie la plus lourde et la
-plus stable de la requête. Un second point de coupe n'aurait rien à protéger de plus.
+Le premier point de coupe ne bouge pas : il couvre `tools` + `system`, soit **13 078
+jetons mesurés le 2026-09-07**, les six définitions d'outils comprises. Le second est posé
+sur le **dernier bloc du dernier message**, donc à la fin de l'historique, et il se déplace
+à chaque appel.
 
-⚠️ **Ce que ça interdit, et c'est une règle de conception, pas une optimisation :** le
-préfixe doit être identique **octet pour octet** d'un appel à l'autre. Ni la date, ni
-l'état de session, ni le numéro de tour, ni la catégorie courante ne vont dans le prompt
-système. L'état ne vit que dans les `tool_result`. Un test de `tests/agent/` constate que
-deux appels d'un même tour reçoivent un `systeme` et des `outils` identiques.
+⚠️ **La phrase qui suit a été vraie, puis a cessé de l'être sans que rien ne le dise. Elle
+est barrée plutôt qu'effacée** (§9.3, « une affirmation réfutée doit être corrigée au point
+de décision ») :
+
+> ~~« Un second point de coupe n'aurait rien à protéger de plus. »~~ — écrite à l'étape 23,
+> **réfutée le 2026-09-07** sur la session `b19bd39a`.
+
+Il aurait protégé **185 873 jetons**, soit **0,3250 $ sur 0,6018** — plus de la moitié de
+la facture de la session, et 65 % de sa part d'entrée.
+
+**Elle a cessé d'être vraie entre le tour 2 et le tour 3.** À trois appels, l'historique
+pesait moins que le préfixe système et la phrase décrivait exactement le dépôt. L'entrée
+cumulée d'un tour client vaut 3 746 jetons au tour 1, 11 368 au tour 2 — tous deux **sous**
+les 13 078 du préfixe — et 14 746 au tour 3, **au-dessus**. Elle n'a pas été relue parce que
+rien dans le dépôt ne disait **à quelle échelle** elle avait été vérifiée, et parce qu'il n'y
+avait rien à y relire : elle était juste.
+
+Ce que la session a mesuré, sur 10 tours client et 24 appels persistés :
+
+| | jetons | $ |
+|---|---:|---:|
+| entrée hors cache | 205 088 | 0,4102 |
+| cache écrit | 13 078 | 0,0327 |
+| cache lu | 300 794 (= 13 078 fois 23, **constant**) | 0,0602 |
+| sortie | 9 876 | 0,0988 |
+| **total** | | **0,6018** |
+
+`cache_lu` rigoureusement constant est la signature du défaut : le préfixe protégé ne
+grossit jamais, donc chaque tour renvoie tout l'historique au tarif plein et le cumul croît
+en carré du nombre d'appels — l'entrée d'un appel monte de 767 jetons en moyenne (R² = 0,95
+sur les 24), le cumul suit `i²` à R² = 0,997.
+
+### Pourquoi c'est décidable sans mesurer d'abord la frontière entre deux tours
+
+Trois scénarios simulés sur les chiffres ci-dessus :
+
+| | entrée facturée | coût | |
+|---|---:|---:|---|
+| aujourd'hui | 218 166 | 0,6018 $ | — |
+| le préfixe tient **aussi** entre les tours | 32 293 | 0,2768 $ | **-54,0 %** |
+| il ne tient qu'**à l'intérieur** d'un tour | 116 903 | 0,4714 $ | **-21,7 %** |
+| il ne tient **jamais** | 218 166 | 0,7043 $ | +17,0 % |
+
+Le troisième cas est le pire réaliste, et **c'est encore un gain**. Le quatrième — le seul
+qui coûte, exactement 25 % de l'entrée d'aujourd'hui, l'écart entre le facteur d'écriture
+1,25 et l'entrée nue — exige que le préfixe ne soit **jamais** réutilisé, ce que la boucle
+rend inatteignable : `ajouter_les_resultats` et `empiler_la_reprise` ne font
+qu'`append`, rien n'est jamais réécrit, **y compris un message assistant refusé**.
+L'historique est append-only par construction, pas par discipline. Le seuil de rentabilité
+est à 24 % d'appels qui touchent ; l'intérieur d'un tour en garantit plus à lui seul.
+
+⚠️ **L'inconnue restante ne bloque pas, et c'est le point à retenir.** `historique_de()`
+reconstruit l'historique depuis le JSONB de `tours_conversation`, et Postgres ne conserve ni
+l'ordre des clés ni les doublons ; que le préfixe reconstruit se tokenise à l'identique de
+ce qui avait été envoyé en mémoire n'est **pas mesuré**. Mais cette inconnue décide entre
+**-22 % et -54 %**, c'est-à-dire entre deux gains. Elle ne change pas la décision, donc on
+ne la paie pas avant.
+
+**Elle se mesurera après, gratuitement, et le lecteur existe déjà** : `appels_modele.cache_lu`.
+S'il grossit d'un tour au suivant, la frontière tient ; s'il retombe à 13 078 au premier
+appel de chaque tour, elle ne tient pas et on est dans le scénario à -21,7 %. Aucune
+campagne, aucun appel de plus — c'est la colonne que l'étape 23 écrivait déjà.
+
+### Ce que les deux coupes interdisent
+
+⚠️ **Le préfixe système reste identique octet pour octet, et c'est toujours une règle de
+conception.** Ni la date, ni l'état de session, ni le numéro de tour, ni la catégorie
+courante ne vont dans le prompt système ; l'état ne vit que dans les `tool_result`. Un test
+de `tests/agent/` constate que deux appels d'un même tour reçoivent un `systeme` et des
+`outils` identiques.
+
+🔴 **Et la seconde coupe en ajoute une, qui n'existait pas : `avec_point_de_coupe()` ne
+modifie jamais les messages qu'on lui donne.** Elle recopie la liste, le dernier message,
+sa liste de blocs et le seul bloc qu'elle marque — le reste est partagé. Muter en place
+écrirait le `cache_control` dans `tours_conversation.blocs`, donc dans ce que
+`historique_de()` rejoue : le marqueur reviendrait dans l'historique au tour suivant, un
+nouveau serait posé par-dessus, et **le cinquième tour dépasserait la limite de quatre
+points de coupe de l'API**. Un test constate que l'objet passé ressort intact.
+
+**Quels blocs acceptent `cache_control` : mesuré sur le paquet installé, pas supposé.**
+`text`, `tool_use` et `tool_result` le portent ; `thinking` et `redacted_thinking` **ne le
+portent pas** — leurs `TypedDict` du SDK n'ont pas le champ. La boucle ne termine jamais
+`messages` par un message assistant (voir l'alternative écartée de `boucle.repondre`), donc
+le dernier bloc est toujours un `text` ou un `tool_result` ; `avec_point_de_coupe()` remonte
+tout de même jusqu'au dernier bloc marquable plutôt que de supposer cette invariante tenue
+par un autre module. Ne pas poser de coupe coûte un gain ; en poser une au mauvais endroit
+coûte un 400.
 
 ### Le repli `strict=False` : automatique, mémorisé, et logué (arbitrage 11)
 
@@ -89,7 +173,12 @@ from typing import Any, Literal, cast
 
 import anthropic
 import structlog
-from anthropic.types import MessageParam, ThinkingConfigParam, ToolParam
+from anthropic.types import (
+    CacheControlEphemeralParam,
+    MessageParam,
+    ThinkingConfigParam,
+    ToolParam,
+)
 
 from raiyon.agent.client import EFFORT_NON_FIXE, MAX_TOKENS, ReponseLLM, Usage
 from raiyon.config import cle_api, get_settings
@@ -106,6 +195,69 @@ motif que ce dépôt a déjà payé trois fois."""
 THINKING: ThinkingConfigParam = {"type": "adaptive", "display": DISPLAY}
 """Le raisonnement demandé à chaque appel. **`display` est le seul champ qui change quelque
 chose** — l'adaptatif tournait déjà, en silence. Voir la docstring du module."""
+
+CACHE_EPHEMERE: CacheControlEphemeralParam = {"type": "ephemeral"}
+"""Le marqueur des **deux** points de coupe. Écrit une fois : deux littéraux identiques
+posés à deux endroits sont le motif que ce dépôt a déjà payé trois fois."""
+
+BLOCS_SANS_CACHE_CONTROL = frozenset({"thinking", "redacted_thinking"})
+"""Les types de bloc qui **n'acceptent pas** `cache_control`. **Relevé le 2026-09-07 sur le
+paquet installé**, pas supposé : `ThinkingBlockParam` et `RedactedThinkingBlockParam` n'ont
+pas le champ, là où `TextBlockParam`, `ToolUseBlockParam` et `ToolResultBlockParam` l'ont.
+
+Aucun chemin du dépôt ne devrait terminer `messages` sur l'un des deux — la boucle ne
+laisse jamais un message assistant en dernier. C'est justement pourquoi l'ensemble est
+écrit ici plutôt que supposé ailleurs : la garantie appartient à `boucle.py`, la
+conséquence d'un 400 appartient à ce module."""
+
+
+def avec_point_de_coupe(messages: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Les mêmes messages, le dernier bloc marquable du dernier message portant le cache.
+
+    ⚠️ **Rien n'est modifié en place, et c'est la propriété qui compte.** Les blocs qu'on
+    reçoit sont ceux que `session.tour()` va persister dans `tours_conversation` et que
+    `historique_de()` rejouera : y écrire un `cache_control` le ferait revenir dans
+    l'historique au tour suivant, un nouveau serait posé par-dessus, et le cinquième tour
+    dépasserait la limite de quatre points de coupe de l'API. La liste, le dernier message,
+    sa liste de blocs et le seul bloc marqué sont recopiés ; tout le reste est partagé, donc
+    le coût est constant quelle que soit la longueur de la conversation.
+
+    Une liste vide, un contenu qui n'est pas une liste de blocs, ou un dernier message
+    entièrement fait de blocs non marquables : on rend les messages tels quels. **Ne pas
+    poser de coupe coûte un gain ; en poser une au mauvais endroit coûte un 400.**
+    """
+    if not messages:
+        return []
+    dernier = messages[-1]
+    blocs = dernier.get("content")
+    if not isinstance(blocs, list) or not blocs:
+        return list(messages)
+    rang = _dernier_bloc_marquable(blocs)
+    if rang is None:
+        logueur.warning(
+            "client_anthropic.point_de_coupe_sans_place",
+            types=[bloc.get("type") for bloc in blocs],
+            consequence="aucune coupe sur l'historique — l'appel part sans, et il est valide",
+        )
+        return list(messages)
+    marque = {**blocs[rang], "cache_control": CACHE_EPHEMERE}
+    return [
+        *messages[:-1],
+        {**dernier, "content": [*blocs[:rang], marque, *blocs[rang + 1 :]]},
+    ]
+
+
+def _dernier_bloc_marquable(blocs: list[dict[str, Any]]) -> int | None:
+    """Le rang du dernier bloc qui accepte `cache_control`, ou `None` s'il n'y en a pas.
+
+    On remonte au lieu de s'arrêter au dernier bloc : une coupe posée un cran plus tôt
+    laisse la queue hors du cache — c'est-à-dire le comportement d'aujourd'hui sur ces
+    quelques jetons — là où une coupe posée sur un `thinking` ferait échouer l'appel.
+    """
+    for rang in range(len(blocs) - 1, -1, -1):
+        if blocs[rang].get("type") not in BLOCS_SANS_CACHE_CONTROL:
+            return rang
+    return None
 
 
 def sans_strict(outils: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -215,11 +367,13 @@ class ClientAnthropic:
             # docstring du module. Le seul effet réel de cette ligne est `display`, qui
             # fait arriver un résumé lisible là où le texte revenait vide.
             thinking=THINKING,
-            # Le **seul** point de coupe du cache. Le préfixe couvert est
-            # `tools` + `system` : les cinq définitions d'outils sont dedans.
-            system=[{"type": "text", "text": systeme, "cache_control": {"type": "ephemeral"}}],
+            # Le point de coupe **fixe**. Le préfixe couvert est `tools` + `system` :
+            # les six définitions d'outils sont dedans, 13 078 jetons au 2026-09-07.
+            system=[{"type": "text", "text": systeme, "cache_control": CACHE_EPHEMERE}],
             tools=cast(list[ToolParam], definitions),
-            messages=cast(list[MessageParam], messages),
+            # Le point de coupe **mobile**, à la fin de l'historique. `messages` ressort
+            # intact : voir `avec_point_de_coupe`, dont c'est la raison d'être.
+            messages=cast(list[MessageParam], avec_point_de_coupe(messages)),
         )
         self._mode_etabli = True
 
