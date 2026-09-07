@@ -5159,7 +5159,7 @@ journal, elle ne le re-raconte pas.
 | **31 — le fournisseur Brave** ✅ | première sortie réseau, **0,017 $** la conversation. `from None` n'efface que `__cause__` ; une garantie d'isolation peut tomber par un `import` ; les entités HTML doivent être décodées **avant** d'être assainies, sinon la garde est contournable par encodage |
 | **32 — la campagne v3 et les trois défauts qu'elle a payés** ✅ | 36 prises, 195 appels, **3,08 $** — le seul dépassement du projet (2,50 $ annoncés), et le seul qui ait trouvé quelque chose. **(a)** Le critère nº1 relisait la prose de chaque tour contre le contexte de **fin** de conversation : il a accusé une phrase vraie, parce qu'un changement de catégorie **efface** le budget. **(b)** `budget_absent` exigeait depuis le 2026-09-01 l'inverse de ce que §6 de `systeme.v3` demande depuis le 2026-09-06 — cinq jours de contradiction, sortie seulement à la campagne, parce que `Scenario.attentes` **n'avait qu'un lecteur, et il coûtait une campagne**. **(c)** Les 3 replis de la campagne étaient un **faux positif du validateur** : `hors_budget` gardait l'écart d'une recherche que la suivante avait rendu faux, et le modèle — qui avait raison — argumentait avant d'être remplacé par un template. Trois défauts, une seule règle : **on n'évalue pas contre un état accumulé quand l'état est destructif** |
 
-| **33 — un comptage n'est pas un montant** ✅ | Trouvé en usage réel, pas en campagne. La règle 2 comparait un montant en dollars à `agregats` **tout entier** : un **effectif de sondage** y validait donc une somme d'argent. « Pour 10 $ de plus, le MSI a un avantage concret » passait parce que dix écrans étaient à 144 Hz ; la même phrase avec 13 $ levait un grief. `ContexteFourni.montants_agregats` sépare les deux natures. **Delta mesuré sur les 17 632 messages assistants de la base : +2 refus, 0 prose légitime perdue** — et les deux sont des écarts dérivés, ce que §12.2 interdit. Sur les 413 « X $ de plus / de moins » du corpus, la règle 2 en attrapait déjà **403** ; les 2 échappées n'étaient pas une permission, c'étaient des faux négatifs. `make eval` inchangé **byte pour byte**. **Second volet, `systeme.v4`** : la 8 bis de v3 apprenait la méfiance sans en dire la portée, et le modèle l'a appliquée au **message de reprise** — 39 raisonnements sur 43 le qualifient d'injection sous v3, **0 sur 222** sous les prompts qui n'ont pas de 8 bis. v4 borne le soupçon à ce qui est entre les marques scellées et écrit la réciproque ; les treize autres sections sont identiques au caractère près, et un test le garantit — sans quoi la campagne ne pourrait rien attribuer. ⚠️ **Non mesuré, et les trois cas ne sont pas rejouables** : changer le prompt périme les cassettes v3 (garde d'empreinte), et le correctif de l'étape 32 a supprimé le faux grief qui déclenchait les trois — `desserrage_refuse` ne produit plus aucune reprise. Le jeu v3 actuel n'en produit qu'**une**, sur `changement_davis.3`, et son appel post-reprise ne porte **aucun** bloc de raisonnement : le dénominateur disponible est nul |
+| **33 — un comptage n'est pas un montant** ✅ | Trouvé en usage réel, pas en campagne. La règle 2 comparait un montant en dollars à `agregats` **tout entier** : un **effectif de sondage** y validait donc une somme d'argent. « Pour 10 $ de plus, le MSI a un avantage concret » passait parce que dix écrans étaient à 144 Hz ; la même phrase avec 13 $ levait un grief. `ContexteFourni.montants_agregats` sépare les deux natures. **Delta mesuré sur les 17 632 messages assistants de la base : +2 refus, 0 prose légitime perdue** — et les deux sont des écarts dérivés, ce que §12.2 interdit. Sur les 413 « X $ de plus / de moins » du corpus, la règle 2 en attrapait déjà **403** ; les 2 échappées n'étaient pas une permission, c'étaient des faux négatifs. `make eval` inchangé **byte pour byte**. **Second volet, `systeme.v4`** : la 8 bis de v3 apprenait la méfiance sans en dire la portée, et le modèle l'a appliquée au **message de reprise** — 39 raisonnements sur 43 le qualifient d'injection sous v3, **0 sur 222** sous les prompts qui n'ont pas de 8 bis. v4 borne le soupçon à ce qui est entre les marques scellées et écrit la réciproque ; les treize autres sections sont identiques au caractère près, et un test le garantit — sans quoi la campagne ne pourrait rien attribuer. ⚠️ **Non mesuré, et les trois cas ne sont pas rejouables** : changer le prompt périme les cassettes v3 (garde d'empreinte), et le correctif de l'étape 32 a supprimé le faux grief qui déclenchait les trois — `desserrage_refuse` ne produit plus aucune reprise. Le jeu v3 actuel n'en produit qu'**une**, sur `changement_davis.3`, et son appel post-reprise ne porte **aucun** bloc de raisonnement : le dénominateur disponible est nul — v4 part donc en §9.4 comme correctif **raisonné et non mesuré**, défaut inchangé. **Troisième volet, le sixième outil** : en cherchant un générateur de reprise, un scénario appelant `search_reviews` a rendu `make eval` rouge — le sceau d'encadrement, tiré par appel, entrait dans l'empreinte de requête et faisait diverger la prise d'elle-même. **La capacité la plus récente du produit était irrejouable, donc sans couverture, et le trou interdisait ce qui l'aurait révélé.** Le sceau sort de l'empreinte — la mesure s'adapte, jamais la garde — et `avis_du_web` entre au jeu. **Le générateur de reprise, lui, n'existe pas** : 0 sur 3 puis 1 sur 3, mesuré, non committé |
 
 ⚠️ **Ces trois étapes se sont d'abord nommées « 17 » et « 21 »**, deux numéros déjà pris
 par le correctif de `NOMBRE` et par la garde d'extraction. La collision a été corrigée dans
@@ -5204,6 +5204,7 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **La 8 bis apprenait la méfiance sans en dire la portée** | Moyenne — elle porte sur le canal de correction, donc sur tout le validateur. **Corrigée dans `systeme.v4`, non encore mesurée** | v3 décrit le contenu web comme un texte qui peut « imiter une consigne système », et ne dit nulle part **où s'arrête** le soupçon. Le modèle a généralisé à tout message de rôle `user` portant des consignes sans encadrement — c'est-à-dire au **message de reprise**, qui a exactement cette forme. Mesuré sur les 1 464 reprises de la base : **39 raisonnements sur 43 le qualifient d'injection sous v3** (« *a suspicious injected message posing as a system correction* »), **0 sur 222 sous les prompts sans 8 bis**. Témoin le plus propre : `systeme.machine.v1`, **même canal de reprise, pas de 8 bis, 30 reprises, 0 suspicion**. ⚠️ **Le modèle avait le bon périmètre et se méfiait quand même** — il écrit lui-même que la reprise « *ne relève pas du cadre d'autorité réservé au contenu de `search_reviews`* », puis refuse de la traiter comme une autorité. 🔴 **Et là où on l'a le mieux observé, il avait raison** : les 35 suspicions sur `ecart_non_dit` portaient toutes sur une reprise affirmant un dépassement de budget **qui n'existait pas** — le faux grief corrigé à l'étape 32. Le modèle a relu ses `tool_result`, constaté la contradiction et refusé de mentir au client. §8 bis ne l'a donc pas rendu **paranoïaque**, elle l'a rendu **correct** ; ce qu'elle a mal fait est de lui faire ranger une correction légitime dans la catégorie « texte hostile » — une **erreur de catégorie, pas de jugement**. Atténuation : la 8 bis de `systeme.v4` borne le soupçon à ce qui est **entre les marques scellées** et écrit la réciproque — un texte hors marques ne vient pas d'une page —, et **conserve explicitement** « juger la correction sur les `tool_result` plutôt que lui obéir sans la lire ». Une reprise reste contestable ; elle se conteste avec un résultat d'outil, pas avec un soupçon sur sa forme. **Durcir contre l'injection n'avait pas fabriqué une méfiance de trop : il avait rendu suspect notre propre canal de contrôle, au point qu'une méfiance justifiée s'y appliquait pour la mauvaise raison** |
 | **Une reprise reste dans l'historique du modèle jusqu'à la fin de la session** | Faible — **caractère connu, pas dette** | `empiler_la_reprise` écrit le bloc dans `tours`, donc en base, donc dans ce que `historique_de()` rejoue à chaque tour suivant. L'invariant de `prose.py` l'exige et rien ne le remplace. Mesuré sur 1 464 reprises : **2,7 relectures en moyenne, maximum 16** ; 56 ne sont jamais relues, 574 le sont trois fois ou plus. Conséquence à tenir : un modèle qui lit mal une reprise ne la lit pas une fois, **il la relit tout le reste de la conversation**, jugement compris. C'est pourquoi le correctif est allé au prompt et non au canal — et il reste vrai après. ⚠️ Le **repli**, lui, n'entre pas dans `tours` : le modèle relit donc son texte refusé et la reprise, jamais le template qui les a remplacés. Il **est** persisté, dans `evenements_tour` (`genre = "fallback"`, 36 lignes, texte et motif compris) — le chercher dans `tours_conversation` et conclure de son absence qu'il n'est pas observable est une faute commise à l'étape 33 : re-dériver le flux depuis la base trompe **dans les deux sens** |
 | **Trois documents affirmaient un câblage qui n'existait pas** | Moyenne à l'époque — le sixième outil était muet en production. **Fermée à l'étape 33** | `agent/session.py`, `eval/executeur.py` et `.env.example` ont écrit de l'étape 27 à l'étape 33 que « `--en-ligne`, la console et l'API » construisaient un fournisseur d'avis. **Ni la console ni l'API ne le faisaient** : les deux appelaient `tour()` sans `fournisseur=`, donc avec le défaut `None`. `make api` refusait donc `search_reviews` avec « aucune recherche en ligne n'est disponible dans cette exécution » **alors que la clé Brave était dans le `.env`** — constaté en usage réel, deux refus dans une même conversation. ⚠️ **Le défaut n'était pas le câblage, c'était qu'une phrase d'architecture n'avait aucun lecteur** : écrite trois fois, exécutée zéro. C'est le §9.3, « une exigence dont la seule vérification est chère sera violée en silence ». Atténuation en deux temps : l'API construit son fournisseur au démarrage sur la présence de la clé et l'annonce (`api.demarree … avis=brave`), et `tests/api/test_fournisseur_au_demarrage.py` lit l'**AST** du dépôt pour exiger que les constructeurs soient exactement deux — un `grep` aurait compté les docstrings, c'est-à-dire les endroits mêmes où le dépôt se trompait. **La console a été alignée sur l'API dans la foulée** : deux portes interactives aux postures réseau différentes fabriquent exactement la fausse alerte que ce dépôt documente ailleurs — le même geste marche d'un côté, refuse de l'autre, et le rapport de bogue accuse `search_reviews` au lieu du câblage. Le rôle de « référence sans réseau » est tenu, et mieux, par `test_hors_ligne.py`, qui arrache `socket.socket`. Le compte de constructeurs autorisés est passé de 1 à 2 puis à 3, et **le message d'échec du test le dit** : c'est une décision, pas un constat |
+| 🔴 **Le sixième outil n'avait aucune couverture, et n'en pouvait avoir aucune** | Moyenne — c'est la surface la plus récente et la seule qui laisse entrer du contenu non fiable. **Fermée à l'étape 33** | `empreinte_de_requete()` hache les `messages` entiers ; l'encadrement de `search_reviews` y porte un sceau tiré à neuf **à chaque appel** — ce qui le rend incontrefaisable par une page. Deux exécutions de la même conversation rendaient donc deux empreintes, et **tout scénario appelant le sixième outil divergeait de lui-même au rejeu**. Aucune cassette n'en portait : le trou ne s'est pas vu parce qu'il **interdisait** ce qui l'aurait révélé. Atténuation : `neutraliser_les_sceaux()` retire la **valeur** du sceau de l'empreinte en gardant ses marques — le contenu encadré, lui, y reste entier, et une page qui change fait toujours diverger la prise. ⚠️ **L'alternative — un sceau déterministe en mode cassette — a été écartée** : elle ferait dépendre une primitive de sécurité du mode d'exécution, c'est-à-dire le défaut qu'on retrouve six mois plus tard sous le nom de « quelqu'un a laissé le drapeau ». C'est la mesure qui s'adapte, jamais la garde. Le scénario `avis_du_web` fait désormais traverser un encadrement scellé à chaque campagne |
 | **`regle_valeurs_unitaires` lit un guillemet comme des pouces** | Faible aujourd'hui, certaine à terme | Mesuré à l'étape 28 : « Vantrix Pro 480 » cité entre guillemets dans une prose devient `480"`, donc **un écran de 480 pouces**, et déclenche `valeur_non_fournie`. Même famille que le correctif de `NOMBRE` (étape 17) : une expression qui reconnaît une unité dans une chaîne ne sait pas si le caractère appartient au nombre ou à la ponctuation. 🔴 **La prédiction s'est réalisée dans la même session, à la passe suivante** : « le "Nexoria ZX-9000" n'existe pas dans notre catalogue » — phrase parfaitement légitime, et même exactement celle que la mesure du cas (a) attend — a été refusée sur `9000"`, lu comme 9 000 pouces. Ce n'est donc plus un défaut sans occurrence : **il refuse de la prose vraie, et il l'a fait sur le seul chemin où nommer un produit hors catalogue est le bon comportement**. Conséquence de second ordre mesurée : à la régénération, le modèle a cessé de nommer le produit, et le client y perd. Consigné sans correctif : le fermer demande de distinguer un guillemet d'unité d'un guillemet de citation, ce qu'aucune heuristique locale ne fait honnêtement, et le défaut n'a aujourd'hui aucune occurrence sur du texte vrai |
 | 🔴 **La claim v2 → v3 a une portée exacte, et elle voyage avec le chiffre** | Moyenne — c'est l'affirmation qui portera le portfolio | Mesurée à l'étape 30 : **4 scénarios, 3 prises chacun, orchestration `agent`, prompt `systeme.v3` contre `systeme.v2`**. Résultat : **8/12 prises ont recommandé chez v2, 12/12 chez v3** — soit 2/4 scénarios recommandant à toutes leurs prises contre 4/4. Le cas décisif est `besoin_flou` : **0 fois sur 3 chez v2, 3 fois sur 3 chez v3**. Un scénario qui échoue 3/3 d'un côté et réussit 3/3 de l'autre est un comportement, pas une fluctuation. ⚠️ **Décidé de ne PAS rejouer v2 sur les dix scénarios**, et le motif compte : six des dix ont été écrits **après** v3, et deux portent sur un outil dont v2 ignore l'existence. Mesurer v2 sur une piste construite après elle ne renforcerait pas la claim, ça la salirait. La portée reste donc celle-ci, écrite à côté du chiffre partout où il est cité |
 | **« v3 fait plus de griefs que v2 » : prédiction posée, réponse reçue, c'est non** | Faible — la question est close, la méthode reste | Étape 30 : la campagne de 4 scénarios avait donné **8 griefs et 2 replis** côté v3 contre 1 et 0 côté v2, et l'hypothèse écrite était « v3 recommande plus, donc écrit plus de prose chiffrée, donc glisse plus ». Une campagne fraîche sur les **mêmes quatre scénarios** rend **2 griefs et 0 repli** : le 8 était lui-même un tirage haut, et l'écart ne se reproduit pas. ⚠️ **Aucune conclusion inverse n'en est tirée** — deux campagnes ne font pas une distribution. 🔴 **Ce qui se conclut, en revanche, c'est le choix d'indicateur** : pendant que le compte fin oscillait d'un facteur 4 (8 → 2), l'indicateur grossier restait lisible (replis 2 → 0 → 0). Un repli est le seul événement que le **client subit** ; un grief est un événement interne que le système absorbe. C'est l'argument entier pour publier les replis d'abord et garder les griefs en diagnostic, et `ligne_de_base.py` ordonne ses colonnes ainsi |
@@ -5313,7 +5314,29 @@ C'est la phrase que ce dépôt aurait voulu connaître à l'étape 1. Les huit p
 §9.1 disent **ce qui a été supposé** ; celle-ci dit **pourquoi** on suppose : parce qu'un
 signal existe, qu'on le croit lu, et que personne ne vérifie jamais qui le lit.
 
-Six occurrences, toutes datées et toutes du même dépôt :
+### ⭐ Le fil a deux bouts, et c'est la même boucle ouverte (reformulé à l'étape 33)
+
+La phrase ci-dessus décrit un bout. L'autre s'est écrit tout seul en §9.3 sous une autre
+forme — *« une exigence dont la seule vérification est chère sera violée en silence »* — et
+l'étape 33 en a trouvé le cas extrême : `search_reviews` était **irrejouable par
+construction**, son sceau entrant dans l'empreinte de requête, donc sa vérification n'était
+pas chère, elle était **impossible**.
+
+> **Un signal que rien ne lit et une capacité dont la vérification est impossible sont le
+> même trou, vu par ses deux bouts : dans les deux cas, la boucle n'a pas de lecteur qui la
+> ferme.**
+
+D'un côté le signal existe et le lecteur manque ; de l'autre le lecteur existerait mais ne
+peut pas atteindre le signal. **Le symptôme est identique et il est silencieux** : quelque
+chose est produit, tout le monde croit que quelqu'un le regarde, et rien n'échoue jamais.
+C'est pour cela que les deux se découvrent de la même façon — par accident, en payant autre
+chose — et **jamais par relecture**.
+
+La conséquence pratique tient en une question, et c'est celle qu'il faut poser à chaque
+garde qu'on écrit : **qui lit ce signal, et ce lecteur peut-il seulement l'atteindre ?** La
+seconde moitié est celle qu'on oublie.
+
+Huit occurrences, toutes datées et toutes du même dépôt :
 
 | Le signal | Ce qu'il coûtait à produire | Qui le lisait |
 |---|---|---|
@@ -5323,6 +5346,8 @@ Six occurrences, toutes datées et toutes du même dépôt :
 | §5, les entrées d'étapes | une entrée par étape, rédigée | six manquaient, révélées **non par la relecture** mais par un renvoi cherchant sa cible |
 | `docs/eval/LISEZMOI.md` | un index tenu à la main | il a dérivé : `rapport.v3.md` absent, `v2` encore annoncé « en vigueur » |
 | **La réfutation du modèle** | un appel API, persisté deux fois | **personne** — voir §9.4 |
+| **`search_reviews` dans le harnais** | rien : la capacité existait, la mesure était **impossible** | **personne, et personne ne le pouvait** — le sceau tiré par appel entrait dans l'empreinte de requête, donc toute prise l'appelant divergeait d'elle-même. La surface la plus récente, et la seule qui laisse entrer du contenu non fiable, sans une ligne de couverture pendant six étapes (corrigé à l'étape 33) |
+| **Le comportement du modèle face à une reprise** | un appel API par régénération | **personne, et le scripter ne marche pas** — mesuré à l'étape 33 : un scénario écrit pour provoquer la faute la prévient. Voir §9.3, « une faute de confort ne se commande pas » |
 
 ⚠️ **Les deux moitiés de la phrase comptent, et la seconde plus que la première.** Un signal
 non lu ne se distingue pas d'un signal lu tant qu'on regarde le code : il est écrit, il est
@@ -5335,6 +5360,13 @@ Le correctif n'est jamais « mieux relire ». C'est **donner un second lecteur b
 (`attentes_du_journal`), **rendre l'index exécutable** (le contrôle statique des attentes),
 ou **retirer le signal** (`QUESTION_POSEE`). Les trois sont dans ce dépôt, et le troisième
 est le plus honnête quand il s'applique.
+
+⚠️ **Sur l'autre bout du fil, il en existe un quatrième, et il vient en premier : rendre la
+vérification possible.** Aucun des trois précédents n'aurait rien pu pour `search_reviews` —
+on ne donne pas un second lecteur à un signal qu'aucun lecteur ne peut atteindre. Il a fallu
+sortir le sceau de l'empreinte, **et c'est la mesure qui s'est adaptée, pas la garde** : un
+sceau déterministe en mode cassette aurait rendu une primitive de sécurité dépendante du
+mode d'exécution. Quand les deux sont en tension, **c'est l'instrument qui plie**.
 
 ### 9.1 — Les huit précédents de capacité supposée non mesurée
 
@@ -5512,6 +5544,40 @@ dépôt *parlait* du fournisseur au lieu de le construire, et où il se trompait
 utilisable : **faire porter la vérification sur ce que la machine exécute, pas sur ce que le
 dépôt raconte.**
 
+**Une revendication de couverture se coupe là où la nature de ce qui est couvert change.**
+« Le chemin de régénération n'a pas de couverture » était faux et démobilisant ; coupé en
+deux, c'est vrai et actionnable :
+
+* **la mécanique est couverte**, et par des tests à faux client, donc sans clé et sans
+  campagne — `tests/agent/test_validation.py` (22 tests : deux appels pour une
+  régénération, ordre `tool_result` puis grief, repli au second échec, historique valide au
+  tour suivant, budget partagé entre le texte et la question),
+  `tests/agent/test_mode_validation.py` (6), les 4 tests de refus/reprise/repli de
+  `tests/machine/test_orchestrateur.py`, et 3 de `tests/api/test_prose.py` pour le masquage
+  au rechargement ;
+* **le comportement du modèle face à une reprise n'est couvert par rien**, et l'étape 33 a
+  mesuré qu'il ne se scripte pas.
+
+⚠️ **Écrite ainsi, ce n'est plus une dette, c'est une limite nommée** — et la différence
+n'est pas rhétorique : une dette appelle un correctif, une limite appelle une **méthode**.
+Celle-ci est en usage réel, pas en campagne. Un trou unique aurait masqué que la moitié
+mécanique est solide, et aurait fait chercher un correctif là où il n'y a rien à corriger.
+
+**Une faute de confort ne se commande pas.** Un scénario écrit pour provoquer une erreur
+la **prévient**, parce que la demander la rend saillante. Mesuré à l'étape 33 : trois prises
+à qui l'on demandait explicitement un écart de prix l'ont toutes refusé **en citant la
+règle** — « ce serait dériver un chiffre que personne ne m'a fourni » —, là où la
+conversation réelle l'avait enfreinte sans qu'on lui demande rien. L'écart y était arrivé
+comme une **commodité de rédaction**, dans une comparaison où le modèle cherchait un
+argument.
+
+⚠️ **C'est une limite du test par scénario sur un modèle de langage, et elle dépasse ce
+dépôt.** Un scénario scripte une **situation** ; il ne scripte pas l'inattention. Tout ce
+qui se produit parce que le modèle ne pensait pas à la règle disparaît dès qu'on écrit un
+tour qui la met sous ses yeux. Conséquence pratique : **les fautes de confort se collectent
+en usage réel, elles ne se fabriquent pas** — et un chemin dont la couverture dépendrait de
+leur reproduction n'aura jamais de couverture par scénario.
+
 🔴 **Une règle vraie ne protège pas celui qui la connaît** — constaté le 2026-09-07, sur la
 règle écrite quatre jours plus tôt.
 
@@ -5626,7 +5692,7 @@ aurait été faux, et c'est le genre de fausseté qui ne se découvre qu'en essa
 
 ### 9.4 — Ce qui n'est pas mesuré, et qui n'est pas un oubli
 
-Cinq non-mesurés assumés, écrits ici pour qu'ils ne passent pas pour des trous.
+Sept non-mesurés assumés, écrits ici pour qu'ils ne passent pas pour des trous.
 
 **🔴 L'architecture n'a aucun lecteur pour une réfutation du modèle.** C'est la sixième
 occurrence de §9.0, et la plus intéressante des six, parce que le signal non lu n'est pas un
@@ -5657,6 +5723,36 @@ Un tel lecteur ne peut pas être un automatisme naïf (« le modèle proteste, d
 tort » rouvre le canal que le validateur existe pour fermer). Ce qu'on peut dire aujourd'hui
 sans le mesurer : **une prose refusée deux fois est un endroit où regarder**, et c'est écrit
 en §9.3 comme règle de lecture humaine, pas comme mécanisme.
+
+**🔴 `systeme.v4` n'est pas mesuré, et le défaut reste `systeme.v3`.** La 8 bis y est
+réécrite pour borner le soupçon à ce qui se trouve entre les marques scellées — correctif
+d'un défaut établi par un témoin propre : 39 raisonnements sur 43 qualifient le message de
+reprise d'injection sous v3, **0 sur 222** sous les prompts qui n'ont pas de 8 bis.
+
+**Les trois cas où le défaut a été le mieux observé ne sont pas rejouables**, et pour deux
+raisons indépendantes qui tiennent chacune seule :
+
+1. changer le prompt change son empreinte, et le rejeu **échoue en disant de régénérer** —
+   c'est la garde de `cassette.py`, et elle fait son travail ;
+2. le correctif de l'étape 32 a supprimé le faux grief qui déclenchait les trois :
+   `desserrage_refuse` ne produit **plus aucune reprise**. Le jeu v3 n'en produit qu'une,
+   sur `changement_davis.3`, dont l'appel post-reprise ne porte **aucun** bloc de
+   raisonnement. Dénominateur disponible : **zéro**.
+
+⚠️ **Et il n'existe pas de générateur de reprise fiable pour en fabriquer un** — mesuré,
+pas supposé, à l'étape 33. Deux rédactions d'un scénario écrit pour cela ont rendu **0 sur
+3** puis **1 sur 3**, et l'unique déclenchement portait un grief **différent** de celui
+visé. Voir §9.3, « une faute de confort ne se commande pas ».
+
+La conclusion est donc écrite plutôt que différée : **v4 est un correctif raisonné et non
+mesuré.** Il est dans le dépôt, il n'est pas en vigueur, et le jour où une campagne v4
+s'enregistre, c'est ce paragraphe qu'on remplace par un chiffre. Le laisser en vigueur sans
+mesure aurait été le contraire de tout ce que cette section défend.
+
+**Le comportement du modèle face à une reprise n'est mesuré par rien**, et ce n'est pas le
+même trou que le précédent — voir §9.3, où la revendication est coupée en deux : la
+**mécanique** de la régénération est couverte, le **comportement** ne l'est pas, et la
+mesure de l'étape 33 dit pourquoi il ne se scripte pas.
 
 **`RAIYON_VALIDATION=avertissement` n'a jamais été joué en campagne.** Le mode existe, il
 est testé unitairement des deux côtés (agent et machine), et **aucune mesure ne dit ce
