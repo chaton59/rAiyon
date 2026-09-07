@@ -5490,14 +5490,25 @@ toujours moins chère**. v2 contre v3 : +92 % en brut, **+28 % par recommandatio
 Le même défaut existe avec un dénominateur non normalisé — `comparaison.v2-machine.v1.md`
 compare des totaux sur 77 tours contre 69, et **sous-estime** de 12 %.
 
-**Un test vert n'est pas une mesure tant qu'on n'a pas vérifié qu'il savait rougir.** Trois
+**Un test vert n'est pas une mesure tant qu'on n'a pas vérifié qu'il savait rougir.** Quatre
 angles de la même chose, tous rencontrés ici : un test qui **se saute** (le bloqueur de
 socket levait avant le chemin d'erreur, et `skip` passait pour un succès) ; un test qui
 **tait un trou** au lieu de le constater ; un test **vert sur une chaîne littérale** qui ne
 contient rien d'interdit (`assainir("&#x202E;")` rend `&#x202E;`, où aucun caractère
 dangereux n'apparaît). Le geste qui tranche est toujours le même : **retirer le correctif
-et compter les chutes.** Cinq, sur le décodage des entités. Son corollaire positif : un test
-qui **constate** un trou délibéré vaut mieux qu'un trou tu.
+et compter les chutes.** Cinq, sur le décodage des entités ; cinq et trois à l'étape 34, sur
+les deux fonctions de `ligne_de_base.py`. Son corollaire positif : un test qui **constate**
+un trou délibéré vaut mieux qu'un trou tu.
+
+🔴 **Le quatrième angle est le pire, et il a été écrit à l'étape 34 : une assertion
+tautologique dans une contre-épreuve.** `assert x < y + x`, avec `y > 0` — vraie par
+arithmétique, verte pour toujours, et posée dans le test dont l'objet était de prouver que
+le cache lu n'entre pas dans l'entrée facturée. Elle aurait **compté pour un** dans le
+tableau des chutes, c'est-à-dire dans l'instrument même qui existe pour mesurer si les tests
+savent échouer. Les trois autres angles sont des tests qui ne mesurent pas ce qu'on croit ;
+celui-ci est un test qui **fausse la mesure de la mesure**. Retirée le jour même. La forme
+utilisable : **une contre-épreuve se relit assertion par assertion**, parce que c'est le seul
+endroit du dépôt où un vert de plus ne se remarque pas.
 
 **`from None` n'efface que `__cause__`.** `__context__` reste, et Python y attache
 l'exception en cours de traitement — donc l'erreur `httpx`, sa `Request`, ses en-têtes, donc
@@ -5513,6 +5524,17 @@ L'exception appartient au `Protocol`, pas à l'implémentation.
 parlé en dernier.** Douze familles trouvées d'un coup, toutes avec la même signature : la
 correction faite au **point d'usage**, l'affirmation laissée debout au **point de
 décision**. Une phrase réfutée survit en changeant de section.
+
+**Son côté positif, et il convainc mieux que l'interdiction : appeler l'autorité plutôt que
+la recopier transporte ses garanties gratuitement.** `ligne_de_base.py` devait publier une
+entrée facturée ; il construit un `Cout` et appelle `en_ligne_entree()` au lieu de récrire
+« hors cache + cache écrit ». Le bénéfice n'est pas d'avoir évité une divergence future,
+c'est d'en avoir **hérité une dans la foulée** : le rendu porte la règle qui publie le cache
+lu **à côté** et refuse de l'additionner — parce qu'un lecteur qui verrait les deux sur deux
+lignes d'un tableau de coûts les sommerait, et que la somme ne veut rien dire. Personne n'a
+eu à y penser en écrivant le script. Une formule recopiée aurait emporté le nombre et laissé
+la règle derrière elle, **et rien n'aurait signalé qu'il manquait quelque chose** : le
+chiffre aurait été juste.
 
 **Un nombre dans de la prose est soit généré, soit daté — jamais recopié.** Et la nuance
 qui compte : dans un **journal**, un nombre périmé est un **relevé**, pas une erreur — le
@@ -5574,6 +5596,24 @@ sert à quelque chose, et il n'y aura alors rien à lire pour le détromper. La 
 **avec sa raison** plutôt que glissé dans un scénario pour faire passer un test.
 ⚠️ **Distinction à tenir** : `BESOIN_DE_BUDGET`, elle, reste — c'est un indicateur *publié
 sans seuil* et documenté comme tel, ce qui n'est pas la même chose qu'une attente morte.
+
+🔴 **Et la troisième de la famille, découverte à l'étape 34 — une espèce nouvelle : une garde
+qui se lit comme active et ne l'est pas.** `Cout` refuse de publier un coût si une seule
+prise manque son `usage` ; c'est sa règle du tout ou rien, et elle est écrite en gros dans sa
+docstring. Construit sur `appels_modele`, ce refus **ne peut pas se déclencher** : la table
+porte ses quatre compteurs en `NOT NULL`, donc `prises_sans_usage` vaut zéro par le schéma,
+jamais par mesure. Le code est juste, le chiffre est juste, et un lecteur attribuerait à la
+garde une protection qu'elle ne rend pas ici.
+
+⚠️ **Ce n'est pas le fil conducteur de §9.0, c'est son voisin, et la différence est celle qui
+compte.** Un signal que rien ne lit ne protège personne et **ne prétend rien** ; celui-ci est
+lu, et **ment sur ce qu'il garantit** — ce qui est pire, parce qu'un lecteur trompé cesse de
+chercher. Les deux premières de la famille se répondent en **retirant** (`QUESTION_POSEE`) ou
+en **constatant** (`SEPARATEUR_DE_BLOCS`, et son « 0 ligne sur 36 456 ») ; celle-ci ne se
+répond ni par l'un ni par l'autre — la garde doit rester, elle sert là où elle a été écrite,
+et la retirer casserait le harnais d'éval. **Le seul correctif est d'écrire, au point
+d'appel, pourquoi elle ne peut pas se déclencher** — à l'endroit exact où quelqu'un lui
+ferait confiance, et nulle part ailleurs.
 
 **Un index est un test de ce qu'il indexe.** Les six étapes manquantes du §5 n'ont été vues
 ni en relisant le journal ni en le parcourant : elles sont sorties quand un renvoi a cherché
