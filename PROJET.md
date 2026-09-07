@@ -5138,7 +5138,7 @@ Inchangé depuis l'étape 21, moins la ligne sur la garde : réenregistrer `mach
 (~176 appels), `systeme.machine.v2`, la dette nº1 de l'étape 8 (~366 appels), la recherche
 hybride `pgvector` (§3.5).
 
-### Étapes 23 à 32 — le journal des derniers jalons
+### Étapes 23 à 34 — le journal des derniers jalons
 
 **Une ligne par étape, pas un récit par étape.** Le détail vit là où la décision est
 spécifiée — §3.6, §3.11, §3.18, §7 — et le répéter ici en ferait une seconde copie, donc une
@@ -5158,8 +5158,8 @@ journal, elle ne le re-raconte pas.
 | **30 — la mesure honnête** ✅ | prises multiples et `min/méd/max` : la ligne de base rend **3, 0 puis 2** griefs sur exécutions identiques, donc toute comparaison de comptes faite avant est dans le bruit. Le jeu passe à 10 scénarios : **60/60 recommandent, 0 repli**. La machine n'appelle **jamais** le sixième outil, et c'est structurel |
 | **31 — le fournisseur Brave** ✅ | première sortie réseau, **0,017 $** la conversation. `from None` n'efface que `__cause__` ; une garantie d'isolation peut tomber par un `import` ; les entités HTML doivent être décodées **avant** d'être assainies, sinon la garde est contournable par encodage |
 | **32 — la campagne v3 et les trois défauts qu'elle a payés** ✅ | 36 prises, 195 appels, **3,08 $** — le seul dépassement du projet (2,50 $ annoncés), et le seul qui ait trouvé quelque chose. **(a)** Le critère nº1 relisait la prose de chaque tour contre le contexte de **fin** de conversation : il a accusé une phrase vraie, parce qu'un changement de catégorie **efface** le budget. **(b)** `budget_absent` exigeait depuis le 2026-09-01 l'inverse de ce que §6 de `systeme.v3` demande depuis le 2026-09-06 — cinq jours de contradiction, sortie seulement à la campagne, parce que `Scenario.attentes` **n'avait qu'un lecteur, et il coûtait une campagne**. **(c)** Les 3 replis de la campagne étaient un **faux positif du validateur** : `hors_budget` gardait l'écart d'une recherche que la suivante avait rendu faux, et le modèle — qui avait raison — argumentait avant d'être remplacé par un template. Trois défauts, une seule règle : **on n'évalue pas contre un état accumulé quand l'état est destructif** |
-
 | **33 — un comptage n'est pas un montant** ✅ | Trouvé en usage réel, pas en campagne. La règle 2 comparait un montant en dollars à `agregats` **tout entier** : un **effectif de sondage** y validait donc une somme d'argent. « Pour 10 $ de plus, le MSI a un avantage concret » passait parce que dix écrans étaient à 144 Hz ; la même phrase avec 13 $ levait un grief. `ContexteFourni.montants_agregats` sépare les deux natures. **Delta mesuré sur les 17 632 messages assistants de la base : +2 refus, 0 prose légitime perdue** — et les deux sont des écarts dérivés, ce que §12.2 interdit. Sur les 413 « X $ de plus / de moins » du corpus, la règle 2 en attrapait déjà **403** ; les 2 échappées n'étaient pas une permission, c'étaient des faux négatifs. `make eval` inchangé **byte pour byte**. **Second volet, `systeme.v4`** : la 8 bis de v3 apprenait la méfiance sans en dire la portée, et le modèle l'a appliquée au **message de reprise** — 39 raisonnements sur 43 le qualifient d'injection sous v3, **0 sur 222** sous les prompts qui n'ont pas de 8 bis. v4 borne le soupçon à ce qui est entre les marques scellées et écrit la réciproque ; les treize autres sections sont identiques au caractère près, et un test le garantit — sans quoi la campagne ne pourrait rien attribuer. ⚠️ **Non mesuré, et les trois cas ne sont pas rejouables** : changer le prompt périme les cassettes v3 (garde d'empreinte), et le correctif de l'étape 32 a supprimé le faux grief qui déclenchait les trois — `desserrage_refuse` ne produit plus aucune reprise. Le jeu v3 actuel n'en produit qu'**une**, sur `changement_davis.3`, et son appel post-reprise ne porte **aucun** bloc de raisonnement : le dénominateur disponible est nul — v4 part donc en §9.4 comme correctif **raisonné et non mesuré**, défaut inchangé. **Troisième volet, le sixième outil** : en cherchant un générateur de reprise, un scénario appelant `search_reviews` a rendu `make eval` rouge — le sceau d'encadrement, tiré par appel, entrait dans l'empreinte de requête et faisait diverger la prise d'elle-même. **La capacité la plus récente du produit était irrejouable, donc sans couverture, et le trou interdisait ce qui l'aurait révélé.** Le sceau sort de l'empreinte — la mesure s'adapte, jamais la garde — et `avis_du_web` entre au jeu. **Le générateur de reprise, lui, n'existe pas** : 0 sur 3 puis 1 sur 3, mesuré, non committé |
+| **34 — le second point de coupe** ✅ | Une mesure d'usage réel réfute l'arbitrage 7. Session `b19bd39a`, 10 tours client, 24 appels persistés, **0,6018 $** : `cache_lu` est **constant à 13 078** d'un bout à l'autre — le préfixe protégé ne grossit jamais, donc chaque tour renvoie l'historique entier au tarif plein et le cumul croît en `i²` (R² = 0,997 contre 0,930 pour un modèle linéaire). Un second point de coupe **mobile**, sur le dernier bloc du dernier message : **-54 %** si le préfixe tient aussi entre les tours, **-21,7 %** s'il ne tient qu'à l'intérieur d'un tour, et le pire absolu (+17 %) est **inatteignable** — `ajouter_les_resultats` et `empiler_la_reprise` n'`append` que, donc l'historique est append-only par construction et le seuil de rentabilité (24 % d'appels qui touchent) est franchi par l'intérieur d'un tour seul. ⚠️ **Décidé sans mesurer la frontière entre deux tours** : l'inconnue départage **deux gains**, elle ne change pas la décision, et elle se lira gratuitement dans `cache_lu` au prochain trafic. La phrase « un second point de coupe n'aurait rien à protéger de plus » **était vraie à trois appels** et a péri au troisième tour client — neuvième précédent de §9.1, et le premier de la série à avoir été vrai |
 
 ⚠️ **Ces trois étapes se sont d'abord nommées « 17 » et « 21 »**, deux numéros déjà pris
 par le correctif de `NOMBRE` et par la garde d'extraction. La collision a été corrigée dans
@@ -5256,6 +5256,8 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **Une affirmation de domaine chiffrée passe le validateur dès que le chiffre ne porte pas d'unité connue** | **Moyenne — inchangée côté validateur, fortement réduite côté prompt à l'étape 13** | Le trou du validateur est **le même** : « 3000:1 » n'est ni un montant, ni une valeur unitaire, et aucune des cinq règles ne tire. Il n'a pas été refermé, et il ne doit pas l'être — exiger qu'un nombre appartienne aux agrégats fournis rendrait « trois modèles » invalide, et un validateur qui crie sur du français correct finit débranché. **Ce qui a changé est ce que le modèle tente.** v1 répondait à « IPS ou VA ? » en **enseignant la technologie d'affichage** — ce que §2 lui interdit — et le faisait sans un seul chiffre, donc sans qu'aucune mesure ne le voie. La section 13 de v2 lui dit ce qu'il ne sait pas et le fait basculer sur la répartition du catalogue : « sur les 9 écrans qui correspondent à vos critères, 6 en VA, 3 en IPS ». Le compteur de chiffres **monte** — 3,67 → 7,67 par passe — et c'est le bon résultat, ces chiffres-là étant fournis. ⚠️ **Le compteur seul ne tranche rien** : c'est l'appendice B, relu à la main, qui distingue un cours de technologie d'un fait de catalogue. La ligne reste ouverte parce que rien n'**empêche** encore une affirmation de domaine chiffrée ; elle est devenue improbable, pas impossible
 | ~~**`PHRASE_DE_DOMAINE` n'est exercée par aucune cassette**~~ | **Fermée à l'étape 13 — en constatant qu'elle devait le rester** | Le repli de domaine reste couvert par sept tests purs et par aucune cassette, sur trois campagnes et douze prises de `question_de_domaine`. **Et c'est le bon résultat.** `PHRASE_DE_DOMAINE` est ce qu'on sert quand la conduite a **déjà échoué** : un bon prompt la rend plus rare, pas plus fréquente. La section 13 de v2 fait en amont ce que le repli faisait en aval — dire ce que l'assistant ne fera pas, puis basculer sur le catalogue —, si bien que le chemin du repli est moins sollicité qu'avant, pas davantage. ⚠️ **Chercher une formulation de client qui le déclenche à coup sûr serait optimiser contre son propre correctif**, et la ligne se ferme en le disant plutôt qu'en fabriquant une couverture. Ce qui reste vrai : une régression sur ce chemin ne se verrait dans aucune commande automatique
 | ~~**La prose du modèle contient du markdown que le front n'interprète qu'à moitié**~~ | **Fermée à l'étape 13** | Le front rend deux formes — le gras et les sauts de ligne — et le reste s'affichait tel quel : 44 backticks, 56 puces et 32 listes numérotées sur les cassettes de l'étape 12. **C'est le prompt qui a été corrigé, pas le front armé d'un parseur** : la section 14 de `systeme.v2.md` dit ce que l'écran affiche, et fait d'« une ligne par produit » l'instruction. Mesuré : **51 occurrences par passe → 0**, seul écart de la campagne v2 au-delà de la dispersion (± 43). ⚠️ **La section a eu une empreinte inattendue sur le validateur**, prédite avant la campagne : elle fait écrire la résolution collée à la fréquence, et `NOMBRE` lit « 1920x1080 180 Hz » comme un seul nombre — voir la ligne dédiée
+| **L'atomicité du tour cache des appels payés — première occurrence observée, et chiffrée** | Faible — **c'est l'arbitrage 9 qui se produit, pas un défaut** | Session `b19bd39a`, 2026-09-07 : **25 appels payés, 24 persistés**. Le tour 45 a été lancé à 14:17:06, son premier appel a abouti (18 086 jetons d'entrée, 558 de sortie, `tool_use`), et l'appel suivant a levé un `BadRequestError` — *« Your credit balance is too low »*. Le générateur n'a jamais atteint son `commit()` : ni le message du client, ni ses appels ne sont en base. L'appel perdu vaut **0,0444 $** ; le coût réel de la session est **0,6462 $** quand `appels_modele` en montre **0,6018**, soit **6,9 % de sous-compte**. C'est mot pour mot ce que la docstring de `session.py` annonce depuis l'étape 23 — « les jetons brûlés par les appels qui ont abouti avant l'erreur n'apparaissent donc dans aucune table » — et c'est le JSONL qui a couvert le cas, ligne par ligne, exactement comme prévu. ⚠️ **Aucun correctif, et la ligne est ici pour une conséquence de lecture** : `appels_modele` est un **plancher de coût, pas une facture**. Toute mesure de coût publiée à partir de cette table sous-estime d'autant de tours qu'il y en a eu d'avortés, et le total exact se lit dans `data/journal/`. Un second commit hors atomicité rendrait les mesures d'un tour raté au prix d'appels persistés pour un tour client qui n'existe pas — l'état que §3.17 ferme |
+| **Le repli `strict` laisse remonter un 400 qui ne parle pas du schéma — vérifié en usage réel** | Nulle — **constat, pas risque** | Le même `BadRequestError` du 2026-09-07 est arrivé alors que `_mode_etabli` était vrai. `ClientAnthropic.repondre` l'a laissé remonter au lieu de réessayer sans `strict`, ce que l'arbitrage 11 annonce : « une fois le mode établi, un `BadRequestError` remonte ». Il pariait que l'erreur parlerait « de l'historique » ; celle-ci parlait du **solde du compte**, et la garde a tenu quand même — le repli n'a pas payé un second appel pour une erreur qui ne pouvait pas se résoudre. C'est la première fois que ce chemin est exercé contre l'API réelle sur autre chose qu'un refus de schéma |
 | **La garde de `cle_api()` ne voit qu'une clé absente, pas une clé vide ou factice** | Faible depuis l'étape 14, jalon 1 — le chemin documenté est réparé, la garde ne l'est pas | `cle_api()` ne lève que sur `None` : une chaîne vide traverse et meurt sur un `TypeError` du SDK, une chaîne factice sur un `AuthenticationError: 401`, les deux en anglais et précédés d'un traceback. Le défaut était **atteignable par la procédure du README** tant que `.env.example` livrait `ANTHROPIC_API_KEY=sk-ant-xxxxx` : `make install` recopiait la valeur factice, donc le message français qui nomme les commandes concernées ne pouvait jamais se déclencher. **Atténué au jalon 1** — la ligne est commentée, `tests/test_env_example.py` échoue si elle cesse de l'être, et le chemin a été vu produire le bon message. **Ce qui reste ouvert** : une clé **mal recopiée** — tronquée, avec une espace, périmée — produit toujours un 401 brut, et c'est le cas le plus probable en usage réel. Élargir la garde touche `src/raiyon/config.py`, ce que l'étape 14 s'interdit ; la ligne est écrite pour que le correctif se décide ailleurs qu'au milieu d'une étape de finition |
 
 ---
@@ -5305,12 +5307,12 @@ construisant**, et surtout ce qui se transporte hors de ce projet.
 Un fil conducteur, puis trois blocs : les capacités supposées sans mesure, les arbitrages
 renversés, et les règles générales.
 
-### 9.0 — Le fil conducteur, et il explique les huit précédents
+### 9.0 — Le fil conducteur, et il explique les neuf précédents
 
 > 🔴 **Un signal que rien ne lit n'est pas un garde-fou, c'est de la décoration — et il
 > coûte exactement aussi cher à produire qu'un signal lu.**
 
-C'est la phrase que ce dépôt aurait voulu connaître à l'étape 1. Les huit précédents de
+C'est la phrase que ce dépôt aurait voulu connaître à l'étape 1. Les neuf précédents de
 §9.1 disent **ce qui a été supposé** ; celle-ci dit **pourquoi** on suppose : parce qu'un
 signal existe, qu'on le croit lu, et que personne ne vérifie jamais qui le lit.
 
@@ -5336,7 +5338,7 @@ La conséquence pratique tient en une question, et c'est celle qu'il faut poser 
 garde qu'on écrit : **qui lit ce signal, et ce lecteur peut-il seulement l'atteindre ?** La
 seconde moitié est celle qu'on oublie.
 
-Huit occurrences, toutes datées et toutes du même dépôt :
+Neuf occurrences, toutes datées et toutes du même dépôt :
 
 | Le signal | Ce qu'il coûtait à produire | Qui le lisait |
 |---|---|---|
@@ -5348,13 +5350,23 @@ Huit occurrences, toutes datées et toutes du même dépôt :
 | **La réfutation du modèle** | un appel API, persisté deux fois | **personne** — voir §9.4 |
 | **`search_reviews` dans le harnais** | rien : la capacité existait, la mesure était **impossible** | **personne, et personne ne le pouvait** — le sceau tiré par appel entrait dans l'empreinte de requête, donc toute prise l'appelant divergeait d'elle-même. La surface la plus récente, et la seule qui laisse entrer du contenu non fiable, sans une ligne de couverture pendant six étapes (corrigé à l'étape 33) |
 | **Le comportement du modèle face à une reprise** | un appel API par régénération | **personne, et le scripter ne marche pas** — mesuré à l'étape 33 : un scénario écrit pour provoquer la faute la prévient. Voir §9.3, « une faute de confort ne se commande pas » |
+| **`appels_modele.cache_lu`** | **rien du tout** : l'API rend le compteur, l'étape 23 se contentait de l'écrire | **personne, de l'étape 23 à l'étape 34.** Sa **constance** — 13 078 exactement, sur les 24 appels d'une session de 10 tours — était la signature de l'arbitrage 7 périmé, lisible à chaque tour dans une colonne conçue pour être lue. Sortie d'une mesure de coût jouée pour autre chose. **Le moins cher à produire de la liste, et le plus longtemps ignoré** |
 
 ⚠️ **Les deux moitiés de la phrase comptent, et la seconde plus que la première.** Un signal
 non lu ne se distingue pas d'un signal lu tant qu'on regarde le code : il est écrit, il est
 correct, il coûte le même prix. Il ne se distingue qu'en **cherchant son lecteur**, et rien
-n'y oblige. C'est pourquoi les six occurrences ci-dessus sont toutes sorties par accident —
-une campagne payée, un index qui cherche ses cibles, une contre-épreuve — et **aucune par
-relecture**.
+n'y oblige. C'est pourquoi les neuf occurrences ci-dessus sont toutes sorties par accident —
+une campagne payée, un index qui cherche ses cibles, une contre-épreuve, une mesure de coût
+jouée pour autre chose — et **aucune par relecture**.
+
+⚠️ **La neuvième est celle qui n'a aucune excuse, et c'est pourquoi elle y figure.** Les
+huit premières en ont toutes une : ou bien le signal coûtait cher à produire, et son
+existence même passait pour suffisante ; ou bien aucun lecteur ne pouvait l'atteindre —
+`search_reviews`, l'autre bout du fil. `cache_lu` ne coûtait **rien**, il était persisté,
+affiché au tableau de bord, et parfaitement atteignable. **Ce qui manquait n'était ni le
+signal, ni l'accès, ni le budget : c'était quelqu'un dont la tâche du jour se réglait
+dessus.** Les onze étapes qui séparent son écriture de sa première lecture se sont passées
+exactement comme si la colonne n'existait pas.
 
 Le correctif n'est jamais « mieux relire ». C'est **donner un second lecteur bon marché**
 (`attentes_du_journal`), **rendre l'index exécutable** (le contrôle statique des attentes),
@@ -5368,7 +5380,7 @@ sortir le sceau de l'empreinte, **et c'est la mesure qui s'est adaptée, pas la 
 sceau déterministe en mode cassette aurait rendu une primitive de sécurité dépendante du
 mode d'exécution. Quand les deux sont en tension, **c'est l'instrument qui plie**.
 
-### 9.1 — Les huit précédents de capacité supposée non mesurée
+### 9.1 — Les neuf précédents de capacité supposée non mesurée
 
 C'est la série la plus instructive du dépôt, parce qu'elle est **datée, comptée, et
 qu'elle continue**. Chaque ligne est une affirmation qui a été écrite comme un fait sans
@@ -5384,6 +5396,7 @@ avoir été vérifiée.
 | 6 | 30 | « la machine expose les mêmes six outils, **donc rien ne laisse attendre un écart** » | mesuré à **6 appels contre 0**, puis vérifié par lecture — c'est structurel |
 | 7 | 31 | « le fournisseur Brave fonctionne » | le premier tir avait touché **le cache**, pas le réseau : mesuré sur un `SELECT` |
 | 8 | 32 | « le test d'accord lie les deux lecteurs d'attentes » | la contre-épreuve a **cassé une branche sans faire échouer le test** : le scénario ne l'empruntait pas. Un test d'équivalence ne lie que les chemins que sa conversation parcourt |
+| 9 | 34 | « un second point de coupe n'aurait rien à protéger de plus » (arbitrage 7, écrite à l'étape 23) | mesurée sur la session `b19bd39a` du 2026-09-07 : il aurait protégé **185 873 jetons, 0,3250 $ sur 0,6018** — 54 % de la facture. La signature était lisible depuis l'étape 23 et personne ne l'avait lue : `cache_lu` **rigoureusement constant à 13 078** sur les 24 appels, c'est-à-dire un préfixe protégé qui ne grossit jamais |
 
 **Quatre ont été attrapés avant d'être écrits** — les nº 5, 6, 7 et 8 — c'est-à-dire au
 moment où la phrase allait entrer dans la documentation, et pas des semaines plus tard.
@@ -5397,6 +5410,21 @@ un service tiers : c'est une phrase que ce dépôt a écrite lui-même, dans une
 dont **l'objet était de signaler un non-mesuré**. Elle disait « rien ne laisse attendre un
 écart » — une affirmation non mesurée, produite à l'intérieur de la phrase qui dénonçait
 les affirmations non mesurées. Elle est barrée plutôt qu'effacée pour cette raison.
+
+🔴 **Le nº 9 ajoute une catégorie à la série, et c'est le plus transportable du lot.** Ce
+qu'il partage avec le nº 4 n'est pas d'être une supposition — ils le sont tous les neuf —
+c'est d'être **une supposition qui a été vraie**. Les huit premières étaient en défaut dès
+leur écriture, et la mesure n'a fait que les rattraper : le nº 4, en particulier, était faux
+**dès le premier appel du projet**. Celle-là décrivait exactement le dépôt le jour où elle a
+été écrite — à trois appels, l'historique pesait moins que les 13 078 jetons du préfixe
+système — puis elle a périmé **entre le deuxième et le troisième tour client**, sans qu'une
+ligne du code qu'elle décrivait ait bougé.
+
+⚠️ **C'est précisément ce qui la rendait irrelisable.** Une phrase fausse peut se faire
+attraper par une relecture attentive ; une phrase vraie ne le peut pas. Ce qui avait changé
+n'était pas la phrase, c'était **l'échelle**, et l'échelle n'était écrite nulle part. D'où la
+règle que §9.3 en tire, et qui manquait : *une affirmation d'échelle doit porter l'échelle à
+laquelle elle a été vérifiée.*
 
 ---
 
@@ -5420,6 +5448,7 @@ une section de synthèse **indexe** ; elle ne re-raconte pas.
 | L'**atténuation qui aggravait** ce qu'elle visait | 29 | « nommer le produit comme le catalogue » faisait exploser les requêtes de *sujet* | §3.18, `schema_outils.py` |
 | L'**exemption des chiffres cités**, proposée et écartée | 29 | elle ouvre le canal même que le validateur existe pour fermer | §5 étape 29 |
 | Le **guillemet cesse d'être un pouce** | 30 | 26 mentions de pouces, **toutes en toutes lettres**, zéro en guillemet | §7, `extraction.py` |
+| « un seul point de coupe, le système suffit » → **deux, le second mobile** | 34 | la phrase était **vraie à trois appels** et rien ne disait à quelle échelle : 185 873 jetons resservis au tarif plein sur une session de 10 tours, **0,3250 $ sur 0,6018** | `client_anthropic.py`, §9.1 nº 9, §9.3 |
 
 🔴 **Le troisième est le plus transportable** : le réflexe était de justifier un cache par
 les appels qu'il évite, et la mesure a tué l'argument avant que le code ne soit écrit. Un
@@ -5490,6 +5519,23 @@ qui compte : dans un **journal**, un nombre périmé est un **relevé**, pas une
 mettre à jour falsifierait le journal. La parade n'est donc pas de tenir les chiffres à
 jour, c'est de **dire de quand ils datent**. Corollaire pour un statut : une dérive qui se
 dénonce vaut mieux qu'un statut qui se tait.
+
+🔴 **Une affirmation d'échelle doit porter l'échelle à laquelle elle a été vérifiée.**
+« Un second point de coupe n'aurait rien à protéger de plus » était **vraie** le jour où elle
+a été écrite : à trois appels, l'historique pesait moins que les 13 078 jetons de `tools` +
+`system`. Elle a cessé de l'être au **troisième tour client**, et rien dans le dépôt ne
+pouvait signaler que l'échelle avait changé — parce que l'échelle de vérification n'était
+écrite nulle part. Réfutée le 2026-09-07 : elle aurait protégé 185 873 jetons, **0,3250 $ sur
+0,6018**.
+
+⚠️ **Ce n'est pas le corollaire de « un nombre dans de la prose est soit généré, soit
+daté ».** Une date dit **quand** une phrase a été vérifiée ; elle ne dit pas **sur quoi**, et
+ici une date n'aurait rien sauvé : la mesure de l'étape 23 était bonne, et elle le reste pour
+une conversation de trois appels. La forme utilisable est donc **« vrai à N » et pas seulement
+« vrai le J »**, chaque fois qu'une affirmation dépend d'une grandeur qui grandit — longueur
+de conversation, taille de catalogue, nombre de prises. Une phrase qui ne dit pas à quelle
+taille elle a été mesurée **ne peut pas être relue**, parce qu'elle est encore vraie à la
+taille où on l'a écrite.
 
 **Corriger la classe, pas le cas.** `.gitignore` disait `.env` — vrai de l'instance, faux
 de l'intention, qui était « aucun secret dans git ». Un fichier fabriqué **en réparant un
