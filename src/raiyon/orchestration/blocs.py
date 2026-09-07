@@ -121,7 +121,32 @@ def empiler_la_reprise(
     L'ordre n'est pas négociable : l'API exige les `tool_result` appairés **avant** tout
     autre contenu utilisateur. Quand le message fautif ne portait que du texte, `resultats`
     est vide et le bloc ne contient que le grief.
-    """
+
+    ### ⚠️ Une reprise ne s'efface pas : elle reste dans l'historique du modèle
+
+    Ce bloc part dans `tours`, donc en base, donc dans ce que `historique_de()` rejoue au
+    tour suivant — **et à tous les suivants**. Ce n'est pas un effet de bord : l'invariant
+    ci-dessus l'exige, `prose.py` lisant « un message assistant suivi d'une reprise » pour
+    masquer au rechargement un texte refusé. Mais la conséquence dépasse l'affichage, et
+    elle se mesure (étape 33, sur 1 464 reprises de la base) :
+
+    | | |
+    |---|---|
+    | jamais relue — le tour est le dernier de la session | 56 |
+    | relue 1 à 2 fois | 834 |
+    | relue 3 fois ou plus | 574 |
+    | relectures moyennes | **2,7** — maximum **16** |
+
+    **C'est un caractère connu du dispositif, pas une dette.** Un modèle qui a une fois mal
+    lu une reprise ne la lit pas une fois : il la relit à chaque tour du reste de la
+    conversation. C'est pourquoi la 8 bis de `systeme.v4` prend soin de dire ce qu'est ce
+    message plutôt que de compter sur son oubli — la formulation de v3 laissait le modèle le
+    qualifier d'injection, et ce jugement-là restait en contexte avec lui.
+
+    ⚠️ **Le message de repli, lui, n'entre pas dans `tours`** — voir `boucle.py`. La base dit
+    ce que le modèle a **émis**, le flux dit ce que le client a **reçu** (§9.3) ; un repli
+    est du second, et le modèle qui relit sa conversation voit donc son texte refusé et la
+    reprise, jamais le template qui les a remplacés."""
     reprise = [*resultats, _bloc_de_grief(verdict)]
     messages.append({"role": ROLE_CLIENT, "content": reprise})
     tours.append(TourProduit(ROLE_CLIENT, reprise))
