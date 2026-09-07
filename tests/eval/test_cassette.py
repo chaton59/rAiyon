@@ -8,6 +8,7 @@ import json
 
 import pytest
 
+from raiyon.avis.encadrement import encadrer, tirer_un_sceau
 from raiyon.eval.cassette import (
     FORMAT,
     Cassette,
@@ -234,6 +235,60 @@ def test_lempreinte_de_requete_ignore_lordre_des_cles():
     assert empreinte_de_requete(
         systeme=SYSTEME, outils=OUTILS, messages=gauche
     ) == empreinte_de_requete(systeme=SYSTEME, outils=OUTILS, messages=droite)
+
+
+def test_lempreinte_de_requete_ignore_la_valeur_dun_sceau_dencadrement():
+    """🔴 **Le sel n'est pas du contenu de conversation** (étape 33).
+
+    Le sceau de `search_reviews` est tiré à neuf à chaque appel — c'est ce qui le rend
+    incontrefaisable par une page. Il entrait donc dans l'empreinte, et **tout scénario
+    appelant le sixième outil était irrejouable** : deux exécutions de la même conversation
+    rendaient deux empreintes.
+
+    L'alternative — un sceau déterministe en mode cassette — a été écartée : elle ferait
+    dépendre une primitive de sécurité du mode d'exécution. C'est la mesure qui s'adapte,
+    jamais la garde.
+    """
+    contenu = "un avis d'utilisateur, mot pour mot"
+    gauche = [{"role": "user", "content": encadrer(contenu, sceau=tirer_un_sceau())}]
+    droite = [{"role": "user", "content": encadrer(contenu, sceau=tirer_un_sceau())}]
+
+    assert gauche != droite, "les deux sceaux doivent différer, sinon le test ne prouve rien"
+    assert empreinte_de_requete(
+        systeme=SYSTEME, outils=OUTILS, messages=gauche
+    ) == empreinte_de_requete(systeme=SYSTEME, outils=OUTILS, messages=droite)
+
+
+def test_lempreinte_de_requete_voit_toujours_le_contenu_encadre():
+    """**La contre-épreuve, et c'est elle qui borne la concession.**
+
+    On neutralise la **valeur** du sceau, pas l'encadrement : une page dont le texte change
+    doit continuer de faire diverger la prise. Sans ce test, la neutralisation pourrait
+    effacer le contenu de tiers sans que rien ne le dise.
+    """
+    sceau = tirer_un_sceau()
+    gauche = [{"role": "user", "content": encadrer("un avis", sceau=sceau)}]
+    droite = [{"role": "user", "content": encadrer("un autre avis", sceau=sceau)}]
+
+    assert empreinte_de_requete(
+        systeme=SYSTEME, outils=OUTILS, messages=gauche
+    ) != empreinte_de_requete(systeme=SYSTEME, outils=OUTILS, messages=droite)
+
+
+def test_huit_hexadecimaux_hors_dune_marque_comptent_toujours():
+    """Le motif est **ancré sur la marque**, et ce test dit pourquoi ça compte.
+
+    Un identifiant, une somme de contrôle ou une référence produit peuvent ressembler à un
+    sceau. Neutraliser toute suite de huit caractères hexadécimaux ferait de l'empreinte un
+    instrument aveugle à une partie du contenu — un rejeu qui ne verrait plus une divergence
+    réelle, ce qui est le seul mode d'échec que cette fonction existe pour empêcher.
+    """
+    gauche = [{"role": "user", "content": "référence deadbeef"}]
+    droite = [{"role": "user", "content": "référence cafebabe"}]
+
+    assert empreinte_de_requete(
+        systeme=SYSTEME, outils=OUTILS, messages=gauche
+    ) != empreinte_de_requete(systeme=SYSTEME, outils=OUTILS, messages=droite)
 
 
 # --------------------------------------------------------------------------- #

@@ -126,6 +126,43 @@ RAPPEL = (
 )
 """Le rappel joint au résultat. ⚠️ **Une commodité, pas l'autorité** — voir la couche 3."""
 
+MOTIF_DE_SCEAU = re.compile(
+    "|".join(
+        re.escape(marque).replace(re.escape("{sceau}"), f"[0-9a-f]{{{OCTETS_DE_SCEAU * 2}}}")
+        for marque in (MARQUE_OUVRANTE, MARQUE_FERMANTE)
+    )
+)
+"""Les deux marques, sceau **quelconque**. Dérivé d'elles, jamais recopié.
+
+Il sert à **neutraliser** un sceau là où sa valeur ne doit pas compter — voir
+`neutraliser_les_sceaux()`. Le motif est ancré sur la marque : il ne peut donc pas
+rencontrer huit caractères hexadécimaux ailleurs dans un texte et les effacer par accident.
+"""
+
+SCEAU_NEUTRE = "……"
+"""Ce qui remplace un sceau neutralisé. **Deux caractères qui ne sont pas hexadécimaux**, de
+sorte qu'un texte neutralisé ne puisse jamais être repris pour un texte scellé."""
+
+
+def neutraliser_les_sceaux(texte: str) -> str:
+    """Remplace la valeur de chaque sceau par `SCEAU_NEUTRE`, marques conservées.
+
+    🔴 **Pour comparer deux textes scellés, jamais pour en produire un.** Un texte
+    neutralisé n'est plus encadré au sens de la couche 2 : les marques y sont, le sel n'y
+    est plus, et il serait donc contrefaisable par une page qui écrirait `……`. Il ne doit
+    partir vers aucun modèle.
+
+    Le seul appelant est `raiyon.eval.cassette.empreinte_de_requete()`, et sa docstring dit
+    pourquoi c'est à la mesure de s'adapter.
+    """
+    return MOTIF_DE_SCEAU.sub(lambda occurrence: _neutre(occurrence.group(0)), texte)
+
+
+def _neutre(marque: str) -> str:
+    """La marque rencontrée, son sceau remplacé. On garde la forme, on perd la valeur."""
+    return re.sub(f"[0-9a-f]{{{OCTETS_DE_SCEAU * 2}}}", SCEAU_NEUTRE, marque)
+
+
 _INVISIBLES = re.compile(
     "["
     "\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f"  # contrôles C0 et C1

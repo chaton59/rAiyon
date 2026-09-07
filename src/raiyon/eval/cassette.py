@@ -76,6 +76,7 @@ from typing import Any
 
 from raiyon.agent.client import ReponseLLM, Usage
 from raiyon.agent.prompts import empreinte
+from raiyon.avis.encadrement import neutraliser_les_sceaux
 
 FORMAT = 1
 """Version du format de fichier. Une cassette d'un autre format est refusée, pas devinée."""
@@ -227,10 +228,34 @@ def empreinte_de_requete(
 
     Les messages en font partie : c'est ce qui distingue le tour 3 du tour 4, et donc ce
     qui transforme une désynchronisation silencieuse en erreur nommée.
+
+    ### 🔴 Les sceaux d'encadrement en sortent, et c'est la mesure qui s'adapte (étape 33)
+
+    `search_reviews` encadre le contenu de tiers entre des marques scellées, et le sceau est
+    tiré **à neuf à chaque appel** — c'est ce qui le rend incontrefaisable par une page.
+    Il entre donc dans le `tool_result`, donc dans `messages`, et une conversation identique
+    rendait deux empreintes différentes à deux exécutions. Résultat : **tout scénario
+    appelant le sixième outil était irrejouable**, et le sixième outil n'avait aucune
+    couverture dans le harnais — la surface la plus récente du produit, et la seule qui
+    laisse entrer du contenu non fiable.
+
+    **L'alternative écartée était de rendre le sceau déterministe en mode cassette.** Elle
+    est plus courte et elle est mauvaise : elle ferait dépendre une **primitive de sécurité
+    du mode d'exécution**, c'est-à-dire exactement le défaut qu'on retrouve six mois plus
+    tard sous le nom de « quelqu'un a laissé le drapeau ». Un sceau prévisible est un sceau
+    contrefaisable, et il ne doit pas exister, pas même dans un chemin de test.
+
+    La règle qui tranche, et elle se transporte : **l'empreinte a pour objet de détecter
+    qu'une CONVERSATION a divergé ; le sceau n'est pas du contenu de conversation, c'est du
+    sel. C'est la mesure qui s'adapte, jamais la garde.**
+
+    ⚠️ **Ce que la neutralisation ne concède pas.** Elle ne retire pas le contenu encadré —
+    les avis restent intégralement dans l'empreinte, et une page qui change fait toujours
+    diverger la prise. Elle ne retire que la **valeur** du sceau, en gardant ses marques :
+    un encadrement qui disparaîtrait, ou qui cesserait d'être appairé, se verrait encore.
     """
-    return empreinte(
-        canonique({"systeme": systeme, "outils": list(outils), "messages": list(messages)})
-    )
+    serialisee = canonique({"systeme": systeme, "outils": list(outils), "messages": list(messages)})
+    return empreinte(neutraliser_les_sceaux(serialisee))
 
 
 def empreinte_des_outils(outils: Sequence[Mapping[str, Any]]) -> str:
