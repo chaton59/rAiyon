@@ -2616,10 +2616,11 @@ consommateur bouge » devient fausse pour `Texte`, et pour lui seul) et la docst
 renversé.
 
 **B — Le contexte fourni est typé par provenance, pas aplati en sac de nombres.**
-`ContexteFourni` porte `produits`, `hors_budget`, `prix`, `valeurs_de_specs` et
-`agregats` — voir l'amendement du §3.11. Il se construit **depuis les `tool_result` de la
-session**, pas depuis un état interne : c'est ce qui garantit qu'il décrit ce que le
-modèle a réellement vu. Il est **cumulatif sur la session, pas sur le tour** — un produit
+`ContexteFourni` porte `produits`, `hors_budget`, `prix`, `valeurs_de_specs`,
+`agregats` et — depuis l'étape 33 — `montants_agregats` — voir l'amendement du §3.11.
+Il se construit **depuis les `tool_result` de la session**, pas depuis un état interne :
+c'est ce qui garantit qu'il décrit ce que le modèle a réellement vu. Il est
+**cumulatif sur la session, pas sur le tour** — un produit
 rendu au tour 3 et cité au tour 6 est légitime, et un contexte par tour rejetterait la
 moitié des conversations réelles. *Alternative écartée — un ensemble plat de tous les
 nombres fournis* : vingt lignes de moins, et il ferme les trois quarts des cas ; mais il
@@ -2627,14 +2628,17 @@ laisse ouvert exactement celui que §7 nomme, et il rendrait fausse la phrase «
 prix est vérifiable à l'étape 9 ». **La ligne à ne pas simplifier** : les *valeurs* des
 distributions de `probe_catalog` n'entrent pas dans `valeurs_de_specs` — seuls leurs
 effectifs entrent, en agrégats. « 12 écrans sont à 165 Hz » ne rend pas vrai « celui-ci
-est à 165 Hz ».
+est à 165 Hz ». ⚠️ **Et la seconde ligne à ne pas simplifier, découverte à l'étape 33** :
+un effectif est un agrégat, mais ce n'est **pas un montant**. Les ranger dans le même
+ensemble suffisait à ce qu'un comptage de 10 valide « 10 $ » — d'où `montants_agregats`,
+qui ne porte que les bornes de `fourchette_prix` et le budget.
 
 **C — Cinq règles pures, un grief lisible par le modèle.** Chacune est une fonction
 `(texte, ContexteFourni) -> tuple[Grief, ...]`, et `Grief` porte un code, l'extrait fautif
 et une phrase qui dit **quoi corriger** — même convention que `OutilRefuse`, parce
 qu'elle sera lue par le modèle. (1) tout jeton conforme à `MOTIF_ID` existe dans le
 contexte ; (2) un montant en `$` dans une phrase qui nomme un produit est le prix de **ce**
-produit ou son `ecart_usd`, ailleurs c'est un prix ou un agrégat fourni ; (3) un nom
+produit ou son `ecart_usd`, ailleurs c'est un prix ou un agrégat **monétaire** fourni ; (3) un nom
 fourni qui apparaît y apparaît **verbatim** ; (4) un produit hors budget cité l'est dans
 une phrase qui porte son écart exact ; (5) un nombre suivi d'une unité connue est une
 valeur de spec ou d'agrégat fournie. Les unités sont **dérivées du registre**
@@ -5155,6 +5159,8 @@ journal, elle ne le re-raconte pas.
 | **31 — le fournisseur Brave** ✅ | première sortie réseau, **0,017 $** la conversation. `from None` n'efface que `__cause__` ; une garantie d'isolation peut tomber par un `import` ; les entités HTML doivent être décodées **avant** d'être assainies, sinon la garde est contournable par encodage |
 | **32 — la campagne v3 et les trois défauts qu'elle a payés** ✅ | 36 prises, 195 appels, **3,08 $** — le seul dépassement du projet (2,50 $ annoncés), et le seul qui ait trouvé quelque chose. **(a)** Le critère nº1 relisait la prose de chaque tour contre le contexte de **fin** de conversation : il a accusé une phrase vraie, parce qu'un changement de catégorie **efface** le budget. **(b)** `budget_absent` exigeait depuis le 2026-09-01 l'inverse de ce que §6 de `systeme.v3` demande depuis le 2026-09-06 — cinq jours de contradiction, sortie seulement à la campagne, parce que `Scenario.attentes` **n'avait qu'un lecteur, et il coûtait une campagne**. **(c)** Les 3 replis de la campagne étaient un **faux positif du validateur** : `hors_budget` gardait l'écart d'une recherche que la suivante avait rendu faux, et le modèle — qui avait raison — argumentait avant d'être remplacé par un template. Trois défauts, une seule règle : **on n'évalue pas contre un état accumulé quand l'état est destructif** |
 
+| **33 — un comptage n'est pas un montant** ✅ | Trouvé en usage réel, pas en campagne. La règle 2 comparait un montant en dollars à `agregats` **tout entier** : un **effectif de sondage** y validait donc une somme d'argent. « Pour 10 $ de plus, le MSI a un avantage concret » passait parce que dix écrans étaient à 144 Hz ; la même phrase avec 13 $ levait un grief. `ContexteFourni.montants_agregats` sépare les deux natures. **Delta mesuré sur les 17 632 messages assistants de la base : +2 refus, 0 prose légitime perdue** — et les deux sont des écarts dérivés, ce que §12.2 interdit. Sur les 413 « X $ de plus / de moins » du corpus, la règle 2 en attrapait déjà **403** ; les 2 échappées n'étaient pas une permission, c'étaient des faux négatifs. `make eval` inchangé **byte pour byte** |
+
 ⚠️ **Ces trois étapes se sont d'abord nommées « 17 » et « 21 »**, deux numéros déjà pris
 par le correctif de `NOMBRE` et par la garde d'extraction. La collision a été corrigée dans
 un commit dédié plutôt que par un `amend` : le numéro d'étape est le système de références
@@ -5193,7 +5199,8 @@ juger à l'oreille sur trois conversations, et à faire régresser ce qui marcha
 | **`absence_structurelle` est posé à la main dans le registre** | Faible aujourd'hui, croissante si le catalogue s'étend | Un seul attribut le porte (`internal-hard-drive.rpm`), et un test vérifie sur le seed que son absence est bien **déterminée** par `type`. Mais rien ne détecte le cas inverse : un attribut futur dont l'absence serait expliquée par une autre colonne ne se signalerait pas tout seul, et son zéro résultat serait diagnostiqué `donnee_absente` — donc expliqué par une phrase fausse. Atténuation partielle : un test balaie tous les attributs incomplets et échoue si l'un d'eux remplit le critère sans porter le drapeau. Il ne couvre que les vocabulaires fermés, et que le seed |
 | **Le jeton de parole ne vérifie pas que le client a parlé *de ce critère*** | Moyenne — c'est la limite de §3.17, et elle est structurelle | Un mouvement qui desserre consomme le jeton du tour ; rien ne détecte qu'un desserrage autorisé par une parole a été appliqué à un **autre** critère que celui dont le client parlait. « Je peux monter un peu », dit du budget, peut payer un recul de la fréquence de rafraîchissement. Un desserrage par tour au lieu de zéro contrôle tue l'essai-erreur — l'agent ne peut plus tâtonner jusqu'à trouver quelque chose à montrer — mais ce n'est pas une garantie, et l'alternative (exiger une citation verbatim) donne l'illusion d'une preuve sans en être une. Atténuation réelle : chaque mouvement est tracé, donc mesurable en éval à l'étape 12 |
 | **Le budget effacé au changement de catégorie est tarifé, pas empêché** | Moyenne | Changer de catégorie remet le budget à `None` (étape 7, arbitrage D) et **paie le jeton du tour**, comme n'importe quel desserrage. Le modèle peut donc, en deux messages du client, revenir à la catégorie de départ sans plafond : c'est le prix d'une parole, pas une porte fermée. Le seul correctif qui fermerait vraiment est un **budget par catégorie**, et il rouvre exactement la divergence que §3.10 ferme en donnant au budget une colonne unique — deux copies d'une même contrainte finissent par dire deux choses. Le choix est donc assumé : une porte tarifée plutôt qu'une seconde source de vérité |
-| **`probe_catalog` est un oracle à prix** | Moyenne — elle porte sur le critère nº1. **Partiellement fermée à l'étape 9** | Le sondage rend une fourchette de prix exacte sur le sous-catalogue courant. Avec deux ou trois sondages resserrés, l'agent connaît le prix d'un produit qu'on ne lui a **jamais** donné, et sans identifiant. L'alternative — rendre des paliers arrondis — a été écartée parce qu'un arrondi est lui-même une affirmation approximative sur le catalogue : il en fabrique une pour en éviter une autre. Atténuation : ~~le prompt~~ **la règle 2 du validateur** — un montant écrit dans une phrase qui nomme un produit fourni doit être le prix **de ce produit** ou son écart au budget, jamais une borne d'agrégat. Le piège nº6 de `tests/validateur/test_pieges.py` le constate, et il échoue si le contexte est aplati. ⚠️ **Ce qui reste ouvert** : la règle ne sait pas qu'un nom qu'elle ne connaît pas est un nom de produit. « L'Acer XV272U est à 108 $ », dans une conversation où seul un sondage a eu lieu, passe — 108 est un agrégat fourni, et aucun produit **connu** n'est nommé dans la phrase. Fermer ce cas demanderait de reconnaître un nom de produit inventé dans du texte libre, ce qu'aucune heuristique ne sait faire honnêtement |
+| **`probe_catalog` est un oracle à prix** | Moyenne — elle porte sur le critère nº1. **Deux fermetures partielles : étape 9, puis étape 33** | Le sondage rend une fourchette de prix exacte sur le sous-catalogue courant. Avec deux ou trois sondages resserrés, l'agent connaît le prix d'un produit qu'on ne lui a **jamais** donné, et sans identifiant. L'alternative — rendre des paliers arrondis — a été écartée parce qu'un arrondi est lui-même une affirmation approximative sur le catalogue : il en fabrique une pour en éviter une autre. Atténuation : ~~le prompt~~ **la règle 2 du validateur** — un montant écrit dans une phrase qui nomme un produit fourni doit être le prix **de ce produit** ou son écart au budget, jamais une borne d'agrégat. Le piège nº6 de `tests/validateur/test_pieges.py` le constate, et il échoue si le contexte est aplati. **L'étape 33 ferme un second chemin, distinct** : hors phrase à produit, la règle comparait un montant à `agregats` tout entier, donc un **effectif** y validait une somme — voir la ligne suivante. ⚠️ **Ce qui reste ouvert, et l'étape 33 n'y touche pas** : la règle ne sait pas qu'un nom qu'elle ne connaît pas est un nom de produit. « L'Acer XV272U est à 108,00 $ », dans une conversation où seul un sondage a eu lieu, passe encore — **vérifié après l'étape 33** : 108,00 est une borne de `fourchette_prix`, donc un montant **légitimement** fourni, et aucun produit **connu** n'est nommé dans la phrase. Le compartiment des montants ne pouvait pas fermer ce cas, et il ne prétend pas l'avoir fait. Fermer ce cas demanderait de reconnaître un nom de produit inventé dans du texte libre, ce qu'aucune heuristique ne sait faire honnêtement |
+| **Un comptage validait un montant, par collision numérique** | Moyenne à l'époque — elle portait sur le critère nº1. **Fermée à l'étape 33** | `agregats` rangeait ensemble deux natures : des **montants** (bornes de `fourchette_prix`, budget) et des **comptages** (effectifs d'une distribution, `COMPTAGES`, `ecartes_faute_de_donnee`, `produits_rouverts`). La règle 2 lit un nombre suivi d'un symbole de monnaie et comparait au sac entier : « Pour 10 $ de plus, le MSI a un avantage concret » était donc accepté parce que le sondage avait rendu `effectif: 10` pour les dix écrans à 144 Hz. La même phrase avec 13 $ levait un grief — **le verdict dépendait de l'espace des nombres, pas d'un fait**, dans un validateur bâti tout entier sur l'égalité exacte. Trouvé en **usage réel**, pas en campagne. Atténuation : `ContexteFourni.montants_agregats`, sous-ensemble d'`agregats` limité aux deux provenances monétaires. ⚠️ **C'était un faux négatif, pas une permission** : §12.2 interdit de dériver un écart de deux prix fournis, et la règle 2 l'attrapait déjà **403 fois sur 405** dans le corpus. Le correctif est donc un **resserrement** — à ne pas confondre avec `valeurs_refusees`, qui corrigeait une règle tranchant **contre** un comportement demandé et exigeait, elle, un élargissement (§9.3). Delta mesuré sur 17 632 messages assistants : **+2 refus, 0 prose légitime perdue** |
 | **`regle_valeurs_unitaires` lit un guillemet comme des pouces** | Faible aujourd'hui, certaine à terme | Mesuré à l'étape 28 : « Vantrix Pro 480 » cité entre guillemets dans une prose devient `480"`, donc **un écran de 480 pouces**, et déclenche `valeur_non_fournie`. Même famille que le correctif de `NOMBRE` (étape 17) : une expression qui reconnaît une unité dans une chaîne ne sait pas si le caractère appartient au nombre ou à la ponctuation. 🔴 **La prédiction s'est réalisée dans la même session, à la passe suivante** : « le "Nexoria ZX-9000" n'existe pas dans notre catalogue » — phrase parfaitement légitime, et même exactement celle que la mesure du cas (a) attend — a été refusée sur `9000"`, lu comme 9 000 pouces. Ce n'est donc plus un défaut sans occurrence : **il refuse de la prose vraie, et il l'a fait sur le seul chemin où nommer un produit hors catalogue est le bon comportement**. Conséquence de second ordre mesurée : à la régénération, le modèle a cessé de nommer le produit, et le client y perd. Consigné sans correctif : le fermer demande de distinguer un guillemet d'unité d'un guillemet de citation, ce qu'aucune heuristique locale ne fait honnêtement, et le défaut n'a aujourd'hui aucune occurrence sur du texte vrai |
 | 🔴 **La claim v2 → v3 a une portée exacte, et elle voyage avec le chiffre** | Moyenne — c'est l'affirmation qui portera le portfolio | Mesurée à l'étape 30 : **4 scénarios, 3 prises chacun, orchestration `agent`, prompt `systeme.v3` contre `systeme.v2`**. Résultat : **8/12 prises ont recommandé chez v2, 12/12 chez v3** — soit 2/4 scénarios recommandant à toutes leurs prises contre 4/4. Le cas décisif est `besoin_flou` : **0 fois sur 3 chez v2, 3 fois sur 3 chez v3**. Un scénario qui échoue 3/3 d'un côté et réussit 3/3 de l'autre est un comportement, pas une fluctuation. ⚠️ **Décidé de ne PAS rejouer v2 sur les dix scénarios**, et le motif compte : six des dix ont été écrits **après** v3, et deux portent sur un outil dont v2 ignore l'existence. Mesurer v2 sur une piste construite après elle ne renforcerait pas la claim, ça la salirait. La portée reste donc celle-ci, écrite à côté du chiffre partout où il est cité |
 | **« v3 fait plus de griefs que v2 » : prédiction posée, réponse reçue, c'est non** | Faible — la question est close, la méthode reste | Étape 30 : la campagne de 4 scénarios avait donné **8 griefs et 2 replis** côté v3 contre 1 et 0 côté v2, et l'hypothèse écrite était « v3 recommande plus, donc écrit plus de prose chiffrée, donc glisse plus ». Une campagne fraîche sur les **mêmes quatre scénarios** rend **2 griefs et 0 repli** : le 8 était lui-même un tirage haut, et l'écart ne se reproduit pas. ⚠️ **Aucune conclusion inverse n'en est tirée** — deux campagnes ne font pas une distribution. 🔴 **Ce qui se conclut, en revanche, c'est le choix d'indicateur** : pendant que le compte fin oscillait d'un facteur 4 (8 → 2), l'indicateur grossier restait lisible (replis 2 → 0 → 0). Un repli est le seul événement que le **client subit** ; un grief est un événement interne que le système absorbe. C'est l'argument entier pour publier les replis d'abord et garder les griefs en diagnostic, et `ligne_de_base.py` ordonne ses colonnes ainsi |
@@ -5544,6 +5551,43 @@ C'est ce qui sépare « on a décidé » de « on s'est arrangé ». L'attente d
 été remplacée, et l'ancienne formulation est **rayée et datée dans le fichier**, avec les
 deux lignes de la contradiction — pas effacée. Le contrôle de qui gagne, du prompt ou de
 l'exigence, ne peut se faire que si le perdant est encore lisible.
+
+**Entre un faux positif qui se voit et un faux négatif qui ne se voit pas, on choisit celui
+qui se voit.** Deux occurrences, donc une règle. `faits_du_catalogue` est écrit en
+**adhésion** — une charge doit se déclarer source de faits — plutôt qu'en exclusion : un
+futur outil dont on oublierait la déclaration verra ses faits refusés (du texte vrai
+refusé, qui se voit dans la prose et dans le taux de rejet) au lieu de devenir citable en
+silence. `ContexteFourni.montants_agregats` est **obligatoire, sans valeur par défaut**,
+pour la même raison : un défaut vide rend un contexte bâti à la main trop sévère, un défaut
+recopiant `agregats` rouvre le trou sans que rien ne le signale. La règle ne dit pas « sois
+strict » — elle dit **choisis le mode de panne qui produit une trace**. Un faux positif se
+corrige en une ligne quand quelqu'un le rencontre ; un faux négatif attend qu'on aille le
+chercher.
+
+**Deux défauts se ressemblent et se corrigent en sens opposés : la règle qui tranche contre
+un comportement demandé, et la règle qui s'abstient par accident.** `valeurs_refusees` est
+le premier cas — le prompt ordonnait de dire au client quel mouvement avait été refusé, et
+le validateur punissait la phrase qui obéissait ; le correctif ne pouvait être qu'un
+**élargissement**. Le comptage qui validait un montant (étape 33) est le second — rien n'a
+jamais demandé d'écrire « 10 $ de plus », §12.2 l'interdit, et la règle l'attrapait déjà 403
+fois sur 405 ; le correctif est un **resserrement**.
+
+⚠️ **Les confondre produit une conclusion fausse et séduisante.** Ici : « la règle 2 punit
+l'obéissance au §3, puisque écrire le nom verbatim fait basculer la phrase dans la branche
+qui refuse ». Le basculement est réel, la punition non — §3 faisait apparaître un grief
+**juste** que la branche d'à côté ratait. Le test qui sépare les deux cas n'est pas le
+symptôme, c'est la question : **quelque chose demandait-il ce comportement ?** Si oui, la
+règle est en tort ; si non, elle est seulement incomplète.
+
+**Un validateur qui teste des valeurs ne pourra jamais arbitrer des rôles, et le
+reconnaître ferme une porte pour de bon.** La règle 2 vérifie qu'un montant appartient à un
+ensemble ; elle ne lit pas ce que le nombre **fait** dans la phrase. Autoriser « 10 $ de
+plus » y autoriserait « ce produit est à 10 $ » du même geste, parce que c'est le même
+`in`. L'interdiction du §12.2 n'est donc pas une préférence qu'on pourrait rouvrir par un
+réglage : elle est une propriété de l'objet. La rouvrir demanderait un validateur qui
+distingue une fonction grammaticale d'une valeur — **un autre objet**, et la même frontière
+que le dépôt a refusé de franchir deux fois au §7. Écrire « on pourra toujours rouvrir »
+aurait été faux, et c'est le genre de fausseté qui ne se découvre qu'en essayant.
 
 ---
 
