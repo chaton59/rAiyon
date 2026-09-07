@@ -7,8 +7,8 @@ aucune ne connaît la boucle, aucune n'a besoin d'une base ni d'une clé.
    *Ferme le produit inventé et l'`id` approximatif.*
 2. **Montants** — dans une phrase qui nomme un produit, un montant en `$` est le prix
    **de ce produit** ou son écart au budget ; ailleurs, c'est un prix fourni, un agrégat
-   fourni ou un **écart** fourni. *Ferme le prix modifié, **et le prix de sondage
-   attribué à un produit**.*
+   **monétaire** fourni ou un **écart** fourni. *Ferme le prix modifié, le prix de
+   sondage attribué à un produit, **et le montant validé par un comptage** (étape 33).*
 3. **Noms** — un nom fourni qui apparaît dans le texte y apparaît **verbatim**.
    *Ferme la francisation et la réécriture (§3.4ter).*
 4. **Écart au budget** — un produit hors budget cité l'est dans un message qui porte son
@@ -211,8 +211,11 @@ def regle_montants(texte: str, contexte: ContexteFourni) -> tuple[Grief, ...]:
     presque le prix d'un produit — mais elle n'est le prix de **personne**, et la coller
     à un modèle nommé est une affirmation que le code n'a jamais fournie.
 
-    Dans une phrase qui ne nomme aucun produit, tout prix fourni et tout agrégat fourni
-    sont admis : « je vous propose trois modèles entre 108 $ et 400 $ » est vrai.
+    Dans une phrase qui ne nomme aucun produit, tout prix fourni et tout agrégat
+    **monétaire** fourni sont admis : « je vous propose trois modèles entre 108 $ et
+    400 $ » est vrai. Un **comptage** n'y suffit pas, depuis l'étape 33 : il décrit un
+    nombre de produits, pas une somme d'argent, et les confondre revenait à valider un
+    montant par coïncidence numérique.
 
     **Le budget de session fait exception, et lui seul** (correctif de l'étape 9). « Le X
     à 249,99 $ rentre dans vos 400 $ » est la formulation naturelle d'une question de
@@ -269,9 +272,17 @@ def regle_montants(texte: str, contexte: ContexteFourni) -> tuple[Grief, ...]:
             # moteur. L'argument de sûreté est le même que pour `valeurs_refusees`, qui
             # est déjà là et qui est **écrite par le modèle** : une parole du client y est
             # strictement plus sûre.
+            # ⚠️ **`montants_agregats`, et non `agregats`** (étape 33). Le premier ne porte
+            # que les agrégats qui sont des **montants** — bornes de `fourchette_prix` et
+            # budget ; le second porte aussi les comptages, et un comptage y validait un
+            # montant par simple collision numérique : « pour 10 $ de plus » passait parce
+            # que le sondage avait rendu `effectif: 10`. Mesuré sur 17 630 messages : 2
+            # nouvellement refusés, deux écarts dérivés, aucune prose légitime perdue.
+            # Voir `ContexteFourni.montants_agregats` pour pourquoi c'est un resserrement
+            # et non l'inverse d'un correctif.
             autorises = (
                 set(contexte.prix.values())
-                | set(contexte.agregats)
+                | set(contexte.montants_agregats)
                 | set(contexte.valeurs_refusees)
                 | set(contexte.hors_budget.values())
                 | set(contexte.montants_du_client)
@@ -304,12 +315,26 @@ def _est_un_arrondi(montant: Montant, contexte: ContexteFourni) -> bool:
     La comparaison porte sur **tous** les montants connus, branche `nommes` comprise : la
     question à laquelle ce compteur doit répondre est « à quelle fréquence le modèle
     arrondit-il le prix d'un produit ? », et la restreindre aux agrégats la manquerait.
+
+    ⚠️ 🔴 **« Tous les montants connus » veut dire `montants_agregats`, pas `agregats`**
+    (étape 33), **et ce n'est pas un détail d'instrumentation.**
+
+    Ce compteur existe pour mesurer ce que la tolérance d'arrondi écartée aurait coûté ou
+    rapporté — c'est écrit dans `Grief.arrondi`, et c'est la seule raison de son existence.
+    Lisant `agregats`, il se déclenchait sur un **comptage à distance nulle** : « 10 $ »
+    marqué `arrondi` parce que le sondage avait rendu `effectif: 10`. Le taux publié aurait
+    donc **argumenté pour la tolérance sur une coïncidence numérique**, dans le sens de
+    l'assouplissement, et sur le seul terrain où la décision de l'étape 25 dit qu'il ne
+    faut pas relâcher.
+
+    Le corriger ne répare aucun passé — aucune campagne n'a publié ce compteur. Il protège
+    la décision qu'il existe pour éclairer, avant qu'elle ne soit prise.
     """
     if montant.valeur != montant.valeur.to_integral_value():
         return False
     fournis = (
         set(contexte.prix.values())
-        | set(contexte.agregats)
+        | set(contexte.montants_agregats)
         | set(contexte.hors_budget.values())
         | set(contexte.montants_du_client)
     )

@@ -57,6 +57,25 @@ def test_le_prix_dun_produit_et_une_borne_de_sondage_ne_sont_pas_rangés_ensembl
     assert SAMSUNG.prix_usd not in contexte.agregats
 
 
+def test_un_comptage_est_un_agregat_mais_jamais_un_montant(contexte):
+    """**Le second étage de l'arbitrage B** : tous les agrégats ne sont pas des sommes.
+
+    `agregats` range ensemble deux natures — des **montants** (bornes de
+    `fourchette_prix`, budget) et des **comptages** (effectifs, candidats trouvés). La
+    règle 2 lit un nombre suivi d'un symbole de monnaie : lui donner le sac entier laissait
+    un comptage valider un montant par collision numérique. Voir
+    `ContexteFourni.montants_agregats`.
+    """
+    montants = contexte.montants_agregats
+    comptages = contexte.agregats - montants
+
+    assert AOPEN.prix_usd in montants, "une borne de sondage est un montant"
+    assert contexte.budget_usd in montants, "le budget est un montant"
+    assert comptages, "le décor doit contenir des comptages, sinon le test ne prouve rien"
+    assert all(comptage in contexte.agregats for comptage in comptages)
+    assert not (comptages & montants), "un comptage n'est jamais rangé comme un montant"
+
+
 def test_les_valeurs_dune_distribution_nentrent_pas_dans_les_valeurs_de_specs(contexte):
     """165 Hz est dans la distribution du sondage et sur aucun produit fourni.
 
@@ -150,6 +169,35 @@ def test_regle_2_rejette_un_montant_qui_nest_ni_prix_ni_agregat(contexte):
     griefs = regle_montants("Comptez 279,99 $ pour ce genre de dalle.", contexte)
 
     assert [grief.code for grief in griefs] == [CodeGrief.MONTANT_NON_FOURNI]
+
+
+def test_regle_2_refuse_un_montant_qui_negale_quun_comptage(contexte):
+    """🔴 **Trouvé en conversation réelle** — l'écart dérivé qui passait par un effectif.
+
+    « Pour 10 $ de plus, le MSI a un avantage concret » a été accepté parce que le sondage
+    avait rendu `effectif: 10` pour les dix écrans à 144 Hz. Aucun outil n'avait rendu 10
+    comme **montant** ; le validateur l'a admis parce que 10 était un nombre de produits.
+    La même phrase avec 13 $ levait un grief : le verdict dépendait de l'espace des
+    nombres, pas d'un fait.
+
+    §12.2 interdit de dériver un écart de deux prix fournis, et la règle 2 l'attrape 403
+    fois sur 405 dans le corpus. Ce test borne les deux échappées.
+    """
+    comptage = next(iter(contexte.agregats - contexte.montants_agregats))
+    griefs = regle_montants(f"Comptez {comptage} $ de plus pour ce genre de dalle.", contexte)
+
+    assert [grief.code for grief in griefs] == [CodeGrief.MONTANT_NON_FOURNI]
+
+
+def test_regle_2_admet_toujours_une_borne_de_sondage_et_le_budget(contexte):
+    """La contrepartie du test précédent : le resserrement ne coûte aucune prose vraie.
+
+    C'est ce que `probe_catalog` existe pour faire dire (§3.7), et c'est la seule
+    exception de la branche à produit — le budget est une parole du client (étape 9).
+    """
+    assert regle_montants("Il y a des écrans entre 108.00 $ et 399.99 $.", contexte) == ()
+    assert regle_montants("Tout cela tient dans vos 400.00 $.", contexte) == ()
+    assert regle_montants(f"Le {SAMSUNG.nom} à 249.99 $ tient dans vos 400.00 $.", contexte) == ()
 
 
 def test_regle_3_accepte_le_verbatim_et_refuse_la_reecriture(contexte):

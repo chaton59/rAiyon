@@ -18,6 +18,8 @@ Les faits fournis sont donc rangés par **d'où ils viennent**, pas par ce qu'il
   sous-catalogue, attribuables à **l'ensemble** et à personne en particulier ;
 * `agregats` — les nombres fournis qui ne sont attribuables à aucun produit : bornes de
   prix, comptages, budget, valeurs atteignables d'un diagnostic ;
+* `montants_agregats` — **ceux de ces agrégats qui sont des montants en dollars**, et
+  eux seuls (étape 33) ;
 * `budget_usd` — le plafond, seul agrégat citable à côté d'un produit (voir son champ).
 
 ⚠️ **Les valeurs des distributions de `probe_catalog` n'entrent pas dans
@@ -185,7 +187,99 @@ class ContexteFourni:
     agregats: frozenset[Decimal]
     """Les nombres fournis qui ne sont le fait d'aucun produit : bornes de prix,
     comptages, budget, effectifs d'une distribution, valeurs atteignables d'un
-    diagnostic."""
+    diagnostic.
+
+    ⚠️ **Hétérogène par nature, et c'est pour cela qu'il ne suffit plus seul à la
+    règle 2** — voir `montants_agregats`. Il reste tel quel : la règle 5 le consulte
+    **sans condition** (une valeur atteignable de diagnostic y est citable, §12.3), et
+    `repli.rediger()` y lit les comptages du sondage."""
+
+    montants_agregats: frozenset[Decimal]
+    """Les agrégats qui sont des **montants en dollars**. Sous-ensemble d'`agregats`.
+
+    Deux provenances, et elles sont exhaustives : les bornes de `fourchette_prix` — celle
+    de `probe_catalog` comme celle du champ `budget` de `suggest_next_question` — et
+    `budget_usd`. Tout le reste d'`agregats` est un **comptage** (effectifs d'une
+    distribution, `COMPTAGES`, `ecartes_faute_de_donnee`, `produits_rouverts`) ou une
+    **valeur de spec** (`valeur_atteignable`, jamais un prix : `prix_usd` est dans
+    `CHAMPS_JAMAIS_PROPOSES`, le budget a sa propre réponse §3.10).
+
+    ### Le trou qu'il ferme, et il a été trouvé en usage réel (étape 33)
+
+    La règle 2, dans sa branche « aucun produit nommé », comparait un montant en dollars à
+    `agregats` tout entier. Un **comptage** y validait donc un **montant** :
+
+    > « Pour 10 $ de plus, le MSI a un avantage concret » — accepté, parce que le sondage
+    > avait rendu `effectif: 10` pour les 10 écrans à 144 Hz.
+
+    Le 10 n'était le prix de personne, l'écart de personne, et aucun outil ne l'avait
+    rendu comme montant. Il passait par collision numérique. La même phrase avec 13 $
+    levait un grief ; avec 10 $ elle n'en levait aucun. Un validateur bâti tout entier sur
+    l'égalité exacte se retrouvait à dépendre de l'espace des nombres.
+
+    ### 🔴 Ce que ce compartiment n'est pas : un assouplissement
+
+    C'est la distinction qui explique tout le reste, et elle sépare **deux défauts qu'on
+    confond facilement**.
+
+    * *Une règle qui tranche **contre** un comportement demandé.* C'est ce que
+      `valeurs_refusees` a corrigé : le prompt ordonnait de dire au client quel mouvement
+      avait été refusé, et le validateur refusait la phrase qui obéissait. Le correctif y
+      était forcément un **élargissement** — il fallait rendre citable ce qui devait
+      l'être.
+    * *Une règle qui **s'abstient par accident**.* C'est ce cas-ci. Rien n'a jamais
+      demandé au modèle d'écrire « 10 $ de plus » : §12.2 l'interdit explicitement, et le
+      validateur l'attrape **403 fois sur 405** dans le corpus. Les 2 échappées ne sont pas
+      une permission, ce sont des faux négatifs. Le correctif est donc un
+      **resserrement**, et c'est l'inverse du précédent.
+
+    Les confondre menait à une conclusion fausse et séduisante — « la règle 2 punit
+    l'obéissance au §3, puisque écrire le nom verbatim fait basculer la phrase dans la
+    branche `nommes` ». Le basculement est réel ; la punition, non. Ce que §3 fait
+    apparaître, c'est un grief **juste** que la branche d'à côté ratait.
+
+    ### La mesure, et ce qu'elle a coûté
+
+    Rejeu de la règle 2 sur les 17 630 messages assistants de la base, contexte reconstruit
+    message par message : **2 messages nouvellement refusés**, et les deux sont des écarts
+    dérivés (`10 $`, `2 $`). Sur les 413 occurrences de « X $ de plus / de moins » du
+    corpus : 403 déjà refusées, 8 `ecart_usd` légitimes (l'exception écrite au §12.2), 2
+    passées par ce trou. Aucune prose légitime n'y est perdue, et la suite complète —
+    unitaires et intégration — passe sans modification.
+
+    ⚠️ **La conséquence est assumée et elle est le but** : « pour 10 $ de plus » disparaît
+    aussi du message qui l'avait *fait passer*, pas seulement de celui qui s'était fait
+    prendre.
+
+    ### 🔴 Et §12 n'est pas « rouvrable » — la formulation qui le laissait croire est fausse
+
+    Il serait tentant d'écrire « le jour où l'on voudra autoriser une différence entre deux
+    prix fournis, on rouvrira §12 délibérément ». C'est faux, et le mécanisme le dit :
+    **la règle 2 teste l'appartenance d'une valeur à un ensemble, jamais le rôle du nombre
+    dans la phrase.** Admettre 10 comme écart admet « ce produit est à 10 $ » du même
+    geste — un seul `montant.valeur not in autorises` décide des deux.
+
+    Autoriser l'écart supposerait donc un validateur qui **comprend les rôles** : qui
+    distingue « à 10 $ » de « 10 $ de plus », donc qui lit une fonction grammaticale et non
+    une valeur. C'est **un autre objet, pas un réglage de celui-ci** — et c'est la même
+    frontière que le dépôt a déjà refusé de franchir deux fois, pour le guillemet du pouce
+    et pour la portée entre guillemets (§7) : encoder de la sémantique dans un analyseur
+    lexical.
+
+    §12.2 est donc fermé par la structure du validateur, pas par une préférence. Ce qui
+    peut changer un jour est le validateur ; §12 suivra, il ne décidera pas.
+
+    ### Pas de valeur par défaut — et c'est désormais une règle, pas un arbitrage local
+
+    Le champ est **obligatoire**. Un défaut à `frozenset()` rendrait tout contexte bâti à
+    la main plus sévère qu'il ne doit l'être — un faux positif, qui se voit ; un défaut
+    recopiant `agregats` rouvrirait le trou en silence — un faux négatif, qui ne se voit
+    pas. **Entre un faux positif qui se voit et un faux négatif qui ne se voit pas, on
+    choisit celui qui se voit** : c'est l'arbitrage déjà écrit pour l'adhésion
+    `faits_du_catalogue`, et deux occurrences en font une règle — §9.3.
+
+    Aucun test ne construit `ContexteFourni` directement : le coût de l'obligation est de
+    deux lignes, dans ce fichier."""
 
     valeurs_de_distribution: frozenset[str] = frozenset()
     """Les valeurs **présentes dans une distribution** de `probe_catalog`, en texte
@@ -301,7 +395,7 @@ class ContexteFourni:
         return not (self.produits or self.valeurs_de_specs or self.agregats)
 
 
-CONTEXTE_VIDE = ContexteFourni({}, {}, {}, frozenset(), frozenset())
+CONTEXTE_VIDE = ContexteFourni({}, {}, {}, frozenset(), frozenset(), frozenset())
 
 
 def contexte_des_messages(messages: Sequence[Mapping[str, Any]]) -> ContexteFourni:
@@ -522,6 +616,7 @@ class _Accumulateur:
         self.specs: set[str] = set()
         self.distribution: set[str] = set()
         self.agregats: set[Decimal] = set()
+        self.montants_agregats: set[Decimal] = set()
         self.budget: Decimal | None = None
 
     def figer(
@@ -548,6 +643,7 @@ class _Accumulateur:
             valeurs_de_specs=frozenset(self.specs),
             valeurs_de_distribution=frozenset(self.distribution),
             agregats=frozenset(self.agregats),
+            montants_agregats=frozenset(self.montants_agregats),
             valeurs_refusees=valeurs_refusees,
             montants_du_client=montants_du_client,
             budget_usd=self.budget,
@@ -603,7 +699,10 @@ class _Accumulateur:
             # gagne. `null` est une valeur, pas une absence — un budget retiré doit
             # cesser d'être citable, et un `if valeur is not None` l'aurait figé.
             self.budget = _nombre(charge.get(CLE_BUDGET_USD))
-        self._agregat(charge.get(CLE_BUDGET_USD))
+        self._agregat_monetaire(charge.get(CLE_BUDGET_USD))
+        # ⚠️ Les comptages passent par `_agregat`, jamais par `_agregat_monetaire` : un
+        # effectif de 10 ne doit pas valider « 10 $ ». C'est tout l'objet de l'étape 33 —
+        # voir `ContexteFourni.montants_agregats`.
         for cle in COMPTAGES:
             self._agregat(charge.get(cle))
 
@@ -667,15 +766,34 @@ class _Accumulateur:
             self.specs.add(canonique(nombre) if nombre is not None else valeur)
 
     def _agregat(self, valeur: object) -> None:
+        """Un agrégat qui n'est **pas** un montant : comptage, effectif, valeur de spec."""
         nombre = _nombre(valeur)
         if nombre is not None:
             self.agregats.add(nombre)
 
+    def _agregat_monetaire(self, valeur: object) -> None:
+        """Un agrégat qui est un **montant en dollars**. Il entre dans les deux ensembles.
+
+        Deux appelants, et il ne doit pas y en avoir un troisième sans qu'on relise
+        `ContexteFourni.montants_agregats` : `_fourchette()` et le `budget_usd`. Un
+        comptage qui passerait par ici redeviendrait citable comme prix.
+        """
+        nombre = _nombre(valeur)
+        if nombre is not None:
+            self.agregats.add(nombre)
+            self.montants_agregats.add(nombre)
+
     def _fourchette(self, brut: object) -> None:
+        """Les deux bornes d'une `fourchette_prix`. **Des montants, toujours.**
+
+        La clé est lue par son nom, jamais par l'outil qui la porte (règle du module) :
+        `fourchette_prix` est une fourchette de prix dans `probe_catalog` comme dans le
+        champ `budget` de `suggest_next_question`.
+        """
         if not isinstance(brut, Mapping):
             return
-        self._agregat(brut.get(CLE_PLUS_BAS))
-        self._agregat(brut.get(CLE_PLUS_HAUT))
+        self._agregat_monetaire(brut.get(CLE_PLUS_BAS))
+        self._agregat_monetaire(brut.get(CLE_PLUS_HAUT))
 
     def _distribution(self, brut: object) -> None:
         """⚠️ **Les effectifs sont des agrégats, les valeurs vont dans un champ à part.**
